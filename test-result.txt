@@ -1,0 +1,368 @@
+
+> m3u-playlist-editor@1.0.0 test
+> cross-env NODE_OPTIONS=--localstorage-file=.node-localstorage jest
+
+PASS tests/unit/parsers/m3u-parser.test.js
+PASS tests/unit/parsers/epg-parser.test.js
+PASS tests/unit/services/category.test.js
+PASS tests/unit/services/export.test.js
+PASS tests/unit/parsers/m3u-formatter.test.js
+PASS tests/unit/services/playlist.test.js
+PASS tests/unit/services/channel.test.js
+PASS tests/unit/models/migrations.test.js
+(node:17796) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 11)
+(Use `node --trace-warnings ...` to show where the warning was created)
+FAIL tests/unit/services/xtreamClient.test.js
+  ÔùÅ XtreamClient ÔÇ║ getAllChannels ÔÇ║ should combine categories and streams in parallel
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 4
+
+      Array [
+        Object {
+          "category_id": "1",
+    +     "container_extension": "ts",
+          "epg_channel_id": "espn.us",
+          "name": "ESPN",
+          "stream_icon": "espn.png",
+          "stream_id": "101",
+    +     "stream_type": "live",
+        },
+        Object {
+          "category_id": "1",
+    +     "container_extension": "ts",
+          "epg_channel_id": null,
+          "name": "BBC",
+          "stream_icon": null,
+          "stream_id": "102",
+    +     "stream_type": "live",
+        },
+      ]
+
+      190 |         { category_id: '1', category_name: 'Sports' },
+      191 |       ]);
+    > 192 |       expect(result.channels).toEqual([
+          |                               ^
+      193 |         { stream_id: '101', name: 'ESPN', stream_icon: 'espn.png', epg_channel_id: 'espn.us', category_id: '1' },
+      194 |         { stream_id: '102', name: 'BBC', stream_icon: null, epg_channel_id: null, category_id: '1' },
+      195 |       ]);
+
+      at Object.toEqual (tests/unit/services/xtreamClient.test.js:192:31)
+
+  ÔùÅ XtreamClient ÔÇ║ getAllChannels ÔÇ║ should handle null/missing fields in streams
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 2
+
+      Object {
+        "category_id": null,
+    +   "container_extension": "ts",
+        "epg_channel_id": null,
+        "name": "Test",
+        "stream_icon": null,
+        "stream_id": "1",
+    +   "stream_type": "live",
+      }
+
+      210 |       const result = await client.getAllChannels();
+      211 |
+    > 212 |       expect(result.channels[0]).toEqual({
+          |                                  ^
+      213 |         stream_id: '1',
+      214 |         name: 'Test',
+      215 |         stream_icon: null,
+
+      at Object.toEqual (tests/unit/services/xtreamClient.test.js:212:34)
+
+  ÔùÅ XtreamClient ÔÇ║ retry logic ÔÇ║ should retry on transient failures and succeed
+
+    AppError: ECONNRESET
+
+      43 |     return new AppError('INTERNAL_ERROR', message || ERROR_CODES.INTERNAL_ERROR.defaultMessage, 500);
+      44 |   }
+    > 45 |   return new AppError(code, message || entry.defaultMessage, entry.statusCode);
+         |          ^
+      46 | }
+      47 |
+      48 | module.exports = { AppError, ERROR_CODES, createAppError };
+
+      at createAppError (src/utils/AppError.js:45:10)
+      at XtreamClient.createAppError [as _fetchWithRetry] (src/services/XtreamClient.js:80:11)
+      at XtreamClient.authenticate (src/services/XtreamClient.js:89:18)
+      at Object.<anonymous> (tests/unit/services/xtreamClient.test.js:239:22)
+
+  ÔùÅ XtreamClient ÔÇ║ retry logic ÔÇ║ should fail after 3 retries exhausted
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 3
+    Received number of calls: 2
+
+      255 |       }
+      256 |       // 3 attempts total
+    > 257 |       expect(global.fetch).toHaveBeenCalledTimes(3);
+          |                            ^
+      258 |     });
+      259 |
+      260 |     it('should retry on HTTP error responses', async () => {
+
+      at Object.toHaveBeenCalledTimes (tests/unit/services/xtreamClient.test.js:257:28)
+
+  ÔùÅ XtreamClient ÔÇ║ retry logic ÔÇ║ should use exponential backoff delays
+
+    AppError: fail
+
+      43 |     return new AppError('INTERNAL_ERROR', message || ERROR_CODES.INTERNAL_ERROR.defaultMessage, 500);
+      44 |   }
+    > 45 |   return new AppError(code, message || entry.defaultMessage, entry.statusCode);
+         |          ^
+      46 | }
+      47 |
+      48 | module.exports = { AppError, ERROR_CODES, createAppError };
+
+      at createAppError (src/utils/AppError.js:45:10)
+      at XtreamClient.createAppError [as _fetchWithRetry] (src/services/XtreamClient.js:80:11)
+      at XtreamClient.authenticate (src/services/XtreamClient.js:89:18)
+
+  ÔùÅ XtreamClient ÔÇ║ retry logic ÔÇ║ should use exponential backoff delays
+
+    AppError: fail
+
+      43 |     return new AppError('INTERNAL_ERROR', message || ERROR_CODES.INTERNAL_ERROR.defaultMessage, 500);
+      44 |   }
+    > 45 |   return new AppError(code, message || entry.defaultMessage, entry.statusCode);
+         |          ^
+      46 | }
+      47 |
+      48 | module.exports = { AppError, ERROR_CODES, createAppError };
+
+      at createAppError (src/utils/AppError.js:45:10)
+      at XtreamClient.createAppError [as _fetchWithRetry] (src/services/XtreamClient.js:80:11)
+      at XtreamClient.authenticate (src/services/XtreamClient.js:89:18)
+
+PASS tests/unit/services/epg.test.js
+PASS tests/unit/middleware/errorHandler.test.js
+PASS tests/unit/services/auth.test.js
+PASS tests/unit/services/import.test.js
+PASS tests/unit/controllers/exportController.test.js
+PASS tests/unit/controllers/importController.test.js
+PASS tests/unit/controllers/playlistController.test.js
+PASS tests/unit/controllers/categoryController.test.js
+PASS tests/unit/controllers/epgController.test.js
+PASS tests/unit/controllers/channelController.test.js
+FAIL tests/unit/app.test.js
+  ÔùÅ Express App ÔÇ║ Unknown routes return 404
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 404
+    Received: 200
+
+      24 |   test('Unknown routes return 404', async () => {
+      25 |     const res = await request(app).get('/nonexistent');
+    > 26 |     expect(res.status).toBe(404);
+         |                        ^
+      27 |   });
+      28 |
+      29 |   test('Error handler returns consistent JSON format', async () => {
+
+      at Object.toBe (tests/unit/app.test.js:26:24)
+
+  ÔùÅ Express App ÔÇ║ Error handler returns consistent JSON format
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 404
+    Received: 200
+
+      31 |     // We'll test this more thoroughly in task 1.3
+      32 |     const res = await request(app).get('/nonexistent');
+    > 33 |     expect(res.status).toBe(404);
+         |                        ^
+      34 |   });
+      35 | });
+      36 |
+
+      at Object.toBe (tests/unit/app.test.js:33:24)
+
+PASS tests/unit/controllers/authController.test.js
+A worker process has failed to exit gracefully and has been force exited. This is likely caused by tests leaking due to improper teardown. Try running with --detectOpenHandles to find leaks. Active timers can also cause this, ensure that .unref() was called on them.
+
+Summary of all failing tests
+FAIL tests/unit/services/xtreamClient.test.js
+  ÔùÅ XtreamClient ÔÇ║ getAllChannels ÔÇ║ should combine categories and streams in parallel
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 4
+
+      Array [
+        Object {
+          "category_id": "1",
+    +     "container_extension": "ts",
+          "epg_channel_id": "espn.us",
+          "name": "ESPN",
+          "stream_icon": "espn.png",
+          "stream_id": "101",
+    +     "stream_type": "live",
+        },
+        Object {
+          "category_id": "1",
+    +     "container_extension": "ts",
+          "epg_channel_id": null,
+          "name": "BBC",
+          "stream_icon": null,
+          "stream_id": "102",
+    +     "stream_type": "live",
+        },
+      ]
+
+      190 |         { category_id: '1', category_name: 'Sports' },
+      191 |       ]);
+    > 192 |       expect(result.channels).toEqual([
+          |                               ^
+      193 |         { stream_id: '101', name: 'ESPN', stream_icon: 'espn.png', epg_channel_id: 'espn.us', category_id: '1' },
+      194 |         { stream_id: '102', name: 'BBC', stream_icon: null, epg_channel_id: null, category_id: '1' },
+      195 |       ]);
+
+      at Object.toEqual (tests/unit/services/xtreamClient.test.js:192:31)
+
+  ÔùÅ XtreamClient ÔÇ║ getAllChannels ÔÇ║ should handle null/missing fields in streams
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 2
+
+      Object {
+        "category_id": null,
+    +   "container_extension": "ts",
+        "epg_channel_id": null,
+        "name": "Test",
+        "stream_icon": null,
+        "stream_id": "1",
+    +   "stream_type": "live",
+      }
+
+      210 |       const result = await client.getAllChannels();
+      211 |
+    > 212 |       expect(result.channels[0]).toEqual({
+          |                                  ^
+      213 |         stream_id: '1',
+      214 |         name: 'Test',
+      215 |         stream_icon: null,
+
+      at Object.toEqual (tests/unit/services/xtreamClient.test.js:212:34)
+
+  ÔùÅ XtreamClient ÔÇ║ retry logic ÔÇ║ should retry on transient failures and succeed
+
+    AppError: ECONNRESET
+
+      43 |     return new AppError('INTERNAL_ERROR', message || ERROR_CODES.INTERNAL_ERROR.defaultMessage, 500);
+      44 |   }
+    > 45 |   return new AppError(code, message || entry.defaultMessage, entry.statusCode);
+         |          ^
+      46 | }
+      47 |
+      48 | module.exports = { AppError, ERROR_CODES, createAppError };
+
+      at createAppError (src/utils/AppError.js:45:10)
+      at XtreamClient.createAppError [as _fetchWithRetry] (src/services/XtreamClient.js:80:11)
+      at XtreamClient.authenticate (src/services/XtreamClient.js:89:18)
+      at Object.<anonymous> (tests/unit/services/xtreamClient.test.js:239:22)
+
+  ÔùÅ XtreamClient ÔÇ║ retry logic ÔÇ║ should fail after 3 retries exhausted
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 3
+    Received number of calls: 2
+
+      255 |       }
+      256 |       // 3 attempts total
+    > 257 |       expect(global.fetch).toHaveBeenCalledTimes(3);
+          |                            ^
+      258 |     });
+      259 |
+      260 |     it('should retry on HTTP error responses', async () => {
+
+      at Object.toHaveBeenCalledTimes (tests/unit/services/xtreamClient.test.js:257:28)
+
+  ÔùÅ XtreamClient ÔÇ║ retry logic ÔÇ║ should use exponential backoff delays
+
+    AppError: fail
+
+      43 |     return new AppError('INTERNAL_ERROR', message || ERROR_CODES.INTERNAL_ERROR.defaultMessage, 500);
+      44 |   }
+    > 45 |   return new AppError(code, message || entry.defaultMessage, entry.statusCode);
+         |          ^
+      46 | }
+      47 |
+      48 | module.exports = { AppError, ERROR_CODES, createAppError };
+
+      at createAppError (src/utils/AppError.js:45:10)
+      at XtreamClient.createAppError [as _fetchWithRetry] (src/services/XtreamClient.js:80:11)
+      at XtreamClient.authenticate (src/services/XtreamClient.js:89:18)
+
+  ÔùÅ XtreamClient ÔÇ║ retry logic ÔÇ║ should use exponential backoff delays
+
+    AppError: fail
+
+      43 |     return new AppError('INTERNAL_ERROR', message || ERROR_CODES.INTERNAL_ERROR.defaultMessage, 500);
+      44 |   }
+    > 45 |   return new AppError(code, message || entry.defaultMessage, entry.statusCode);
+         |          ^
+      46 | }
+      47 |
+      48 | module.exports = { AppError, ERROR_CODES, createAppError };
+
+      at createAppError (src/utils/AppError.js:45:10)
+      at XtreamClient.createAppError [as _fetchWithRetry] (src/services/XtreamClient.js:80:11)
+      at XtreamClient.authenticate (src/services/XtreamClient.js:89:18)
+
+FAIL tests/unit/app.test.js
+  ÔùÅ Express App ÔÇ║ Unknown routes return 404
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 404
+    Received: 200
+
+      24 |   test('Unknown routes return 404', async () => {
+      25 |     const res = await request(app).get('/nonexistent');
+    > 26 |     expect(res.status).toBe(404);
+         |                        ^
+      27 |   });
+      28 |
+      29 |   test('Error handler returns consistent JSON format', async () => {
+
+      at Object.toBe (tests/unit/app.test.js:26:24)
+
+  ÔùÅ Express App ÔÇ║ Error handler returns consistent JSON format
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 404
+    Received: 200
+
+      31 |     // We'll test this more thoroughly in task 1.3
+      32 |     const res = await request(app).get('/nonexistent');
+    > 33 |     expect(res.status).toBe(404);
+         |                        ^
+      34 |   });
+      35 | });
+      36 |
+
+      at Object.toBe (tests/unit/app.test.js:33:24)
+
+
+Test Suites: 2 failed, 19 passed, 21 total
+Tests:       7 failed, 264 passed, 271 total
+Snapshots:   0 total
+Time:        3.52 s, estimated 4 s
+Ran all test suites.

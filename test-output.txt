@@ -1,0 +1,13 @@
+FAIL tests/unit/services/import.test.js
+  ÔùÅ Test suite failed to run
+
+    SecurityError: Cannot initialize local storage without a `--localstorage-file` path
+
+      at get (node_modules/jest-environment-node/build/index.js:99:39)
+          at Array.forEach (<anonymous>)
+
+Test Suites: 1 failed, 1 total
+Tests:       0 total
+Snapshots:   0 total
+Time:        0.048 s
+Ran all test suites matching /tests\\unit\\services\\import.test.js/i.
