@@ -183,6 +183,7 @@ class ChannelService {
 
   /**
    * Bulk move channels to a target category.
+   * Channels are moved to the end of the target category.
    * @param {string} userId
    * @param {string[]} channelIds
    * @param {string} targetCategoryId
@@ -215,11 +216,28 @@ class ChannelService {
       throw createAppError('NOT_FOUND');
     }
 
-    const moved = await db('channels')
-      .whereIn('id', channelIds)
-      .update({ category_id: targetCategoryId, updated_at: db.fn.now() });
+    // Get the maximum sort_order in the target category
+    const maxSortOrder = await db('channels')
+      .where('category_id', targetCategoryId)
+      .max('sort_order as max')
+      .first();
 
-    return { moved };
+    const startSortOrder = (maxSortOrder?.max ?? -1) + 1;
+
+    // Update channels with new category_id and sort_order (move to end of category)
+    await db.transaction(async (trx) => {
+      for (let i = 0; i < channelIds.length; i++) {
+        await trx('channels')
+          .where('id', channelIds[i])
+          .update({
+            category_id: targetCategoryId,
+            sort_order: startSortOrder + i,
+            updated_at: db.fn.now()
+          });
+      }
+    });
+
+    return { moved: channelIds.length };
   }
 
   /**

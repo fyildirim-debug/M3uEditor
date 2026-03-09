@@ -5,28 +5,28 @@
       <nav class="nav-sidebar">
         <div class="nav-section">
           <div class="nav-section-header" @click="navChannelsOpen = !navChannelsOpen">
-            <span class="nav-icon">📺</span>
+            <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
             <span class="nav-section-title">Kanallar</span>
             <svg :class="['nav-chevron', { open: navChannelsOpen }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div v-if="navChannelsOpen" class="nav-items">
             <div :class="['nav-item', { active: activeView === 'basic' }]" @click="activeView = 'basic'">
-              <span class="nav-item-icon">✏️</span> Kanal Editörü
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Kanal Editörü
             </div>
             <div :class="['nav-item', { active: activeView === 'sort' }]" @click="activeView = 'sort'">
-              <span class="nav-item-icon">↕️</span> Sıralama
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> Sıralama
             </div>
             <div :class="['nav-item', { active: activeView === 'logo' }]" @click="activeView = 'logo'">
-              <span class="nav-item-icon">🖼️</span> Logo Editörü
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Logo Editörü
             </div>
             <div :class="['nav-item', { active: activeView === 'epg' }]" @click="activeView = 'epg'">
-              <span class="nav-item-icon">📅</span> EPG Editörü
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> EPG Editörü
             </div>
             <div :class="['nav-item', { active: activeView === 'category' }]" @click="activeView = 'category'">
-              <span class="nav-item-icon">📁</span> Kategori Editörü
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Kategori Editörü
             </div>
             <div :class="['nav-item', { active: activeView === 'update' }]" @click="activeView = 'update'">
-              <span class="nav-item-icon">🔄</span> Güncelle
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg> Güncelle
             </div>
           </div>
         </div>
@@ -35,10 +35,10 @@
             <span class="nav-item-icon">←</span> Dashboard
           </div>
           <div class="nav-item" @click="doExport">
-            <span class="nav-item-icon">📥</span> M3U İndir
+            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> M3U İndir
           </div>
           <div class="nav-item" @click="doShare">
-            <span class="nav-item-icon">🔗</span> Paylaş
+            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Paylaş
           </div>
         </div>
       </nav>
@@ -57,7 +57,7 @@
               <input class="search-input" v-model="search" placeholder="Kanal ara..." @input="debouncedSearch" />
             </div>
             <button class="btn btn-secondary btn-sm" @click="openXtream">
-              <span>📡</span> Xtream İçe Aktar
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> Xtream İçe Aktar
             </button>
           </div>
         </div>
@@ -108,7 +108,7 @@
                           <td class="td-name">
                             <div class="ch-name-cell">
                               <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" @error="$event.target.style.display='none'" />
-                              <span v-else class="row-logo-fb">📺</span>
+                              <span v-else class="row-logo-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
                               <span>{{ ch.name }}</span>
                             </div>
                           </td>
@@ -141,7 +141,7 @@
                         <td class="td-name">
                           <div class="ch-name-cell">
                             <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" @error="$event.target.style.display='none'" />
-                            <span v-else class="row-logo-fb">📺</span>
+                            <span v-else class="row-logo-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
                             <span>{{ ch.name }}</span>
                           </div>
                         </td>
@@ -185,7 +185,7 @@
                 <div v-for="ch in channels" :key="ch.id" class="logo-card" @click="startEditChannel(ch)">
                   <div class="logo-card-img">
                     <img v-if="ch.logo_url" :src="ch.logo_url" @error="$event.target.style.display='none'" />
-                    <span v-else class="logo-card-fb">📺</span>
+                    <span v-else class="logo-card-fb"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
                   </div>
                   <span class="logo-card-name">{{ ch.name }}</span>
                 </div>
@@ -221,7 +221,7 @@
                 <div class="epg-actions-row">
                   <button class="btn btn-secondary btn-sm" @click="doAutoMatch" :disabled="autoMatching">
                     <span v-if="autoMatching" class="spinner" style="width:14px;height:14px"></span>
-                    🔗 Otomatik EPG Eşleştir
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Otomatik EPG Eşleştir
                   </button>
                   <span v-if="matchResult" class="badge badge-success">{{ matchResult.matched }} eşleştirildi</span>
                 </div>
@@ -229,18 +229,21 @@
               <!-- EPG Calendar / Program Guide -->
               <div class="epg-calendar">
                 <div class="view-header" style="margin-top:20px">
-                  <h3>📅 EPG Program Rehberi</h3>
+                  <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;margin-right:6px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> EPG Program Rehberi</h3>
                   <p class="view-desc">Kanal seçerek yayın akışını görüntüle</p>
                 </div>
                 <div class="epg-channel-select">
                   <select class="input" v-model="epgSelectedChannelId" @change="loadEpgPrograms">
                     <option :value="null">Kanal seçin...</option>
-                    <option v-for="ch in channels" :key="ch.id" :value="ch.id">{{ ch.name }}</option>
+                    <option v-for="ch in allChannels" :key="ch.id" :value="ch.id">{{ ch.name }}</option>
                   </select>
                 </div>
                 <div v-if="epgPrograms.length" class="epg-timeline">
-                  <div v-for="p in epgPrograms" :key="p.id" class="epg-program">
-                    <div class="epg-prog-time">{{ formatTime(p.start_time) }} - {{ formatTime(p.end_time) }}</div>
+                  <div v-for="p in epgPrograms" :key="p.id" :class="['epg-program', { live: isProgramLive(p) }]">
+                    <div class="epg-prog-header">
+                      <div class="epg-prog-time">{{ formatTime(p.start_time) }} - {{ formatTime(p.end_time) }}</div>
+                      <span v-if="isProgramLive(p)" class="badge badge-danger" style="font-size:10px">LIVE</span>
+                    </div>
                     <div class="epg-prog-title">{{ p.title }}</div>
                     <div v-if="p.description" class="epg-prog-desc">{{ p.description }}</div>
                   </div>
@@ -259,11 +262,11 @@
               </div>
               <div class="cat-editor-list">
                 <div v-for="cat in categories" :key="cat.id" class="cat-editor-item">
-                  <span class="cat-editor-icon">📁</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                   <span class="cat-editor-name">{{ cat.name }}</span>
                   <span class="cat-editor-count">{{ cat.channel_count || 0 }} kanal</span>
                   <div class="cat-editor-actions">
-                    <button class="btn btn-ghost btn-xs" @click="startEditCat(cat)">✏️ Düzenle</button>
+                    <button class="btn btn-ghost btn-xs" @click="startEditCat(cat)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Düzenle</button>
                     <button class="btn btn-ghost btn-xs" style="color:var(--danger)" @click="confirmDeleteCat(cat)">🗑 Sil</button>
                   </div>
                 </div>
@@ -278,7 +281,7 @@
               </div>
               <div class="update-panel">
                 <button class="btn btn-primary" @click="openXtream" style="width:100%">
-                  📡 Xtream Codes İçe Aktar / Güncelle
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> Xtream Codes İçe Aktar / Güncelle
                 </button>
                 <div class="update-info">
                   <div class="update-stat">
@@ -305,7 +308,7 @@
                 <div v-if="editForm.logo_url" class="ep-logo-preview">
                   <img :src="editForm.logo_url" @error="$event.target.style.display='none'" />
                 </div>
-                <div v-else class="ep-logo-placeholder">📺</div>
+                <div v-else class="ep-logo-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></div>
               </div>
               <div class="ep-form">
                 <div class="form-group"><label>Kanal Adı</label><input class="input" v-model="editForm.name" /></div>
@@ -325,11 +328,29 @@
                 <button class="btn btn-success" @click="saveChannel" style="flex:1">💾 Kaydet</button>
                 <button class="btn btn-danger" @click="deleteChannel(editingChannel)" style="flex:1">🗑 Sil</button>
               </div>
+              <!-- EPG Section -->
+              <div v-if="editingChannel.epg_channel_id && getCurrentAndNext().length" class="ep-epg-section">
+                <div class="ep-epg-header">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <span>Yayın Akışı</span>
+                </div>
+                <div class="ep-epg-list">
+                  <div v-for="(prog, idx) in getCurrentAndNext()" :key="prog.id" class="ep-epg-item">
+                    <div class="ep-epg-item-header">
+                      <span class="ep-epg-time">{{ formatTime(prog.start_time) }}</span>
+                      <span v-if="idx === 0 && isProgramLive(prog)" class="badge badge-danger" style="font-size:9px;padding:2px 6px">LIVE</span>
+                      <span v-else-if="idx === 1" class="badge badge-accent" style="font-size:9px;padding:2px 6px">NEXT</span>
+                    </div>
+                    <div class="ep-epg-title">{{ prog.title }}</div>
+                    <div v-if="prog.description" class="ep-epg-desc">{{ prog.description }}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </aside>
           <aside class="edit-panel edit-panel-empty" v-else>
             <div class="ep-empty">
-              <div class="ep-empty-icon">📺</div>
+              <div class="ep-empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></div>
               <p>Düzenlemek için bir kanal seçin</p>
               <span class="ep-empty-hint">{{ totalChannelCount }} kanal mevcut</span>
             </div>
@@ -477,6 +498,8 @@ const autoMatching = ref(false)
 const matchResult = ref(null)
 const epgSelectedChannelId = ref(null)
 const epgPrograms = ref([])
+const allChannels = ref([])
+const editChannelEpg = ref([])
 
 // Bulk
 const showBulkMove = ref(false)
@@ -502,8 +525,11 @@ onMounted(async () => {
   finally { pageLoading.value = false }
 })
 
-// Load EPG sources when switching to epg view
-watch(activeView, v => { if (v === 'epg') loadEpgSources() })
+// Load EPG sources and all channels when switching to epg view
+watch(activeView, v => { if (v === 'epg') { loadEpgSources(); loadAllChannels() } })
+
+// Load EPG data when editing channel changes
+watch(editingChannel, ch => { if (ch) loadEditChannelEpg() })
 
 async function loadChannels() {
   channelsLoading.value = true
@@ -598,10 +624,34 @@ async function bulkDelete() {
 
 async function doBulkMove() {
   try {
+    // Identify source categories before moving
+    const affectedCats = new Set()
+    for (const chId of selectedIds.value) {
+      // Find channel in accordion cache to get its current category
+      for (const catId in accChannels) {
+        const ch = accChannels[catId]?.find(c => c.id === chId)
+        if (ch) affectedCats.add(catId)
+      }
+    }
+    // Add target category to affected list
+    affectedCats.add(bulkTargetCat.value)
+
     await api.post('/channels/bulk', { action: 'move', channelIds: [...selectedIds.value], targetCategoryId: bulkTargetCat.value })
     showBulkMove.value = false; selectedIds.value = new Set(); toast('Taşındı', 'success')
+
+    // Clear cached accordion data for all affected categories
+    for (const catId of affectedCats) {
+      delete accChannels[catId]
+    }
+
     loadChannels(); loadCategories()
-    for (const catId of openAccordions.value) loadAccChannels(catId)
+
+    // Reload accordion channels for affected categories that are currently open
+    for (const catId of openAccordions.value) {
+      if (affectedCats.has(catId)) {
+        loadAccChannels(catId)
+      }
+    }
   } catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
 }
 
@@ -642,6 +692,10 @@ async function doXtreamImport() {
   finally { importing.value = false }
 }
 
+async function loadAllChannels() {
+  try { const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { limit: 10000 } }); allChannels.value = data.channels || data }
+  catch { allChannels.value = [] }
+}
 async function loadEpgSources() { try { const { data } = await api.get('/epg/sources'); epgSources.value = data } catch {} }
 async function addEpgSource() {
   if (!newEpgUrl.value.trim()) return; addingEpg.value = true
@@ -659,6 +713,20 @@ async function loadEpgPrograms() {
   if (!epgSelectedChannelId.value) { epgPrograms.value = []; return }
   try { const { data } = await api.get(`/channels/${epgSelectedChannelId.value}/epg/preview`); epgPrograms.value = data }
   catch { epgPrograms.value = [] }
+}
+async function loadEditChannelEpg() {
+  if (!editingChannel.value?.id) { editChannelEpg.value = []; return }
+  try { const { data } = await api.get(`/channels/${editingChannel.value.id}/epg/preview`); editChannelEpg.value = data }
+  catch { editChannelEpg.value = [] }
+}
+function isProgramLive(prog) {
+  const now = new Date()
+  return new Date(prog.start_time) <= now && now <= new Date(prog.end_time)
+}
+function getCurrentAndNext() {
+  const now = new Date()
+  const upcoming = editChannelEpg.value.filter(p => new Date(p.start_time) >= now || isProgramLive(p))
+  return upcoming.slice(0, 3)
 }
 
 async function doExport() {
@@ -745,20 +813,40 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .view-header-actions { display: flex; gap: 6px; }
 
 /* Accordion */
-.accordion-list { }
-.accordion-group { border-bottom: 1px solid var(--border); }
+.accordion-list { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+.accordion-group {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-md); overflow: hidden;
+  transition: all var(--transition);
+}
+.accordion-group:hover { border-color: var(--border-light); box-shadow: var(--shadow-sm); }
 .accordion-header {
-  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
-  cursor: pointer; font-size: 13px; transition: background 0.15s; user-select: none;
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+  cursor: pointer; font-size: 13px; transition: all var(--transition); user-select: none;
+  background: linear-gradient(135deg, transparent 0%, rgba(99,102,241,0.02) 100%);
 }
 .accordion-header:hover { background: var(--bg-hover); }
-.acc-arrow { transition: transform 0.2s; color: var(--text-muted); flex-shrink: 0; }
-.acc-arrow.open { transform: rotate(90deg); }
-.acc-title { font-weight: 500; flex: 1; }
-.acc-count { font-size: 11px; color: var(--text-muted); }
-.accordion-body { background: var(--bg-secondary); border-top: 1px solid var(--border); }
-.acc-loading { padding: 12px 20px; }
-.acc-empty { padding: 12px 20px; font-size: 12px; color: var(--text-muted); }
+.accordion-header:active { transform: scale(0.995); }
+.acc-arrow {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-muted); flex-shrink: 0;
+}
+.acc-arrow.open { transform: rotate(90deg); color: var(--accent); }
+.acc-title { font-weight: 600; flex: 1; color: var(--text-primary); }
+.acc-count {
+  font-size: 11px; font-weight: 500; color: var(--text-muted);
+  background: var(--bg-tertiary); padding: 2px 8px; border-radius: 12px;
+}
+.accordion-body {
+  background: var(--bg-secondary); border-top: 1px solid var(--border);
+  animation: slideDown 0.2s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.acc-loading { padding: 16px 20px; display: flex; align-items: center; gap: 8px; color: var(--text-muted); }
+.acc-empty { padding: 16px 20px; font-size: 12px; color: var(--text-muted); text-align: center; }
 
 /* Bulk bar */
 .bulk-bar { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
@@ -832,11 +920,13 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .epg-calendar { padding: 0 20px 20px; }
 .epg-channel-select { margin-bottom: 12px; max-width: 400px; }
 .epg-timeline { border: 1px solid var(--border); border-radius: var(--radius); max-height: 400px; overflow-y: auto; }
-.epg-program { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.epg-program { padding: 10px 14px; border-bottom: 1px solid var(--border); transition: all var(--transition); }
 .epg-program:last-child { border-bottom: none; }
-.epg-prog-time { font-size: 11px; font-weight: 600; color: var(--accent-hover); margin-bottom: 2px; }
-.epg-prog-title { font-size: 13px; font-weight: 500; }
-.epg-prog-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.epg-program.live { background: var(--danger-soft); border-left: 3px solid var(--danger); }
+.epg-prog-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.epg-prog-time { font-size: 11px; font-weight: 600; color: var(--accent-hover); }
+.epg-prog-title { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+.epg-prog-desc { font-size: 11px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
 .epg-no-data { font-size: 12px; color: var(--text-muted); padding: 16px 0; text-align: center; }
 
 /* Category editor */
@@ -882,6 +972,16 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .ep-form .form-row { display: flex; gap: 8px; }
 .ep-form label { display: block; font-size: 10px; font-weight: 600; color: var(--text-muted); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
 .ep-btn-row { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
+
+/* Edit panel EPG section */
+.ep-epg-section { border-top: 1px solid var(--border); padding: 12px 14px; background: var(--bg-primary); }
+.ep-epg-header { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.ep-epg-list { display: flex; flex-direction: column; gap: 8px; }
+.ep-epg-item { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px; }
+.ep-epg-item-header { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.ep-epg-time { font-size: 10px; font-weight: 600; color: var(--accent-hover); }
+.ep-epg-title { font-size: 12px; font-weight: 500; margin-bottom: 2px; }
+.ep-epg-desc { font-size: 10px; color: var(--text-muted); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Modals */
 .modal-overlay {
