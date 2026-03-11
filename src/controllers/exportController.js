@@ -7,7 +7,11 @@ const exportService = require('../services/ExportService');
 async function exportPlaylist(req, res, next) {
   try {
     const { id: playlistId } = req.params;
-    const m3uContent = await exportService.exportAsM3U(req.userId, playlistId);
+    const excludeCategories = req.query.excludeCategories
+      ? req.query.excludeCategories.split(',').filter(Boolean)
+      : [];
+
+    const m3uContent = await exportService.exportAsM3U(req.userId, playlistId, excludeCategories);
 
     res.setHeader('Content-Type', 'audio/x-mpegurl');
     res.setHeader('Content-Disposition', 'attachment; filename="playlist.m3u"');

@@ -267,6 +267,24 @@ class ChannelService {
   }
 
   /**
+   * Reset a channel to its original Xtream Codes values (name + logo).
+   * @param {string} userId
+   * @param {string} channelId
+   * @returns {Promise<object>} Updated channel
+   */
+  async reset(userId, channelId) {
+    const channel = await this._verifyChannelOwnership(userId, channelId);
+
+    await db('channels').where('id', channelId).update({
+      name: channel.original_name || channel.name,
+      logo_url: channel.original_logo_url !== undefined ? channel.original_logo_url : channel.logo_url,
+      updated_at: db.fn.now(),
+    });
+
+    return db('channels').where('id', channelId).first();
+  }
+
+  /**
    * Trigram-based search on channel name.
    * @param {string} userId
    * @param {string} playlistId

@@ -27,11 +27,16 @@ class ExportService {
    * Fetch channels for a playlist ordered by category sort_order then channel sort_order,
    * and map them to M3UFormatter's ChannelData format.
    */
-  async _getOrderedChannels(playlistId) {
-    const channels = await db('channels')
+  async _getOrderedChannels(playlistId, excludeCategories = []) {
+    let query = db('channels')
       .leftJoin('categories', 'channels.category_id', 'categories.id')
-      .where('channels.playlist_id', playlistId)
-      .select(
+      .where('channels.playlist_id', playlistId);
+
+    if (excludeCategories.length > 0) {
+      query = query.whereNotIn('channels.category_id', excludeCategories);
+    }
+
+    const channels = await query.select(
         'channels.name',
         'channels.logo_url',
         'channels.stream_url',
@@ -61,9 +66,9 @@ class ExportService {
    * @param {string} playlistId
    * @returns {Promise<string>} M3U formatted content
    */
-  async exportAsM3U(userId, playlistId) {
+  async exportAsM3U(userId, playlistId, excludeCategories = []) {
     await this._verifyPlaylistOwnership(userId, playlistId);
-    const channelData = await this._getOrderedChannels(playlistId);
+    const channelData = await this._getOrderedChannels(playlistId, excludeCategories);
     return this.formatter.format(channelData);
   }
 

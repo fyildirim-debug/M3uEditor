@@ -16,7 +16,8 @@ services:
       timeout: 3s
       retries: 5
 
-  app:
+  # Production: backend + embedded frontend (Dockerfile'dan build edilir)
+  api:
     build: .
     restart: unless-stopped
     depends_on:
@@ -32,9 +33,24 @@ services:
       DB_PASSWORD: postgres
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
     ports:
-      - "80:3000"
+      - "3000:3000"
     command: >
       sh -c "npx knex migrate:latest && node src/index.js"
+    profiles:
+      - production
+
+  # Production: frontend (nginx + Vue build)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+    profiles:
+      - production
 
 volumes:
   pgdata:

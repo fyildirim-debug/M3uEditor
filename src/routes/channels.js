@@ -14,7 +14,13 @@ router.delete('/channels/:id', authMiddleware, channelController.deleteChannel);
 // Channel ordering
 router.put('/channels/:id/order', authMiddleware, channelController.updateChannelOrder);
 
-// Bulk operations
+// Reset to original Xtream values
+router.post('/channels/:id/reset', authMiddleware, channelController.resetChannel);
+
+// Logo upload (base64)
+router.post('/channels/:id/logo', authMiddleware, channelController.uploadLogo);
+
+// Bulk operations (must be after :id routes to avoid conflict)
 router.post('/channels/bulk', authMiddleware, channelController.bulkAction);
 
 module.exports = router;

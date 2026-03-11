@@ -1,3 +1,5 @@
+const fs = require('fs').promises;
+const path = require('path');
 const channelService = require('../services/ChannelService');
 const { createAppError } = require('../utils/AppError');
 
@@ -98,4 +100,62 @@ async function bulkAction(req, res, next) {
   }
 }
 
-module.exports = { listChannels, updateChannel, deleteChannel, updateChannelOrder, bulkAction };
+/**
+ * POST /api/channels/:id/reset
+ * Reset channel to original Xtream values (name + logo).
+ */
+async function resetChannel(req, res, next) {
+  try {
+    const { id: channelId } = req.params;
+    const channel = await channelService.reset(req.userId, channelId);
+    res.json(channel);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/channels/:id/logo
+ * Upload a custom logo image (base64) and update channel logo_url.
+ * body: { imageData: "data:image/png;base64,..." }
+ */
+async function uploadLogo(req, res, next) {
+  try {
+    const { id: channelId } = req.params;
+    const { imageData } = req.body;
+
+    if (!imageData || typeof imageData !== 'string') {
+      throw createAppError('VALIDATION_ERROR', 'imageData zorunludur');
+    }
+
+    const match = imageData.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
+    if (!match) {
+      throw createAppError('VALIDATION_ERROR', 'Geçersiz resim formatı');
+    }
+
+    const ext = match[1].replace('+', '').toLowerCase();
+    const allowed = ['png', 'jpeg', 'jpg', 'gif', 'webp', 'svg', 'svgxml'];
+    if (!allowed.includes(ext)) {
+      throw createAppError('VALIDATION_ERROR', 'Desteklenmeyen resim formatı');
+    }
+
+    const imageBuffer = Buffer.from(match[2], 'base64');
+    if (imageBuffer.length > 2 * 1024 * 1024) {
+      throw createAppError('VALIDATION_ERROR', 'Resim 2MB\'dan büyük olamaz');
+    }
+
+    const logosDir = path.join(__dirname, '../../public/logos');
+    await fs.mkdir(logosDir, { recursive: true });
+
+    const filename = `${channelId}.${ext === 'jpeg' ? 'jpg' : ext}`;
+    await fs.writeFile(path.join(logosDir, filename), imageBuffer);
+
+    const logoUrl = `/logos/${filename}`;
+    const channel = await channelService.update(req.userId, channelId, { logo_url: logoUrl });
+    res.json(channel);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listChannels, updateChannel, deleteChannel, updateChannelOrder, bulkAction, resetChannel, uploadLogo };

@@ -17,8 +17,26 @@
       </div>
     </div>
 
-    <div v-if="loading" class="dash-loading">
-      <span class="spinner spinner-lg"></span>
+    <!-- Stats bar -->
+    <div v-if="!loading && playlists.length > 0" class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-value">{{ playlists.length }}</span>
+        <span class="stat-label">Playlist</span>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat-item">
+        <span class="stat-value">{{ totalChannels }}</span>
+        <span class="stat-label">Toplam Kanal</span>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat-item">
+        <span class="stat-value">{{ lastUpdated }}</span>
+        <span class="stat-label">Son Guncelleme</span>
+      </div>
+    </div>
+
+    <div v-if="loading" class="skeleton-grid">
+      <div v-for="i in 6" :key="i" class="skeleton skeleton-card"></div>
     </div>
 
     <div v-else-if="playlists.length === 0" class="empty-state">
@@ -40,10 +58,10 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
           </div>
           <div class="pl-card-menu" @click.stop>
-            <button class="btn btn-ghost btn-icon-sm" @click="startEdit(pl)" data-tooltip="Düzenle">
+            <button class="btn btn-ghost btn-icon-sm" @click="startEdit(pl)" data-tooltip="Düzenle" aria-label="Düzenle">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
-            <button class="btn btn-ghost btn-icon-sm" @click="confirmDelete(pl)" data-tooltip="Sil" style="color:var(--danger)">
+            <button class="btn btn-ghost btn-icon-sm" @click="confirmDelete(pl)" data-tooltip="Sil" aria-label="Sil" style="color:var(--danger)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
@@ -54,9 +72,14 @@
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             {{ formatDate(pl.created_at) }}
           </span>
+          <span v-if="pl.channel_count" class="badge badge-success">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+            {{ pl.channel_count }} kanal
+          </span>
         </div>
         <div class="pl-card-footer">
-          <span class="pl-arrow">Düzenle →</span>
+          <span class="pl-open-label">Düzenle</span>
+          <svg class="pl-arrow-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </div>
       </div>
     </div>
@@ -171,7 +194,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 
@@ -185,6 +208,18 @@ const newName = ref('')
 const editingPl = ref(null)
 const editName = ref('')
 const deletingPl = ref(null)
+
+const totalChannels = computed(() =>
+  playlists.value.reduce((sum, pl) => sum + (pl.channel_count || 0), 0)
+)
+
+const lastUpdated = computed(() => {
+  if (!playlists.value.length) return '-'
+  const latest = playlists.value
+    .map(pl => new Date(pl.updated_at || pl.created_at))
+    .sort((a, b) => b - a)[0]
+  return formatDate(latest)
+})
 
 // Xtream import state
 const showXtreamModal = ref(false)
@@ -273,49 +308,97 @@ async function doXtreamImport() {
 </script>
 
 <style scoped>
-.dashboard { padding: 32px; max-width: 1200px; margin: 0 auto; animation: fadeIn 0.3s ease; }
-.dash-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 32px; }
-.dash-title { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
-.dash-subtitle { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
-.dash-loading { display: flex; justify-content: center; padding: 80px; }
+.dashboard { padding: 36px 32px; max-width: 1200px; margin: 0 auto; animation: fadeIn 0.3s ease; }
+.dash-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; gap: 16px; flex-wrap: wrap; }
+.dash-title { font-size: 26px; font-weight: 700; letter-spacing: -0.6px; }
+.dash-subtitle { color: var(--text-secondary); font-size: 13px; margin-top: 5px; line-height: 1.5; }
+
+/* Stats bar */
+.stats-bar {
+  display: flex; align-items: center; gap: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 24px;
+  margin-bottom: 28px;
+  width: fit-content;
+  animation: fadeIn 0.3s ease;
+}
+.stat-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 20px; }
+.stat-item:first-child { padding-left: 0; }
+.stat-item:last-child { padding-right: 0; }
+.stat-value { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: var(--text-primary); }
+.stat-label { font-size: 11px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; }
+.stat-sep { width: 1px; height: 36px; background: var(--border-light); flex-shrink: 0; }
+
+/* Skeleton grid */
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.skeleton.skeleton-card { height: 168px; }
 .playlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 .pl-card {
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: var(--radius-lg); padding: 22px; cursor: pointer;
   transition: all var(--transition); animation: fadeIn 0.3s ease;
-  position: relative;
+  position: relative; overflow: hidden;
+}
+.pl-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), #7c3aed);
+  opacity: 0; transition: opacity var(--transition);
 }
 .pl-card:hover {
-  border-color: var(--accent); transform: translateY(-2px);
-  box-shadow: var(--shadow-glow);
+  border-color: rgba(99,102,241,0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(99,102,241,0.1);
 }
+.pl-card:hover::before { opacity: 1; }
 .pl-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .pl-icon {
-  width: 40px; height: 40px;
-  background: var(--accent-soft); border-radius: 10px;
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg, var(--accent-soft) 0%, rgba(124,58,237,0.12) 100%);
+  border-radius: 11px;
+  border: 1px solid rgba(99,102,241,0.15);
   display: flex; align-items: center; justify-content: center;
   color: var(--accent-hover);
+  transition: all var(--transition);
+}
+.pl-card:hover .pl-icon {
+  background: linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(124,58,237,0.18) 100%);
+  border-color: rgba(99,102,241,0.25);
 }
 .pl-card-menu { display: flex; gap: 2px; opacity: 0; transition: opacity var(--transition); }
 .pl-card:hover .pl-card-menu { opacity: 1; }
 .pl-name { font-size: 16px; font-weight: 600; margin-bottom: 10px; letter-spacing: -0.2px; }
 .pl-meta { display: flex; gap: 8px; flex-wrap: wrap; }
-.pl-card-footer { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
-.pl-arrow { font-size: 12px; font-weight: 500; color: var(--text-muted); transition: color var(--transition); }
-.pl-card:hover .pl-arrow { color: var(--accent-hover); }
+.pl-card-footer {
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 6px;
+}
+.pl-open-label { font-size: 12px; font-weight: 500; color: var(--text-muted); transition: color var(--transition); flex: 1; }
+.pl-arrow-icon { color: var(--text-muted); transition: all var(--transition); }
+.pl-card:hover .pl-open-label { color: var(--accent-hover); }
+.pl-card:hover .pl-arrow-icon { color: var(--accent-hover); transform: translateX(3px); }
 
 .empty-state {
-  text-align: center; padding: 80px 20px;
+  text-align: center; padding: 100px 20px;
   animation: fadeIn 0.4s ease;
 }
 .empty-icon {
-  width: 80px; height: 80px; margin: 0 auto 20px;
-  background: var(--accent-soft); border-radius: 20px;
+  width: 88px; height: 88px; margin: 0 auto 24px;
+  background: linear-gradient(135deg, var(--accent-soft) 0%, rgba(124,58,237,0.1) 100%);
+  border-radius: 24px;
+  border: 1px solid rgba(99,102,241,0.15);
   display: flex; align-items: center; justify-content: center;
   color: var(--accent-hover);
+  box-shadow: 0 8px 32px rgba(99,102,241,0.1);
 }
-.empty-state h3 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
-.empty-state p { color: var(--text-secondary); font-size: 14px; max-width: 400px; margin: 0 auto; }
+.empty-state h3 { font-size: 20px; font-weight: 700; margin-bottom: 10px; letter-spacing: -0.3px; }
+.empty-state p { color: var(--text-secondary); font-size: 14px; max-width: 380px; margin: 0 auto; line-height: 1.6; }
 
 /* Modal */
 .modal-overlay {
@@ -326,7 +409,8 @@ async function doXtreamImport() {
 .modal {
   background: var(--bg-secondary); border: 1px solid var(--border-light);
   border-radius: var(--radius-xl); padding: 28px; width: 90%; max-width: 460px;
-  box-shadow: var(--shadow-lg); animation: fadeInScale 0.25s ease;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.03);
+  animation: fadeInScale 0.25s ease;
 }
 .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .modal-header h3 { font-size: 17px; font-weight: 600; }

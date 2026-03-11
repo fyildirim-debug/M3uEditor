@@ -1,16 +1,19 @@
 # M3U Playlist Editor
-**Tarih:** 2026-03-09
+**Tarih:** 2026-03-11
 
 ## Özet
 IPTV playlist yönetimi için REST API ve Vue 3 frontend. M3U format desteği, EPG entegrasyonu ve Xtream Codes API client ile kapsamlı kanal yönetimi sağlar.
 
 ## Yapı
 - Kök: package.json, knexfile.js, docker-compose.yml, Dockerfile
-- Klasörler: src/ (backend), frontend/ (Vue 3 app), tests/ (Jest), public/ (static)
+- Backend: src/ → controllers/, routes/, models/, services/, parsers/, middleware/, utils/
+- Frontend: frontend/src/ → views/, stores/, router.js, App.vue
+- Test: tests/ (Jest + Supertest + fast-check)
 
 ## Teknoloji
-**Backend:** Node.js + Express + PostgreSQL + Knex
+**Backend:** Node.js + Express + PostgreSQL + Knex ORM
 **Frontend:** Vue 3 + Vite + Pinia + Vue Router
+**Auth:** JWT + bcryptjs
 **DevOps:** Docker Compose, PostgreSQL 16 Alpine
 
 ## Özellikler
@@ -23,4 +26,4 @@ IPTV playlist yönetimi için REST API ve Vue 3 frontend. M3U format desteği, E
 - Docker containerization
 
 ## İstatistik
-Dosya: 50+ JS dosyalar, Teknoloji: Node.js + Express + Vue 3 + PostgreSQL
+Dosya: 50+ JS/Vue dosyalar, Teknoloji: Node.js + Express + Vue 3 + PostgreSQL

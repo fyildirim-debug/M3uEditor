@@ -3,7 +3,7 @@ const db = require('../config/database');
 const XtreamClient = require('./XtreamClient');
 const { createAppError } = require('../utils/AppError');
 
-const BATCH_SIZE = 1000;
+const BATCH_SIZE = 100;
 
 class ImportService {
   /**
@@ -61,6 +61,7 @@ class ImportService {
         playlist_id: playlist.id,
         name: ch.name,
         logo_url: ch.stream_icon || null,
+        original_logo_url: ch.stream_icon || null,
         stream_url: streamUrl,
         epg_channel_id: ch.epg_channel_id || null,
         category_id: ch.category_id ? (categoryMap[ch.category_id] || null) : null,
@@ -122,7 +123,7 @@ class ImportService {
       password: playlist.xtream_password_enc,
     };
 
-    const result = await this.importFromXtream(userId, credentials, onProgress);
+    const result = await this.importFromXtream(userId, credentials, onProgress, playlistId);
 
     // Calculate added vs updated
     const afterUrls = new Set(
@@ -234,13 +235,22 @@ class ImportService {
     const uniqueRecords = Array.from(uniqueMap.values());
     const total = uniqueRecords.length;
 
+    const CONFLICT_CLAUSE = `ON CONFLICT (playlist_id, stream_url) DO UPDATE SET
+      original_name       = EXCLUDED.original_name,
+      original_logo_url   = EXCLUDED.original_logo_url,
+      extras              = EXCLUDED.extras,
+      updated_at          = NOW(),
+      name      = CASE WHEN channels.name IS NOT DISTINCT FROM channels.original_name
+                       THEN EXCLUDED.name ELSE channels.name END,
+      logo_url  = CASE WHEN channels.logo_url IS NOT DISTINCT FROM channels.original_logo_url
+                       THEN EXCLUDED.logo_url ELSE channels.logo_url END`;
+
     for (let i = 0; i < total; i += BATCH_SIZE) {
       const batch = uniqueRecords.slice(i, i + BATCH_SIZE);
 
-      await db('channels')
-        .insert(batch)
-        .onConflict(['playlist_id', 'stream_url'])
-        .merge(['name', 'logo_url', 'category_id', 'extras', 'updated_at']);
+      // Extract SQL + bindings from Knex builder then append raw conflict clause
+      const { sql, bindings } = db('channels').insert(batch).toSQL();
+      await db.raw(`${sql} ${CONFLICT_CLAUSE}`, bindings);
 
       if (typeof onProgress === 'function') {
         onProgress({ processed: Math.min(i + BATCH_SIZE, total), total });
