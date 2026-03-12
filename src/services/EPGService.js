@@ -3,7 +3,7 @@ const db = require('../config/database');
 const EPGParser = require('../parsers/EPGParser');
 const { createAppError } = require('../utils/AppError');
 
-const FETCH_TIMEOUT = 30000; // 30 seconds for EPG fetch
+const FETCH_TIMEOUT = 120000; // 120 seconds for EPG fetch (EPG files can be very large)
 
 class EPGService {
   /**
@@ -129,6 +129,7 @@ class EPGService {
 
   /**
    * Auto-match playlist channels with EPG channels based on name similarity.
+   * Applies matches with confidence >= 0.5 by updating channels.epg_channel_id.
    * Matching strategy (from design):
    *   - Exact match (case-insensitive): confidence = 1.0
    *   - One name contains the other: confidence = 0.7
@@ -137,7 +138,7 @@ class EPGService {
    * Returns matches sorted by confidence descending (requirement 5.6).
    * @param {string} userId
    * @param {string} playlistId
-   * @returns {Promise<Array<{ channelId: string, epgChannelId: string, confidence: number }>>}
+   * @returns {Promise<{ matched: number, total: number, matches: Array<{ channelId: string, epgChannelId: string, confidence: number }> }>}
    */
   async autoMatch(userId, playlistId) {
     // Get all channels in the playlist
@@ -146,7 +147,7 @@ class EPGService {
       .where({ 'playlists.id': playlistId, 'playlists.user_id': userId })
       .select('channels.id', 'channels.name');
 
-    if (channels.length === 0) return [];
+    if (channels.length === 0) return { matched: 0, total: 0, matches: [] };
 
     // Get all EPG channels from user's sources
     const epgChannels = await db('epg_channels')
@@ -154,7 +155,7 @@ class EPGService {
       .where({ 'epg_sources.user_id': userId })
       .select('epg_channels.id', 'epg_channels.channel_id', 'epg_channels.display_name');
 
-    if (epgChannels.length === 0) return [];
+    if (epgChannels.length === 0) return { matched: 0, total: channels.length, matches: [] };
 
     const matches = [];
 
@@ -189,7 +190,20 @@ class EPGService {
     // Sort by confidence descending (exact matches first)
     matches.sort((a, b) => b.confidence - a.confidence);
 
-    return matches;
+    // Apply matches with confidence >= 0.5 by updating channels.epg_channel_id
+    const applicableMatches = matches.filter(m => m.confidence >= 0.5);
+
+    for (const match of applicableMatches) {
+      await db('channels')
+        .where({ id: match.channelId })
+        .update({ epg_channel_id: match.epgChannelId, updated_at: new Date() });
+    }
+
+    return {
+      matched: applicableMatches.length,
+      total: channels.length,
+      matches,
+    };
   }
 
   /**
@@ -239,6 +253,162 @@ class EPGService {
       .orderBy('start_time', 'asc');
 
     return programs;
+  }
+
+  /**
+   * Delete an EPG source belonging to the user.
+   * Cascade will handle removing associated epg_channels and epg_programs.
+   * @param {string} userId
+   * @param {string} sourceId
+   * @returns {Promise<void>}
+   */
+  async deleteSource(userId, sourceId) {
+    const source = await db('epg_sources')
+      .where({ id: sourceId, user_id: userId })
+      .first();
+
+    if (!source) {
+      throw createAppError('NOT_FOUND', 'EPG kaynağı bulunamadı');
+    }
+
+    await db('epg_sources').where({ id: sourceId }).del();
+  }
+
+  /**
+   * Refresh an EPG source by re-fetching and re-parsing its XML data.
+   * @param {string} userId
+   * @param {string} sourceId
+   * @returns {Promise<{ channelCount: number, programCount: number }>}
+   */
+  async refreshSource(userId, sourceId) {
+    const source = await db('epg_sources')
+      .where({ id: sourceId, user_id: userId })
+      .first();
+
+    if (!source) {
+      throw createAppError('NOT_FOUND', 'EPG kaynağı bulunamadı');
+    }
+
+    return this.parseAndStore(sourceId);
+  }
+
+  /**
+   * Get the full EPG guide for a playlist on a given date.
+   * Returns channels with their associated programs in a single efficient query flow.
+   * @param {string} userId
+   * @param {string} playlistId
+   * @param {string} [date] - Date string (YYYY-MM-DD). Defaults to today.
+   * @returns {Promise<{ channels: Array<{ id: string, name: string, logo_url: string, epg_channel_id: string, programs: Array }>, date: string }>}
+   */
+  async getGuide(userId, playlistId, date) {
+    // Verify playlist belongs to user
+    const playlist = await db('playlists')
+      .where({ id: playlistId, user_id: userId })
+      .first();
+
+    if (!playlist) {
+      throw createAppError('NOT_FOUND', 'Playlist bulunamadı');
+    }
+
+    // Build date range
+    let dateStr;
+    if (date) {
+      dateStr = date;
+    } else {
+      const today = new Date();
+      const yyyy = today.getUTCFullYear();
+      const mm = String(today.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(today.getUTCDate()).padStart(2, '0');
+      dateStr = `${yyyy}-${mm}-${dd}`;
+    }
+    const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
+    const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
+
+    // Step 1: Get ALL channels for the playlist (not just matched ones)
+    const channels = await db('channels')
+      .where({ playlist_id: playlistId })
+      .orderBy('position', 'asc')
+      .select('id', 'name', 'logo_url', 'epg_channel_id');
+
+    if (channels.length === 0) {
+      return { channels: [], date: dateStr };
+    }
+
+    // Filter channels that have EPG mapping for program fetching
+    const mappedChannels = channels.filter(ch => ch.epg_channel_id);
+
+    // Step 2: Collect all unique epg_channel_id strings and find their UUID records
+    const epgChannelIds = [...new Set(mappedChannels.map(ch => ch.epg_channel_id))];
+
+    const epgChannelRecords = await db('epg_channels')
+      .whereIn('channel_id', epgChannelIds)
+      .select('id', 'channel_id');
+
+    // Map from channel_id string -> epg_channels UUID
+    const epgChannelIdToUuid = {};
+    for (const rec of epgChannelRecords) {
+      epgChannelIdToUuid[rec.channel_id] = rec.id;
+    }
+
+    // Step 3: Get all epg_channel UUIDs that we need programs for
+    const epgChannelUuids = Object.values(epgChannelIdToUuid);
+
+    let programs = [];
+    if (epgChannelUuids.length > 0) {
+      programs = await db('epg_programs')
+        .whereIn('epg_channel_id', epgChannelUuids)
+        .where('start_time', '>=', startOfDay)
+        .where('start_time', '<=', endOfDay)
+        .orderBy('start_time', 'asc');
+    }
+
+    // Step 4: Group programs by epg_channel UUID
+    const programsByEpgUuid = {};
+    for (const prog of programs) {
+      if (!programsByEpgUuid[prog.epg_channel_id]) {
+        programsByEpgUuid[prog.epg_channel_id] = [];
+      }
+      programsByEpgUuid[prog.epg_channel_id].push(prog);
+    }
+
+    // Step 5: Map programs to channels
+    const result = channels.map(ch => {
+      const epgUuid = epgChannelIdToUuid[ch.epg_channel_id];
+      return {
+        id: ch.id,
+        name: ch.name,
+        logo_url: ch.logo_url,
+        epg_channel_id: ch.epg_channel_id,
+        programs: epgUuid ? (programsByEpgUuid[epgUuid] || []) : [],
+      };
+    });
+
+    return { channels: result, date: dateStr };
+  }
+
+  /**
+   * Search EPG channels by name for autocomplete.
+   * Returns matching EPG channels with icon_url for display.
+   * @param {string} userId
+   * @param {string} query - Search query string
+   * @param {number} [limit=15] - Max results
+   * @returns {Promise<Array<{ channel_id: string, display_name: string, icon_url: string }>>}
+   */
+  async searchEpgChannels(userId, query, limit = 15) {
+    if (!query || query.trim().length < 2) return [];
+
+    const q = query.trim();
+    const results = await db('epg_channels')
+      .join('epg_sources', 'epg_channels.source_id', 'epg_sources.id')
+      .where('epg_sources.user_id', userId)
+      .where(function () {
+        this.where('epg_channels.display_name', 'ilike', `%${q}%`)
+          .orWhere('epg_channels.channel_id', 'ilike', `%${q}%`);
+      })
+      .select('epg_channels.channel_id', 'epg_channels.display_name', 'epg_channels.icon_url')
+      .limit(limit);
+
+    return results;
   }
 
   /**

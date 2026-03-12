@@ -109,4 +109,61 @@ async function assignEpg(req, res, next) {
   }
 }
 
-module.exports = { addSource, listSources, autoMatch, getPreview, assignEpg };
+/**
+ * DELETE /api/epg/sources/:id
+ * Delete an EPG source belonging to the authenticated user.
+ */
+async function deleteSource(req, res, next) {
+  try {
+    const { id: sourceId } = req.params;
+    await epgService.deleteSource(req.userId, sourceId);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/epg/sources/:id/refresh
+ * Re-fetch and re-parse an EPG source.
+ */
+async function refreshSource(req, res, next) {
+  try {
+    const { id: sourceId } = req.params;
+    const result = await epgService.refreshSource(req.userId, sourceId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/playlists/:id/epg/guide
+ * Get the full EPG guide for a playlist on a given date.
+ */
+async function getGuide(req, res, next) {
+  try {
+    const { id: playlistId } = req.params;
+    const { date } = req.query;
+    const guide = await epgService.getGuide(req.userId, playlistId, date || undefined);
+    res.json(guide);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * GET /api/epg/channels/search?q=...
+ * Search EPG channels by name for autocomplete suggestions.
+ */
+async function searchEpgChannels(req, res, next) {
+  try {
+    const { q } = req.query;
+    const results = await epgService.searchEpgChannels(req.userId, q);
+    res.json(results);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { addSource, listSources, autoMatch, getPreview, assignEpg, deleteSource, refreshSource, getGuide, searchEpgChannels };
