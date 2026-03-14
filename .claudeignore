@@ -1,27 +1,14 @@
 node_modules/
-.env
-coverage/
+package-lock.json
+frontend/package-lock.json
 dist/
 build/
-*.log
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.idea/
-*.swp
-*.swo
-
-# Runtime
+coverage/
+.git/
+public/logos/
 .node-localstorage
 .node-localstorage-shm
 .node-localstorage-wal
-
-# Uploads
-public/logos/
-
-# Test
 test-output.txt
 test-result.txt
+*.log
