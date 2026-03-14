@@ -142,7 +142,7 @@
                           <td class="td-num">{{ (page - 1) * 50 + idx + 1 }}</td>
                           <td class="td-name">
                             <div class="ch-name-cell">
-                              <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" @error="$event.target.style.display='none'" />
+                              <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" loading="lazy" @error="$event.target.style.display='none'" />
                               <span v-else class="row-logo-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
                               <span>{{ ch.name }}</span>
                             </div>
@@ -198,16 +198,19 @@
                   <div v-else-if="sortCatLoading" class="sort-empty"><span class="spinner"></span></div>
                   <div v-else-if="sortCatChannels.length === 0" class="sort-empty">Bu kategoride kanal yok</div>
                   <div v-else class="sort-list">
-                    <div v-for="(ch, idx) in sortCatChannels" :key="ch.id" class="sort-item"
+                    <div v-for="(ch, idx) in sortVisibleChannels" :key="ch.id" class="sort-item"
                       draggable="true"
                       @dragstart="sortChanDragIdx = idx"
                       @dragover.prevent
                       @drop="chanDrop(idx)">
                       <svg class="sort-handle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
-                      <img v-if="ch.logo_url" :src="ch.logo_url" class="sort-ch-logo" @error="$event.target.style.display='none'" />
+                      <img v-if="ch.logo_url" :src="ch.logo_url" class="sort-ch-logo" loading="lazy" @error="$event.target.style.display='none'" />
                       <span class="sort-name">{{ ch.name }}</span>
                       <span class="sort-count">#{{ idx + 1 }}</span>
                     </div>
+                    <button v-if="sortRenderCount < sortCatChannels.length" class="btn btn-secondary btn-sm load-more-btn" @click="sortRenderCount += SORT_RENDER_LIMIT">
+                      {{ sortCatChannels.length - sortRenderCount }} kanal daha göster
+                    </button>
                   </div>
                 </div>
               </div>
@@ -287,7 +290,7 @@
                   <!-- Channel Rows -->
                   <div class="epg-channel-col" ref="epgChannelColRef">
                     <div v-for="ch in guideChannels" :key="ch.id" class="epg-ch-row-label">
-                      <img v-if="ch.logo_url" :src="ch.logo_url" class="epg-ch-logo" @error="$event.target.style.display='none'" />
+                      <img v-if="ch.logo_url" :src="ch.logo_url" class="epg-ch-logo" loading="lazy" @error="$event.target.style.display='none'" />
                       <div v-else class="epg-ch-logo-fb">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
                       </div>
@@ -743,6 +746,9 @@ const sortSelectedCat = ref(null)
 const sortCatChannels = ref([])
 const sortCatLoading = ref(false)
 let sortChanDragIdx = null
+const SORT_RENDER_LIMIT = 100
+const sortRenderCount = ref(SORT_RENDER_LIMIT)
+const sortVisibleChannels = computed(() => sortCatChannels.value.slice(0, sortRenderCount.value))
 
 // Category editor
 const showCatCreate = ref(false)
@@ -833,14 +839,13 @@ onMounted(async () => {
       savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
     }
     categories.value = catRes.data
-    await loadChannels()
-    await loadTotalCount()
+    await Promise.all([loadChannels(), loadTotalCount()])
   } catch { toast('Yüklenirken hata oluştu', 'error') }
   finally { pageLoading.value = false }
 })
 
 // Load EPG sources and guide when switching to epg view
-watch(activeView, v => { if (v === 'epg') { loadEpgSources(); loadGuide(); loadAllChannels() } })
+watch(activeView, v => { if (v === 'epg') { loadEpgSources(); loadGuide() } })
 
 // Load EPG data when editing channel changes
 watch(editingChannel, ch => { if (ch) loadEditChannelEpg() })
@@ -862,7 +867,7 @@ async function loadChannels() {
 
 async function loadTotalCount() {
   try {
-    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { page: 1, limit: 1 } })
+    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1 } })
     totalChannelCount.value = data.total || 0
   } catch {}
 }
@@ -1048,6 +1053,7 @@ async function catDrop(idx) {
 async function selectSortCat(cat) {
   sortSelectedCat.value = cat
   sortCatLoading.value = true
+  sortRenderCount.value = SORT_RENDER_LIMIT
   try {
     const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { categoryId: cat.id, limit: 1000 } })
     sortCatChannels.value = data.channels || data
@@ -1459,6 +1465,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
   background: var(--bg-secondary); flex-shrink: 0;
 }
 .sort-list { padding: 8px; overflow-y: auto; flex: 1; }
+.load-more-btn { width: 100%; margin-top: 8px; }
 .sort-item {
   display: flex; align-items: center; gap: 10px; padding: 8px 10px;
   background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius);

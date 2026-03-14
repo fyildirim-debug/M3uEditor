@@ -10,7 +10,7 @@
             </svg>
           </div>
           <h1 class="auth-title">M3U Playlist Editor</h1>
-          <p class="auth-subtitle">{{ isRegister ? 'Hesap oluştur ve başla' : 'Hesabına giriş yap' }}</p>
+          <p class="auth-subtitle">{{ isRegister ? t('auth.subtitleRegister') : t('auth.subtitleLogin') }}</p>
         </div>
 
         <div v-if="error" class="auth-error">
@@ -20,7 +20,7 @@
 
         <form @submit.prevent="handleSubmit" class="auth-form">
           <div class="form-group">
-            <label>E-posta Adresi</label>
+            <label>{{ t('auth.email') }}</label>
             <div class="input-wrapper">
               <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
               <input class="input input-with-icon" type="email" v-model="email" placeholder="ornek@email.com" required autocomplete="email" />
@@ -28,7 +28,7 @@
           </div>
 
           <div class="form-group">
-            <label>Şifre</label>
+            <label>{{ t('auth.password') }}</label>
             <div class="input-wrapper">
               <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               <input class="input input-with-icon" :type="showPass ? 'text' : 'password'" v-model="password" placeholder="En az 6 karakter" required minlength="6" />
@@ -46,7 +46,7 @@
           </div>
 
           <div v-if="isRegister" class="form-group">
-            <label>Şifre Tekrar</label>
+            <label>{{ t('auth.confirmPassword') }}</label>
             <div class="input-wrapper">
               <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               <input
@@ -58,7 +58,7 @@
                 required
               />
             </div>
-            <p v-if="confirmPassword && confirmPassword !== password" class="field-error">Şifreler eşleşmiyor</p>
+            <p v-if="confirmPassword && confirmPassword !== password" class="field-error">{{ t('auth.passwordMismatch') }}</p>
           </div>
 
           <button class="btn btn-primary btn-submit" type="submit" :disabled="loading || (isRegister && (!confirmPassword || confirmPassword !== password))">
@@ -67,16 +67,16 @@
               <svg v-if="!isRegister" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
               <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
             </template>
-            {{ isRegister ? 'Hesap Oluştur' : 'Giriş Yap' }}
+            {{ isRegister ? t('auth.createAccount') : t('auth.login') }}
           </button>
         </form>
 
-        <div class="auth-divider"><span>veya</span></div>
+        <div class="auth-divider"><span>{{ t('auth.divider') }}</span></div>
 
         <p class="auth-toggle">
-          {{ isRegister ? 'Zaten hesabın var mı?' : 'Henüz hesabın yok mu?' }}
+          {{ isRegister ? t('auth.hasAccount') : t('auth.noAccount') }}
           <a @click="isRegister = !isRegister; error = ''; confirmPassword = ''">
-            {{ isRegister ? 'Giriş Yap' : 'Ücretsiz Kayıt Ol' }}
+            {{ isRegister ? t('auth.login') : t('auth.freeSignup') }}
           </a>
         </p>
       </div>
@@ -89,7 +89,9 @@
 import { ref, computed, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useI18n } from '../langs/useI18n'
 
+const { t } = useI18n()
 const auth = useAuthStore()
 const router = useRouter()
 const toast = inject('toast')
@@ -121,15 +123,15 @@ const strengthClass = computed(() => {
 })
 
 const strengthLabel = computed(() => {
-  if (strengthPercent.value <= 25) return 'Zayıf'
-  if (strengthPercent.value <= 50) return 'Orta'
-  if (strengthPercent.value <= 75) return 'İyi'
-  return 'Güçlü'
+  if (strengthPercent.value <= 25) return t('passwordStrength.weak')
+  if (strengthPercent.value <= 50) return t('passwordStrength.fair')
+  if (strengthPercent.value <= 75) return t('passwordStrength.good')
+  return t('passwordStrength.strong')
 })
 
 async function handleSubmit() {
   if (isRegister.value && password.value !== confirmPassword.value) {
-    error.value = 'Şifreler eşleşmiyor'
+    error.value = t('auth.passwordMismatch')
     return
   }
   loading.value = true
@@ -137,13 +139,13 @@ async function handleSubmit() {
   try {
     if (isRegister.value) {
       await auth.register(email.value, password.value)
-      toast('Hesap oluşturuldu, hoş geldin!', 'success')
+      toast(t('toast.accountCreated'), 'success')
     } else {
       await auth.login(email.value, password.value)
     }
     router.push('/dashboard')
   } catch (err) {
-    error.value = err.response?.data?.error?.message || 'Bir hata oluştu, tekrar dene'
+    error.value = err.response?.data?.error?.message || t('toast.genericError')
   } finally {
     loading.value = false
   }

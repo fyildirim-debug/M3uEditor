@@ -174,7 +174,7 @@ class ImportService {
         .insert({
           id: uuidv4(),
           user_id: userId,
-          name: `Xtream - ${username}@${normalizedUrl}`,
+          name: `${username}`,
           xtream_server_url: normalizedUrl,
           xtream_username: username,
           xtream_password_enc: password,

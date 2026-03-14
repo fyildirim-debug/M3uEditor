@@ -15,14 +15,23 @@
       <nav class="header-nav" aria-label="Ana navigasyon">
         <router-link to="/dashboard" class="nav-link" active-class="active">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
-          Playlistler
+          {{ t('nav.playlists') }}
         </router-link>
       </nav>
 
       <div class="header-right">
         <div class="header-status hide-mobile" aria-live="polite">
           <span class="status-dot" title="Sistem aktif" aria-label="Sistem aktif"></span>
-          <span class="status-label">Aktif</span>
+          <span class="status-label">{{ t('status.active') }}</span>
+        </div>
+
+        <div class="lang-switcher" v-if="langs.length > 1">
+          <button v-for="l in langs" :key="l.code"
+            :class="['lang-btn', { active: lang === l.code }]"
+            @click="setLang(l.code)"
+            :title="l.name">
+            <span class="lang-flag" v-html="l.flag"></span>
+          </button>
         </div>
 
         <div class="header-sep hide-mobile" aria-hidden="true"></div>
@@ -36,7 +45,7 @@
 
         <button class="btn btn-ghost btn-sm logout-btn" @click="handleLogout" aria-label="Cikis yap">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          <span class="hide-mobile">Cikis</span>
+          <span class="hide-mobile">{{ t('auth.logout') }}</span>
         </button>
       </div>
     </header>
@@ -69,9 +78,11 @@
 import { ref, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
+import { useI18n } from './langs/useI18n'
 
 const auth = useAuthStore()
 const router = useRouter()
+const { t, lang, setLang, langs } = useI18n()
 const toasts = ref([])
 
 function showToast(message, type = 'info') {
@@ -215,6 +226,19 @@ function handleLogout() {
   background: var(--danger-soft);
   border-color: rgba(239,68,68,0.15);
 }
+
+/* ── Lang Switcher ─────────────────────────── */
+.lang-switcher { display: flex; gap: 3px; }
+.lang-btn {
+  width: 28px; height: 20px; padding: 0; border: 1.5px solid transparent;
+  border-radius: 4px; cursor: pointer; background: none;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.45; transition: all var(--transition); overflow: hidden;
+}
+.lang-btn:hover { opacity: 0.75; }
+.lang-btn.active { opacity: 1; border-color: var(--accent); box-shadow: 0 0 6px rgba(99,102,241,0.3); }
+.lang-flag { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.lang-flag svg { width: 100%; height: 100%; }
 
 /* ── Toast ──────────────────────────────────── */
 .toast-container {

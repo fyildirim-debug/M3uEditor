@@ -2,17 +2,17 @@
   <div class="dashboard">
     <div class="dash-header">
       <div>
-        <h1 class="dash-title">Playlistlerim</h1>
-        <p class="dash-subtitle">M3U playlistlerini yönet, düzenle ve paylaş</p>
+        <h1 class="dash-title">{{ t('dashboard.title') }}</h1>
+        <p class="dash-subtitle">{{ t('dashboard.subtitle') }}</p>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-secondary" @click="openXtream">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Xtream İçe Aktar
+          {{ t('xtream.importTitle') }}
         </button>
         <button class="btn btn-primary" @click="showCreate = true">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Yeni Playlist
+          {{ t('playlist.newPlaylist') }}
         </button>
       </div>
     </div>
@@ -21,17 +21,17 @@
     <div v-if="!loading && playlists.length > 0" class="stats-bar">
       <div class="stat-item">
         <span class="stat-value">{{ playlists.length }}</span>
-        <span class="stat-label">Playlist</span>
+        <span class="stat-label">{{ t('dashboard.statsPlaylist') }}</span>
       </div>
       <div class="stat-sep"></div>
       <div class="stat-item">
         <span class="stat-value">{{ totalChannels }}</span>
-        <span class="stat-label">Toplam Kanal</span>
+        <span class="stat-label">{{ t('dashboard.statsTotalChannels') }}</span>
       </div>
       <div class="stat-sep"></div>
       <div class="stat-item">
         <span class="stat-value">{{ lastUpdated }}</span>
-        <span class="stat-label">Son Guncelleme</span>
+        <span class="stat-label">{{ t('dashboard.statsLastUpdated') }}</span>
       </div>
     </div>
 
@@ -43,11 +43,11 @@
       <div class="empty-icon">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
       </div>
-      <h3>Henüz playlist yok</h3>
-      <p>İlk playlistini oluştur ve Xtream Codes ile kanallarını içe aktar.</p>
+      <h3>{{ t('dashboard.noPlaylists') }}</h3>
+      <p>{{ t('dashboard.createFirstHint') }}</p>
       <button class="btn btn-primary" style="margin-top:20px" @click="showCreate = true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        İlk Playlistini Oluştur
+        {{ t('dashboard.createFirst') }}
       </button>
     </div>
 
@@ -58,10 +58,10 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
           </div>
           <div class="pl-card-menu" @click.stop>
-            <button class="btn btn-ghost btn-icon-sm" @click="startEdit(pl)" data-tooltip="Düzenle" aria-label="Düzenle">
+            <button class="btn btn-ghost btn-icon-sm" @click="startEdit(pl)" :data-tooltip="t('common.edit')" :aria-label="t('common.edit')">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
-            <button class="btn btn-ghost btn-icon-sm" @click="confirmDelete(pl)" data-tooltip="Sil" aria-label="Sil" style="color:var(--danger)">
+            <button class="btn btn-ghost btn-icon-sm" @click="confirmDelete(pl)" :data-tooltip="t('common.delete')" :aria-label="t('common.delete')" style="color:var(--danger)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
@@ -74,11 +74,11 @@
           </span>
           <span v-if="pl.channel_count" class="badge badge-success">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
-            {{ pl.channel_count }} kanal
+            {{ pl.channel_count }} {{ t('common.channel') }}
           </span>
         </div>
         <div class="pl-card-footer">
-          <span class="pl-open-label">Düzenle</span>
+          <span class="pl-open-label">{{ t('common.edit') }}</span>
           <svg class="pl-arrow-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </div>
       </div>
@@ -90,18 +90,18 @@
         <div v-if="showCreate" class="modal-overlay" @click.self="showCreate = false">
           <div class="modal">
             <div class="modal-header">
-              <h3>Yeni Playlist Oluştur</h3>
+              <h3>{{ t('playlist.createTitle') }}</h3>
               <button class="btn btn-ghost btn-icon-sm" @click="showCreate = false">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div class="form-group">
-              <label>Playlist Adı</label>
+              <label>{{ t('playlist.nameLabel') }}</label>
               <input class="input" v-model="newName" placeholder="Örn: Ana Liste, Spor Kanalları..." @keyup.enter="createPlaylist" autofocus />
             </div>
             <div class="modal-actions">
-              <button class="btn btn-secondary" @click="showCreate = false">İptal</button>
-              <button class="btn btn-primary" @click="createPlaylist" :disabled="!newName.trim()">Oluştur</button>
+              <button class="btn btn-secondary" @click="showCreate = false">{{ t('common.cancel') }}</button>
+              <button class="btn btn-primary" @click="createPlaylist" :disabled="!newName.trim()">{{ t('common.create') }}</button>
             </div>
           </div>
         </div>
@@ -114,18 +114,18 @@
         <div v-if="editingPl" class="modal-overlay" @click.self="editingPl = null">
           <div class="modal">
             <div class="modal-header">
-              <h3>Playlist Düzenle</h3>
+              <h3>{{ t('playlist.editTitle') }}</h3>
               <button class="btn btn-ghost btn-icon-sm" @click="editingPl = null">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div class="form-group">
-              <label>Playlist Adı</label>
+              <label>{{ t('playlist.nameLabel') }}</label>
               <input class="input" v-model="editName" @keyup.enter="updatePlaylist" />
             </div>
             <div class="modal-actions">
-              <button class="btn btn-secondary" @click="editingPl = null">İptal</button>
-              <button class="btn btn-primary" @click="updatePlaylist" :disabled="!editName.trim()">Kaydet</button>
+              <button class="btn btn-secondary" @click="editingPl = null">{{ t('common.cancel') }}</button>
+              <button class="btn btn-primary" @click="updatePlaylist" :disabled="!editName.trim()">{{ t('common.save') }}</button>
             </div>
           </div>
         </div>
@@ -138,18 +138,18 @@
         <div v-if="deletingPl" class="modal-overlay" @click.self="deletingPl = null">
           <div class="modal">
             <div class="modal-header">
-              <h3>Playlist Sil</h3>
+              <h3>{{ t('playlist.deleteTitle') }}</h3>
               <button class="btn btn-ghost btn-icon-sm" @click="deletingPl = null">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div class="delete-warning">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              <p>"<strong>{{ deletingPl.name }}</strong>" playlistini ve tüm kanallarını kalıcı olarak silmek istediğine emin misin?</p>
+              <p>"<strong>{{ deletingPl.name }}</strong>" {{ t('playlist.deleteConfirm') }}</p>
             </div>
             <div class="modal-actions">
-              <button class="btn btn-secondary" @click="deletingPl = null">İptal</button>
-              <button class="btn btn-danger" @click="deletePlaylist">Kalıcı Olarak Sil</button>
+              <button class="btn btn-secondary" @click="deletingPl = null">{{ t('common.cancel') }}</button>
+              <button class="btn btn-danger" @click="deletePlaylist">{{ t('common.permanently_delete') }}</button>
             </div>
           </div>
         </div>
@@ -162,15 +162,27 @@
         <div v-if="showXtreamModal" class="modal-overlay" @click.self="showXtreamModal = false">
           <div class="modal" style="max-width:500px">
             <div class="modal-header">
-              <h3>Xtream Codes İçe Aktar</h3>
+              <h3>{{ t('xtream.importTitle') }}</h3>
               <button class="btn btn-ghost btn-icon-sm" @click="showXtreamModal = false">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Xtream Codes sunucu bilgilerini girerek tüm kanalları (canlı TV, VOD, diziler) içe aktarabilirsin. Mevcut bir Xtream playlist'in varsa üzerine güncellenir.</p>
-            <div class="form-group"><label>Sunucu URL</label><input class="input" v-model="xtreamForm.serverUrl" placeholder="http://example.com:8080" /></div>
-            <div class="form-group"><label>Kullanıcı Adı</label><input class="input" v-model="xtreamForm.username" /></div>
-            <div class="form-group"><label>Şifre</label><input class="input" type="password" v-model="xtreamForm.password" /></div>
+            <div class="form-group">
+              <label>{{ t('xtream.autoFillLabel') }} <span style="font-weight:400;color:var(--text-muted)">({{ t('common.optional') }})</span></label>
+              <input class="input" v-model="m3uUrlInput" @input="parseM3uUrl" placeholder="http://example.com:8080/get.php?username=xxx&password=yyy&type=m3u_plus" />
+              <div v-if="m3uUrlParsed" class="parse-success">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                {{ t('xtream.autoFilled') }}
+              </div>
+              <div v-if="m3uUrlInput && !m3uUrlParsed && m3uUrlInput.length > 10" class="parse-error">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                {{ t('xtream.autoFillFailed') }}
+              </div>
+            </div>
+            <div class="url-divider"><span>{{ t('xtream.manualEntry') }}</span></div>
+            <div class="form-group"><label>{{ t('xtream.serverUrl') }}</label><input class="input" v-model="xtreamForm.serverUrl" placeholder="http://example.com:8080" /></div>
+            <div class="form-group"><label>{{ t('xtream.username') }}</label><input class="input" v-model="xtreamForm.username" /></div>
+            <div class="form-group"><label>{{ t('xtream.password') }}</label><input class="input" v-model="xtreamForm.password" /></div>
             <div v-if="importResult" class="result-box success">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               {{ importResult.totalChannels }} kanal, {{ importResult.totalCategories }} kategori içe aktarıldı ({{ (importResult.duration / 1000).toFixed(1) }}s)
@@ -180,10 +192,10 @@
               {{ importError }}
             </div>
             <div class="modal-actions">
-              <button class="btn btn-secondary" @click="showXtreamModal = false">Kapat</button>
+              <button class="btn btn-secondary" @click="showXtreamModal = false">{{ t('common.close') }}</button>
               <button class="btn btn-primary" @click="doXtreamImport" :disabled="importing || !xtreamForm.serverUrl || !xtreamForm.username || !xtreamForm.password">
                 <span v-if="importing" class="spinner" style="width:14px;height:14px"></span>
-                {{ importing ? 'İçe aktarılıyor...' : 'İçe Aktar' }}
+                {{ importing ? t('common.importing') : t('common.import') }}
               </button>
             </div>
           </div>
@@ -197,7 +209,9 @@
 import { ref, computed, onMounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
+import { useI18n } from '../langs/useI18n'
 
+const { t } = useI18n()
 const router = useRouter()
 
 const toast = inject('toast')
@@ -235,7 +249,7 @@ async function loadPlaylists() {
   try {
     const { data } = await api.get('/playlists')
     playlists.value = data
-  } catch { toast('Playlistler yüklenemedi', 'error') }
+  } catch { toast(t('toast.playlistsLoadError'), 'error') }
   finally { loading.value = false }
 }
 
@@ -245,7 +259,7 @@ async function createPlaylist() {
     await api.post('/playlists', { name: newName.value.trim() })
     newName.value = ''
     showCreate.value = false
-    toast('Playlist oluşturuldu', 'success')
+    toast(t('toast.playlistCreated'), 'success')
     loadPlaylists()
   } catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
 }
@@ -257,7 +271,7 @@ async function updatePlaylist() {
   try {
     await api.put('/playlists/' + editingPl.value.id, { name: editName.value.trim() })
     editingPl.value = null
-    toast('Güncellendi', 'success')
+    toast(t('toast.updated'), 'success')
     loadPlaylists()
   } catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
 }
@@ -268,7 +282,7 @@ async function deletePlaylist() {
   try {
     await api.delete('/playlists/' + deletingPl.value.id)
     deletingPl.value = null
-    toast('Silindi', 'success')
+    toast(t('toast.deleted'), 'success')
     loadPlaylists()
   } catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
 }
@@ -278,12 +292,54 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// M3U URL parse state
+const m3uUrlInput = ref('')
+const m3uUrlParsed = ref(false)
+
+function parseM3uUrl() {
+  m3uUrlParsed.value = false
+  const url = m3uUrlInput.value.trim()
+  if (!url) return
+
+  try {
+    const parsed = new URL(url)
+    const params = parsed.searchParams
+    const username = params.get('username')
+    const password = params.get('password')
+
+    if (username && password) {
+      // serverUrl = protocol + host (port dahil)
+      xtreamForm.value.serverUrl = `${parsed.protocol}//${parsed.host}`
+      xtreamForm.value.username = username
+      xtreamForm.value.password = password
+      m3uUrlParsed.value = true
+      return
+    }
+
+    // /live/username/password/ veya /username/password/ formatini dene
+    const pathParts = parsed.pathname.split('/').filter(Boolean)
+    // get.php?username=x&password=y zaten yukarida yakalandi
+    // /live/user/pass/123.ts veya /user/pass/123.ts
+    if (pathParts.length >= 3) {
+      const startIdx = pathParts[0] === 'live' ? 1 : 0
+      if (pathParts.length > startIdx + 1) {
+        xtreamForm.value.serverUrl = `${parsed.protocol}//${parsed.host}`
+        xtreamForm.value.username = pathParts[startIdx]
+        xtreamForm.value.password = pathParts[startIdx + 1]
+        m3uUrlParsed.value = true
+      }
+    }
+  } catch {}
+}
+
 // Xtream import fonksiyonları
 function openXtream() {
   showXtreamModal.value = true
   importResult.value = null
   importError.value = ''
   xtreamForm.value = { serverUrl: '', username: '', password: '' }
+  m3uUrlInput.value = ''
+  m3uUrlParsed.value = false
 }
 
 async function doXtreamImport() {
@@ -291,7 +347,7 @@ async function doXtreamImport() {
   try {
     const { data } = await api.post('/import/xtream', xtreamForm.value)
     importResult.value = data
-    toast(`${data.totalChannels} kanal içe aktarıldı`, 'success')
+    toast(`${data.totalChannels} ${t('common.channel')} ${t('common.import').toLowerCase()}`, 'success')
     // Playlist listesini yenile
     await loadPlaylists()
     // 2 saniye sonra oluşturulan playlist'e yönlendir
@@ -302,7 +358,7 @@ async function doXtreamImport() {
       }
     }, 2000)
   } catch (e) {
-    importError.value = e.response?.data?.error?.message || 'Bağlantı hatası. Sunucu URL, kullanıcı adı ve şifreyi kontrol et.'
+    importError.value = e.response?.data?.error?.message || t('toast.connectionError')
   } finally { importing.value = false }
 }
 </script>
@@ -436,4 +492,10 @@ async function doXtreamImport() {
 }
 .result-box.success { background: var(--success-soft, rgba(16,185,129,0.1)); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.2); }
 .result-box.error { background: var(--danger-soft, rgba(239,68,68,0.1)); color: #fca5a5; border: 1px solid rgba(239,68,68,0.2); }
+
+.parse-success { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6ee7b7; margin-top: 6px; }
+.parse-error { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+.url-divider { display: flex; align-items: center; gap: 12px; margin: 8px 0 16px; }
+.url-divider::before, .url-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.url-divider span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
 </style>
