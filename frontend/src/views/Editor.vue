@@ -912,7 +912,7 @@ onMounted(async () => {
   try {
     const [plRes, catRes] = await Promise.all([
       api.get('/playlists'),
-      api.get(`/playlists/${playlistId}/categories`)
+      api.get(`/playlists/${playlistId}/categories`, { params: { streamType: activeStreamType.value } })
     ])
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
     playlistName.value = pl?.name || 'Playlist'
@@ -954,7 +954,7 @@ async function loadTotalCount() {
 }
 
 async function loadCategories() {
-  try { const { data } = await api.get(`/playlists/${playlistId}/categories`); categories.value = data } catch {}
+  try { const { data } = await api.get(`/playlists/${playlistId}/categories`, { params: { streamType: activeStreamType.value } }); categories.value = data } catch {}
 }
 
 async function loadAccChannels(catId) {

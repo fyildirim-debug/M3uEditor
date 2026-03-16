@@ -7,7 +7,8 @@ const { createAppError } = require('../utils/AppError');
 async function listCategories(req, res, next) {
   try {
     const { id: playlistId } = req.params;
-    const categories = await categoryService.list(req.userId, playlistId);
+    const { streamType } = req.query;
+    const categories = await categoryService.list(req.userId, playlistId, streamType);
     res.json(categories);
   } catch (err) {
     next(err);

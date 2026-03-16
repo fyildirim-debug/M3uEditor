@@ -1,6 +1,7 @@
 {
-  "version": "1.3.1.0",
+  "version": "1.3.2.0",
   "history": [
+    { "version": "1.3.2.0", "date": "2026-03-16", "summary": "Kategoriler stream_type bazli filtreleniyor, farkli tiplerin kategorileri karismiyor" },
     { "version": "1.3.1.0", "date": "2026-03-16", "summary": "Sidebar stream type bazli gruplama: Canli Kanallar, Filmler, Diziler ayri sectionlar" },
     { "version": "1.3.0.0", "date": "2026-03-16", "summary": "Xtream Codes VOD (film) ve Series (dizi) import destegi eklendi" },
     { "version": "1.2.1.0", "date": "2026-03-16", "summary": "Editor.vue tum hardcoded string'ler i18n key'leriyle degistirildi (TR/EN)" },

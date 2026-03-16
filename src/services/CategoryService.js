@@ -37,18 +37,28 @@ class CategoryService {
 
   /**
    * List all categories for a playlist ordered by sort_order, with channel counts.
+   * @param {string} [streamType] - Filter categories by stream_type (only show categories that have channels of this type)
    */
-  async list(userId, playlistId) {
+  async list(userId, playlistId, streamType) {
     await this._verifyPlaylistOwnership(userId, playlistId);
 
-    const categories = await db('categories')
-      .leftJoin('channels', 'categories.id', 'channels.category_id')
+    let query = db('categories')
+      .leftJoin('channels', function () {
+        this.on('categories.id', 'channels.category_id');
+        if (streamType) {
+          this.andOn('channels.stream_type', db.raw('?', [streamType]));
+        }
+      })
       .where('categories.playlist_id', playlistId)
       .groupBy('categories.id')
       .orderBy('categories.sort_order', 'asc')
       .select('categories.*', db.raw('count(channels.id)::int as channel_count'));
 
-    return categories;
+    if (streamType) {
+      query = query.having(db.raw('count(channels.id)'), '>', 0);
+    }
+
+    return query;
   }
 
   /**
