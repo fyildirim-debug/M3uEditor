@@ -598,13 +598,21 @@
           <div class="form-group"><label>{{ t('xtream.serverUrl') }}</label><input class="input" v-model="xtreamForm.serverUrl" placeholder="http://example.com:8080" /></div>
           <div class="form-group"><label>{{ t('xtream.username') }}</label><input class="input" v-model="xtreamForm.username" /></div>
           <div class="form-group"><label>{{ t('xtream.password') }}</label><input class="input" type="password" v-model="xtreamForm.password" /></div>
+          <div class="form-group">
+            <label>{{ t('xtream.streamTypes') }}</label>
+            <div class="stream-type-group">
+              <label class="stream-type-label"><input type="checkbox" value="live" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeLive') }}</label>
+              <label class="stream-type-label"><input type="checkbox" value="vod" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeVod') }}</label>
+              <label class="stream-type-label"><input type="checkbox" value="series" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeSeries') }}</label>
+            </div>
+          </div>
           <div v-if="importResult" class="result-box success">
             {{ t('toast.importSuccess', { channels: importResult.totalChannels, categories: importResult.totalCategories, duration: (importResult.duration / 1000).toFixed(1) }) }}
           </div>
           <div v-if="importError" class="result-box error">{{ importError }}</div>
           <div class="modal-actions">
             <button class="btn btn-secondary" @click="showXtreamModal = false">{{ t('common.close') }}</button>
-            <button class="btn btn-primary" @click="doXtreamImport" :disabled="importing || !xtreamForm.serverUrl || !xtreamForm.username || !xtreamForm.password">
+            <button class="btn btn-primary" @click="doXtreamImport" :disabled="importing || !xtreamForm.serverUrl || !xtreamForm.username || !xtreamForm.password || !xtreamForm.streamTypes.length">
               <span v-if="importing" class="spinner" style="width:14px;height:14px"></span>
               {{ importing ? t('common.importing') : t('common.import') }}
             </button>
@@ -764,7 +772,7 @@ const inlineEditName = ref('')
 
 // Xtream
 const showXtreamModal = ref(false)
-const xtreamForm = ref({ serverUrl: '', username: '', password: '' })
+const xtreamForm = ref({ serverUrl: '', username: '', password: '', streamTypes: ['live'] })
 const importing = ref(false)
 const importResult = ref(null)
 const importError = ref('')
@@ -1928,4 +1936,8 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 
 .spinner-sm { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.stream-type-group { display: flex; gap: 16px; margin-top: 4px; }
+.stream-type-label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; color: var(--text-secondary); }
+.stream-type-label input[type="checkbox"] { accent-color: var(--accent); }
 </style>

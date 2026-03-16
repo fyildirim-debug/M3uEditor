@@ -196,35 +196,80 @@ class XtreamClient {
 
   /**
    * Tüm kanalları getir: kategori bazlı çekerek sağlayıcı limitini aş.
-   * Önce kategorileri çeker, sonra her kategori için ayrı ayrı kanalları alır.
+   * @param {string[]} [streamTypes=['live']] - Çekilecek tipler: 'live', 'vod', 'series'
    * @returns {Promise<{ categories: Array, channels: Array }>}
    */
-  async getAllChannels() {
-    const categories = await this.getLiveCategories();
-
-    const mappedCategories = categories.map((cat) => ({
-      category_id: cat.category_id,
-      category_name: cat.category_name,
-    }));
-
-    // Her kategori için ayrı ayrı kanalları çek (sağlayıcı limiti aşmak için)
+  async getAllChannels(streamTypes = ['live']) {
+    const allCategories = [];
     const allChannels = [];
-    for (const cat of categories) {
-      const streams = await this.getLiveStreams(cat.category_id);
-      for (const stream of streams) {
-        allChannels.push({
-          stream_id: stream.stream_id,
-          name: stream.name,
-          stream_icon: stream.stream_icon || null,
-          epg_channel_id: stream.epg_channel_id || null,
-          category_id: stream.category_id || null,
-          stream_type: 'live',
-          container_extension: 'ts',
-        });
+
+    // Live TV
+    if (streamTypes.includes('live')) {
+      const liveCats = await this.getLiveCategories();
+      for (const cat of liveCats) {
+        allCategories.push({ category_id: cat.category_id, category_name: cat.category_name });
+        const streams = await this.getLiveStreams(cat.category_id);
+        for (const stream of streams) {
+          allChannels.push({
+            stream_id: stream.stream_id,
+            name: stream.name,
+            stream_icon: stream.stream_icon || null,
+            epg_channel_id: stream.epg_channel_id || null,
+            category_id: stream.category_id || null,
+            stream_type: 'live',
+            container_extension: 'ts',
+          });
+        }
       }
     }
 
-    return { categories: mappedCategories, channels: allChannels };
+    // VOD (Filmler)
+    if (streamTypes.includes('vod')) {
+      const vodCats = await this.getVodCategories();
+      for (const cat of vodCats) {
+        allCategories.push({
+          category_id: `vod_${cat.category_id}`,
+          category_name: `VOD | ${cat.category_name}`,
+        });
+        const streams = await this.getVodStreams(cat.category_id);
+        for (const stream of streams) {
+          allChannels.push({
+            stream_id: stream.stream_id,
+            name: stream.name,
+            stream_icon: stream.stream_icon || null,
+            epg_channel_id: null,
+            category_id: `vod_${stream.category_id || cat.category_id}`,
+            stream_type: 'vod',
+            container_extension: stream.container_extension || 'mp4',
+          });
+        }
+      }
+    }
+
+    // Series (Diziler)
+    if (streamTypes.includes('series')) {
+      const seriesCats = await this.getSeriesCategories();
+      for (const cat of seriesCats) {
+        allCategories.push({
+          category_id: `series_${cat.category_id}`,
+          category_name: `Series | ${cat.category_name}`,
+        });
+        const streams = await this.getSeriesStreams(cat.category_id);
+        for (const stream of streams) {
+          allChannels.push({
+            stream_id: stream.series_id || stream.stream_id,
+            name: stream.name,
+            stream_icon: stream.cover || stream.stream_icon || null,
+            epg_channel_id: null,
+            category_id: `series_${stream.category_id || cat.category_id}`,
+            stream_type: 'series',
+            container_extension: stream.container_extension || 'mp4',
+          });
+        }
+      }
+    }
+
+    return { categories: allCategories, channels: allChannels };
   }
 
 

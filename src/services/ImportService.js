@@ -15,7 +15,7 @@ class ImportService {
    */
   async importFromXtream(userId, credentials, onProgress, playlistId) {
     const startTime = Date.now();
-    const { serverUrl, username, password } = credentials;
+    const { serverUrl, username, password, streamTypes = ['live'] } = credentials;
 
     const client = new XtreamClient(serverUrl, username, password);
 
@@ -28,18 +28,19 @@ class ImportService {
       throw createAppError('IMPORT_FAILED', err.message);
     }
 
-    const { categories, channels } = await client.getAllChannels();
+    const { categories, channels } = await client.getAllChannels(streamTypes);
 
     // Use existing playlist if provided, otherwise create/get one
     let playlist;
     if (playlistId) {
       playlist = await db('playlists').where({ id: playlistId, user_id: userId }).first();
       if (!playlist) throw createAppError('NOT_FOUND', 'Playlist bulunamadı');
-      // Store xtream credentials on the playlist for future sync
+      // Store xtream credentials and stream types on the playlist for future sync
       await db('playlists').where({ id: playlistId }).update({
         xtream_server_url: serverUrl.replace(/\/+$/, ''),
         xtream_username: username,
         xtream_password_enc: password,
+        xtream_stream_types: JSON.stringify(streamTypes),
         updated_at: new Date()
       });
     } else {
@@ -51,10 +52,17 @@ class ImportService {
 
     // Kanal kayıtlarını oluştur ve toplu upsert yap
     const channelRecords = channels.map((ch, index) => {
-      // Live TV URL formatı
       const baseUrl = serverUrl.replace(/\/+$/, '');
       const ext = ch.container_extension || 'ts';
-      const streamUrl = `${baseUrl}/live/${username}/${password}/${ch.stream_id}.${ext}`;
+
+      // Stream tipine göre URL formatı
+      let urlPath;
+      switch (ch.stream_type) {
+        case 'vod': urlPath = 'movie'; break;
+        case 'series': urlPath = 'series'; break;
+        default: urlPath = 'live'; break;
+      }
+      const streamUrl = `${baseUrl}/${urlPath}/${username}/${password}/${ch.stream_id}.${ext}`;
 
       return {
         id: uuidv4(),
@@ -66,8 +74,9 @@ class ImportService {
         epg_channel_id: ch.epg_channel_id || null,
         category_id: ch.category_id ? (categoryMap[ch.category_id] || null) : null,
         sort_order: index,
+        stream_type: ch.stream_type || 'live',
         original_name: ch.name,
-        extras: JSON.stringify({ stream_id: ch.stream_id, stream_type: 'live' }),
+        extras: JSON.stringify({ stream_id: ch.stream_id, stream_type: ch.stream_type || 'live' }),
       };
     });
 
@@ -117,10 +126,14 @@ class ImportService {
     );
 
     // Re-import using importFromXtream logic
+    const streamTypes = playlist.xtream_stream_types
+      ? JSON.parse(playlist.xtream_stream_types)
+      : ['live'];
     const credentials = {
       serverUrl: playlist.xtream_server_url,
       username: playlist.xtream_username,
       password: playlist.xtream_password_enc,
+      streamTypes,
     };
 
     const result = await this.importFromXtream(userId, credentials, onProgress, playlistId);
@@ -158,7 +171,7 @@ class ImportService {
    * @private
    */
   async _getOrCreatePlaylist(userId, credentials) {
-    const { serverUrl, username, password } = credentials;
+    const { serverUrl, username, password, streamTypes = ['live'] } = credentials;
     const normalizedUrl = serverUrl.replace(/\/+$/, '');
 
     let playlist = await db('playlists')
@@ -178,9 +191,15 @@ class ImportService {
           xtream_server_url: normalizedUrl,
           xtream_username: username,
           xtream_password_enc: password,
+          xtream_stream_types: JSON.stringify(streamTypes),
         })
         .returning('*');
       playlist = created;
+    } else {
+      await db('playlists').where({ id: playlist.id }).update({
+        xtream_stream_types: JSON.stringify(streamTypes),
+        updated_at: new Date(),
+      });
     }
 
     return playlist;
@@ -238,6 +257,7 @@ class ImportService {
     const CONFLICT_CLAUSE = `ON CONFLICT (playlist_id, stream_url) DO UPDATE SET
       original_name       = EXCLUDED.original_name,
       original_logo_url   = EXCLUDED.original_logo_url,
+      stream_type         = EXCLUDED.stream_type,
       extras              = EXCLUDED.extras,
       updated_at          = NOW(),
       name      = CASE WHEN channels.name IS NOT DISTINCT FROM channels.original_name

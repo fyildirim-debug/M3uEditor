@@ -183,6 +183,14 @@
             <div class="form-group"><label>{{ t('xtream.serverUrl') }}</label><input class="input" v-model="xtreamForm.serverUrl" placeholder="http://example.com:8080" /></div>
             <div class="form-group"><label>{{ t('xtream.username') }}</label><input class="input" v-model="xtreamForm.username" /></div>
             <div class="form-group"><label>{{ t('xtream.password') }}</label><input class="input" v-model="xtreamForm.password" /></div>
+            <div class="form-group">
+              <label>{{ t('xtream.streamTypes') }}</label>
+              <div class="stream-type-group">
+                <label class="stream-type-label"><input type="checkbox" value="live" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeLive') }}</label>
+                <label class="stream-type-label"><input type="checkbox" value="vod" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeVod') }}</label>
+                <label class="stream-type-label"><input type="checkbox" value="series" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeSeries') }}</label>
+              </div>
+            </div>
             <div v-if="importResult" class="result-box success">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               {{ importResult.totalChannels }} kanal, {{ importResult.totalCategories }} kategori içe aktarıldı ({{ (importResult.duration / 1000).toFixed(1) }}s)
@@ -193,7 +201,7 @@
             </div>
             <div class="modal-actions">
               <button class="btn btn-secondary" @click="showXtreamModal = false">{{ t('common.close') }}</button>
-              <button class="btn btn-primary" @click="doXtreamImport" :disabled="importing || !xtreamForm.serverUrl || !xtreamForm.username || !xtreamForm.password">
+              <button class="btn btn-primary" @click="doXtreamImport" :disabled="importing || !xtreamForm.serverUrl || !xtreamForm.username || !xtreamForm.password || !xtreamForm.streamTypes.length">
                 <span v-if="importing" class="spinner" style="width:14px;height:14px"></span>
                 {{ importing ? t('common.importing') : t('common.import') }}
               </button>
@@ -237,7 +245,7 @@ const lastUpdated = computed(() => {
 
 // Xtream import state
 const showXtreamModal = ref(false)
-const xtreamForm = ref({ serverUrl: '', username: '', password: '' })
+const xtreamForm = ref({ serverUrl: '', username: '', password: '', streamTypes: ['live'] })
 const importing = ref(false)
 const importResult = ref(null)
 const importError = ref('')
@@ -337,7 +345,7 @@ function openXtream() {
   showXtreamModal.value = true
   importResult.value = null
   importError.value = ''
-  xtreamForm.value = { serverUrl: '', username: '', password: '' }
+  xtreamForm.value = { serverUrl: '', username: '', password: '', streamTypes: ['live'] }
   m3uUrlInput.value = ''
   m3uUrlParsed.value = false
 }
@@ -498,4 +506,8 @@ async function doXtreamImport() {
 .url-divider { display: flex; align-items: center; gap: 12px; margin: 8px 0 16px; }
 .url-divider::before, .url-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 .url-divider span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; }
+
+.stream-type-group { display: flex; gap: 16px; margin-top: 4px; }
+.stream-type-label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; color: var(--text-secondary); }
+.stream-type-label input[type="checkbox"] { accent-color: var(--accent); }
 </style>

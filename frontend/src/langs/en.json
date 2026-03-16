@@ -110,7 +110,11 @@
     "lastSynced": "Last updated:",
     "updateChannels": "Update Channels",
     "updating": "Updating...",
-    "changeAccount": "Import with different account"
+    "changeAccount": "Import with different account",
+    "streamTypes": "Content Types",
+    "typeLive": "Live TV",
+    "typeVod": "Movies (VOD)",
+    "typeSeries": "Series"
   },
   "editor": {
     "allChannels": "All Channels",

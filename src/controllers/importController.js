@@ -8,14 +8,17 @@ const { createAppError } = require('../utils/AppError');
 async function importFromXtream(req, res, next) {
   try {
     const { id: playlistId } = req.params;
-    const { serverUrl, username, password } = req.body;
+    const { serverUrl, username, password, streamTypes } = req.body;
 
     if (!serverUrl || !username || !password) {
       throw createAppError('VALIDATION_ERROR', 'serverUrl, username ve password alanları zorunludur');
     }
 
+    const validTypes = ['live', 'vod', 'series'];
+    const types = Array.isArray(streamTypes) ? streamTypes.filter(t => validTypes.includes(t)) : ['live'];
+
     const importService = new ImportService();
-    const result = await importService.importFromXtream(req.userId, { serverUrl, username, password }, undefined, playlistId);
+    const result = await importService.importFromXtream(req.userId, { serverUrl, username, password, streamTypes: types }, undefined, playlistId);
 
     res.json({
       totalChannels: result.totalChannels,
@@ -33,15 +36,17 @@ async function importFromXtream(req, res, next) {
  */
 async function importFromXtreamNew(req, res, next) {
   try {
-    const { serverUrl, username, password } = req.body;
+    const { serverUrl, username, password, streamTypes } = req.body;
 
     if (!serverUrl || !username || !password) {
       throw createAppError('VALIDATION_ERROR', 'serverUrl, username ve password alanları zorunludur');
     }
 
+    const validTypes = ['live', 'vod', 'series'];
+    const types = Array.isArray(streamTypes) ? streamTypes.filter(t => validTypes.includes(t)) : ['live'];
+
     const importService = new ImportService();
-    // playlistId null → ImportService _getOrCreatePlaylist kullanarak yeni oluşturur veya mevcut olanı bulur
-    const result = await importService.importFromXtream(req.userId, { serverUrl, username, password }, undefined, null);
+    const result = await importService.importFromXtream(req.userId, { serverUrl, username, password, streamTypes: types }, undefined, null);
 
     res.json({
       playlistId: result.playlistId,

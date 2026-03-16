@@ -110,7 +110,11 @@
     "lastSynced": "Son guncelleme:",
     "updateChannels": "Kanallari Guncelle",
     "updating": "Guncelleniyor...",
-    "changeAccount": "Farkli hesapla ice aktar"
+    "changeAccount": "Farkli hesapla ice aktar",
+    "streamTypes": "Icerik Tipleri",
+    "typeLive": "Canli TV",
+    "typeVod": "Filmler (VOD)",
+    "typeSeries": "Diziler (Series)"
   },
   "editor": {
     "allChannels": "Tum Kanallar",
