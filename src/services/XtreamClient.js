@@ -241,6 +241,11 @@ class XtreamClient {
             category_id: `vod_${stream.category_id || cat.category_id}`,
             stream_type: 'vod',
             container_extension: stream.container_extension || 'mp4',
+            rating: stream.rating || null,
+            genre: stream.genre || null,
+            plot: stream.plot || null,
+            year: stream.year || stream.releaseDate?.slice(0, 4) || null,
+            tmdb_id: stream.tmdb_id || null,
           });
         }
       }
@@ -264,6 +269,11 @@ class XtreamClient {
             category_id: `series_${stream.category_id || cat.category_id}`,
             stream_type: 'series',
             container_extension: stream.container_extension || 'mp4',
+            rating: stream.rating || null,
+            genre: stream.genre || null,
+            plot: stream.plot || null,
+            year: stream.year || stream.releaseDate?.slice(0, 4) || null,
+            tmdb_id: stream.tmdb_id || null,
           });
         }
       }
@@ -272,7 +282,27 @@ class XtreamClient {
     return { categories: allCategories, channels: allChannels };
   }
 
+  /**
+   * VOD (film) detay bilgisi getir.
+   * @param {string} vodId
+   * @returns {Promise<object|null>}
+   */
+  async getVodInfo(vodId) {
+    try {
+      return await this._fetchWithRetry(this._buildUrl({ action: 'get_vod_info', vod_id: vodId }));
+    } catch { return null; }
+  }
 
+  /**
+   * Dizi detay bilgisi getir.
+   * @param {string} seriesId
+   * @returns {Promise<object|null>}
+   */
+  async getSeriesInfo(seriesId) {
+    try {
+      return await this._fetchWithRetry(this._buildUrl({ action: 'get_series_info', series_id: seriesId }));
+    } catch { return null; }
+  }
 }
 
 module.exports = XtreamClient;

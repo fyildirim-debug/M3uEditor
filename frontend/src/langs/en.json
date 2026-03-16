@@ -254,6 +254,27 @@
     "updateError": "Update error",
     "logoUploadError": "Logo upload error",
     "categoryDeleteConfirm": "Are you sure you want to delete this EPG source?",
-    "deleteChannelConfirm": "Are you sure you want to delete {count} channels?"
+    "deleteChannelConfirm": "Are you sure you want to delete {count} channels?",
+    "metadataFetched": "Metadata fetched",
+    "metadataError": "Could not fetch metadata",
+    "metadataNotFound": "Not found on TMDB",
+    "noTmdbKey": "TMDB API key not configured"
+  },
+  "metadata": {
+    "fetchFromTmdb": "Fetch from TMDB",
+    "refetch": "Refetch",
+    "overview": "Overview",
+    "cast": "Cast",
+    "director": "Director",
+    "genres": "Genres",
+    "year": "Year",
+    "rating": "Rating",
+    "runtime": "Runtime",
+    "seasons": "Seasons",
+    "episodes": "Episodes",
+    "imdbId": "IMDB ID",
+    "tmdbId": "TMDB ID",
+    "fetching": "Fetching info...",
+    "min": "min"
   }
 }

@@ -254,6 +254,27 @@
     "updateError": "Guncelleme hatasi",
     "logoUploadError": "Logo yukleme hatasi",
     "categoryDeleteConfirm": "Bu EPG kaynagini silmek istediginize emin misiniz?",
-    "deleteChannelConfirm": "{count} kanali silmek istedigine emin misin?"
+    "deleteChannelConfirm": "{count} kanali silmek istedigine emin misin?",
+    "metadataFetched": "Metadata cekildi",
+    "metadataError": "Metadata cekilemedi",
+    "metadataNotFound": "TMDB'de bulunamadi",
+    "noTmdbKey": "TMDB API key tanimlanmamis"
+  },
+  "metadata": {
+    "fetchFromTmdb": "TMDB'den Bilgi Cek",
+    "refetch": "Tekrar Cek",
+    "overview": "Ozet",
+    "cast": "Oyuncular",
+    "director": "Yonetmen",
+    "genres": "Tur",
+    "year": "Yil",
+    "rating": "Puan",
+    "runtime": "Sure",
+    "seasons": "Sezon",
+    "episodes": "Bolum",
+    "imdbId": "IMDB ID",
+    "tmdbId": "TMDB ID",
+    "fetching": "Bilgiler aliniyor...",
+    "min": "dk"
   }
 }

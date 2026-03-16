@@ -20,6 +20,9 @@ router.post('/channels/:id/reset', authMiddleware, channelController.resetChanne
 // Logo upload (base64)
 router.post('/channels/:id/logo', authMiddleware, channelController.uploadLogo);
 
+// Fetch metadata from TMDB
+router.post('/channels/:id/metadata', authMiddleware, channelController.fetchMetadata);
+
 // Bulk operations (must be after :id routes to avoid conflict)
 router.post('/channels/bulk', authMiddleware, channelController.bulkAction);
 

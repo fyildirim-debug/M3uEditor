@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
+const db = require('../config/database');
 const channelService = require('../services/ChannelService');
 const { createAppError } = require('../utils/AppError');
 
@@ -159,4 +160,49 @@ async function uploadLogo(req, res, next) {
   }
 }
 
-module.exports = { listChannels, updateChannel, deleteChannel, updateChannelOrder, bulkAction, resetChannel, uploadLogo };
+/**
+ * POST /api/channels/:id/metadata
+ * Fetch metadata from TMDB and update channel extras.
+ */
+async function fetchMetadata(req, res, next) {
+  try {
+    const { id: channelId } = req.params;
+    const force = req.query.force === 'true';
+
+    const channel = await channelService._verifyChannelOwnership(req.userId, channelId);
+    const extras = channel.extras || {};
+
+    // Zaten cekilmis ve force degil → mevcut veriyi don
+    if (extras.metadata_fetched && !force) {
+      return res.json(channel);
+    }
+
+    const tmdbService = require('../services/TMDBService');
+    if (!tmdbService.enabled) {
+      throw createAppError('VALIDATION_ERROR', 'TMDB API key tanımlanmamış');
+    }
+
+    const metadata = await tmdbService.enrichMetadata(
+      channel.name,
+      channel.stream_type,
+      extras.year ? parseInt(extras.year, 10) : undefined
+    );
+
+    if (!metadata) {
+      throw createAppError('NOT_FOUND', 'TMDB\'de bulunamadı');
+    }
+
+    const updatedExtras = { ...extras, ...metadata };
+    await db('channels').where('id', channelId).update({
+      extras: JSON.stringify(updatedExtras),
+      updated_at: db.fn.now(),
+    });
+
+    const updated = await db('channels').where('id', channelId).first();
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listChannels, updateChannel, deleteChannel, updateChannelOrder, bulkAction, resetChannel, uploadLogo, fetchMetadata };

@@ -76,7 +76,16 @@ class ImportService {
         sort_order: index,
         stream_type: ch.stream_type || 'live',
         original_name: ch.name,
-        extras: JSON.stringify({ stream_id: ch.stream_id, stream_type: ch.stream_type || 'live' }),
+        extras: JSON.stringify({
+          stream_id: ch.stream_id,
+          stream_type: ch.stream_type || 'live',
+          ...(ch.rating && { rating: ch.rating }),
+          ...(ch.genre && { genre: ch.genre }),
+          ...(ch.plot && { plot: ch.plot }),
+          ...(ch.year && { year: ch.year }),
+          ...(ch.tmdb_id && { tmdb_id: ch.tmdb_id }),
+          metadata_fetched: false,
+        }),
       };
     });
 

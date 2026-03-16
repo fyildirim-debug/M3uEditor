@@ -173,7 +173,7 @@
                           <th class="th-num">#</th>
                           <th class="th-name">{{ t('table.name') }}</th>
                           <th class="th-url">{{ t('table.url') }}</th>
-                          <th class="th-epg">{{ t('table.epg') }}</th>
+                          <th class="th-epg">{{ activeStreamType === 'live' ? t('table.epg') : t('metadata.genres') }}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -187,10 +187,15 @@
                               <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" loading="lazy" @error="$event.target.style.display='none'" />
                               <span v-else class="row-logo-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
                               <span>{{ ch.name }}</span>
+                              <span v-if="activeStreamType !== 'live' && (ch.extras?.year || ch.extras?.rating)" class="ch-meta-badges">
+                                <span v-if="ch.extras?.year" class="ch-meta-year">{{ ch.extras.year }}</span>
+                                <span v-if="ch.extras?.rating" class="ch-meta-rating">{{ ch.extras.rating }}</span>
+                              </span>
                             </div>
                           </td>
                           <td class="td-url"><span class="url-text">{{ shortenUrl(ch.stream_url) }}</span></td>
-                          <td class="td-epg">{{ ch.epg_channel_id || '-' }}</td>
+                          <td v-if="activeStreamType === 'live'" class="td-epg">{{ ch.epg_channel_id || '-' }}</td>
+                          <td v-else class="td-epg">{{ ch.extras?.genres?.slice(0,2).join(', ') || ch.extras?.genre || '-' }}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -605,6 +610,58 @@
                   </div>
                 </div>
               </div>
+              <!-- Metadata Section (VOD/Series) -->
+              <div v-if="activeStreamType !== 'live'" class="ep-metadata-section">
+                <div class="ep-metadata-header">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                  <span>TMDB</span>
+                  <button class="btn btn-accent btn-xs" @click="fetchTmdbMetadata" :disabled="fetchingMetadata" style="margin-left:auto">
+                    <span v-if="fetchingMetadata" class="spinner" style="width:11px;height:11px"></span>
+                    {{ fetchingMetadata ? t('metadata.fetching') : (editingChannel.extras?.metadata_fetched ? t('metadata.refetch') : t('metadata.fetchFromTmdb')) }}
+                  </button>
+                </div>
+                <div v-if="editingChannel.extras?.metadata_fetched" class="ep-metadata-body">
+                  <div v-if="editingChannel.extras.backdrop_url" class="ep-meta-backdrop">
+                    <img :src="editingChannel.extras.backdrop_url" @error="$event.target.style.display='none'" />
+                  </div>
+                  <div v-if="editingChannel.extras.overview" class="ep-meta-overview">{{ editingChannel.extras.overview }}</div>
+                  <div class="ep-meta-grid">
+                    <div v-if="editingChannel.extras.year" class="ep-meta-item">
+                      <span class="ep-meta-label">{{ t('metadata.year') }}</span>
+                      <span class="ep-meta-value">{{ editingChannel.extras.year }}</span>
+                    </div>
+                    <div v-if="editingChannel.extras.rating" class="ep-meta-item">
+                      <span class="ep-meta-label">{{ t('metadata.rating') }}</span>
+                      <span class="ep-meta-value ep-meta-rating">{{ editingChannel.extras.rating.toFixed ? editingChannel.extras.rating.toFixed(1) : editingChannel.extras.rating }}</span>
+                    </div>
+                    <div v-if="editingChannel.extras.runtime" class="ep-meta-item">
+                      <span class="ep-meta-label">{{ t('metadata.runtime') }}</span>
+                      <span class="ep-meta-value">{{ editingChannel.extras.runtime }} {{ t('metadata.min') }}</span>
+                    </div>
+                    <div v-if="editingChannel.extras.seasons" class="ep-meta-item">
+                      <span class="ep-meta-label">{{ t('metadata.seasons') }}</span>
+                      <span class="ep-meta-value">{{ editingChannel.extras.seasons }}</span>
+                    </div>
+                    <div v-if="editingChannel.extras.episodes" class="ep-meta-item">
+                      <span class="ep-meta-label">{{ t('metadata.episodes') }}</span>
+                      <span class="ep-meta-value">{{ editingChannel.extras.episodes }}</span>
+                    </div>
+                  </div>
+                  <div v-if="editingChannel.extras.genres?.length" class="ep-meta-genres">
+                    <span v-for="g in editingChannel.extras.genres" :key="g" class="ep-meta-genre-tag">{{ g }}</span>
+                  </div>
+                  <div v-if="editingChannel.extras.director" class="ep-meta-info">
+                    <span class="ep-meta-label">{{ t('metadata.director') }}:</span> {{ editingChannel.extras.director }}
+                  </div>
+                  <div v-if="editingChannel.extras.cast?.length" class="ep-meta-info">
+                    <span class="ep-meta-label">{{ t('metadata.cast') }}:</span> {{ editingChannel.extras.cast.slice(0, 5).join(', ') }}
+                  </div>
+                  <div v-if="editingChannel.extras.imdb_id" class="ep-meta-info ep-meta-ids">
+                    <span>IMDB: {{ editingChannel.extras.imdb_id }}</span>
+                    <span v-if="editingChannel.extras.tmdb_id">TMDB: {{ editingChannel.extras.tmdb_id }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="ep-btn-row">
               <button class="btn btn-success" @click="saveChannel" style="flex:1">
@@ -782,6 +839,7 @@ const editingChannel = ref(null)
 const editForm = ref({})
 const logoFileInput = ref(null)
 const logoUploading = ref(false)
+const fetchingMetadata = ref(false)
 
 // Nav
 const activeView = ref('basic')
@@ -1331,6 +1389,19 @@ function applyEpgLogo() {
     editForm.value.logo_url = epgSelectedIcon.value
     toast(t('toast.epgLogoApplied'), 'success')
   }
+}
+async function fetchTmdbMetadata() {
+  if (!editingChannel.value) return
+  fetchingMetadata.value = true
+  try {
+    const force = editingChannel.value.extras?.metadata_fetched ? 'true' : 'false'
+    const { data } = await api.post(`/channels/${editingChannel.value.id}/metadata?force=${force}`)
+    editingChannel.value = data
+    toast(t('toast.metadataFetched'), 'success')
+  } catch (e) {
+    const msg = e.response?.data?.error?.message || t('toast.metadataError')
+    toast(msg, 'error')
+  } finally { fetchingMetadata.value = false }
 }
 // EPG ID field autocomplete
 function onEpgIdInput() {
@@ -2015,6 +2086,27 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 
 .spinner-sm { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Metadata panel */
+.ep-metadata-section { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+.ep-metadata-header { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
+.ep-metadata-body { font-size: 12px; color: var(--text-secondary); }
+.ep-meta-backdrop { border-radius: var(--radius); overflow: hidden; margin-bottom: 8px; max-height: 120px; }
+.ep-meta-backdrop img { width: 100%; height: 100%; object-fit: cover; }
+.ep-meta-overview { line-height: 1.5; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.ep-meta-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.ep-meta-item { display: flex; flex-direction: column; gap: 2px; background: var(--bg-tertiary); padding: 4px 8px; border-radius: var(--radius); }
+.ep-meta-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.ep-meta-value { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.ep-meta-rating { color: #fbbf24; }
+.ep-meta-genres { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.ep-meta-genre-tag { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--accent-soft, rgba(99,102,241,0.15)); color: var(--accent); }
+.ep-meta-info { font-size: 12px; margin-bottom: 4px; line-height: 1.4; }
+.ep-meta-info .ep-meta-label { display: inline; font-size: 12px; font-weight: 600; color: var(--text-primary); text-transform: none; letter-spacing: 0; }
+.ep-meta-ids { display: flex; gap: 12px; color: var(--text-muted); font-size: 11px; margin-top: 6px; }
+.ch-meta-badges { display: inline-flex; gap: 4px; margin-left: 6px; }
+.ch-meta-year { font-size: 10px; color: var(--text-muted); background: var(--bg-tertiary); padding: 1px 5px; border-radius: 4px; }
+.ch-meta-rating { font-size: 10px; color: #fbbf24; background: rgba(251,191,36,0.1); padding: 1px 5px; border-radius: 4px; font-weight: 600; }
 
 .nav-section-active { background: var(--bg-hover); border-left: 2px solid var(--accent); }
 .nav-section-count { font-size: 11px; color: var(--text-muted); background: var(--bg-tertiary); padding: 1px 6px; border-radius: 8px; margin-left: auto; margin-right: 4px; }
