@@ -9,13 +9,14 @@ const { createAppError } = require('../utils/AppError');
 async function listChannels(req, res, next) {
   try {
     const { id: playlistId } = req.params;
-    const { page, limit, search, categoryId } = req.query;
+    const { page, limit, search, categoryId, streamType } = req.query;
 
     const options = {};
     if (page !== undefined) options.page = parseInt(page, 10);
     if (limit !== undefined) options.limit = parseInt(limit, 10);
     if (search) options.search = search;
     if (categoryId) options.categoryId = categoryId;
+    if (streamType) options.streamType = streamType;
 
     const result = await channelService.list(req.userId, playlistId, options);
     res.json(result);

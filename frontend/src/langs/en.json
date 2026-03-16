@@ -34,6 +34,9 @@
   },
   "nav": {
     "playlists": "Playlists",
+    "liveChannels": "Live Channels",
+    "movies": "Movies",
+    "series": "Series",
     "channelEditor": "Channel Editor",
     "sorting": "Sorting",
     "epgEditor": "EPG Editor",

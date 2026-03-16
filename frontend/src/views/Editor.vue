@@ -3,13 +3,15 @@
     <div class="editor-body">
       <!-- Left nav sidebar -->
       <nav class="nav-sidebar">
+        <!-- Canli Kanallar -->
         <div class="nav-section">
-          <div class="nav-section-header" @click="navChannelsOpen = !navChannelsOpen">
+          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'live' }]" @click="toggleStreamSection('live')">
             <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
-            <span class="nav-section-title">{{ t('common.channels') }}</span>
-            <svg :class="['nav-chevron', { open: navChannelsOpen }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            <span class="nav-section-title">{{ t('nav.liveChannels') }}</span>
+            <span v-if="streamTypeCounts.live" class="nav-section-count">{{ streamTypeCounts.live }}</span>
+            <svg :class="['nav-chevron', { open: activeStreamType === 'live' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
-          <div v-if="navChannelsOpen" class="nav-items">
+          <div v-if="activeStreamType === 'live'" class="nav-items">
             <div :class="['nav-item', { active: activeView === 'basic' }]" @click="activeView = 'basic'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.channelEditor') }}
             </div>
@@ -24,6 +26,46 @@
             </div>
             <div :class="['nav-item', { active: activeView === 'update' }]" @click="activeView = 'update'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg> {{ t('nav.update') }}
+            </div>
+          </div>
+        </div>
+        <!-- Filmler -->
+        <div class="nav-section">
+          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'vod' }]" @click="toggleStreamSection('vod')">
+            <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg></span>
+            <span class="nav-section-title">{{ t('nav.movies') }}</span>
+            <span v-if="streamTypeCounts.vod" class="nav-section-count">{{ streamTypeCounts.vod }}</span>
+            <svg :class="['nav-chevron', { open: activeStreamType === 'vod' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div v-if="activeStreamType === 'vod'" class="nav-items">
+            <div :class="['nav-item', { active: activeView === 'basic' }]" @click="activeView = 'basic'">
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.channelEditor') }}
+            </div>
+            <div :class="['nav-item', { active: activeView === 'sort' }]" @click="activeView = 'sort'">
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
+            </div>
+            <div :class="['nav-item', { active: activeView === 'category' }]" @click="activeView = 'category'">
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
+            </div>
+          </div>
+        </div>
+        <!-- Diziler -->
+        <div class="nav-section">
+          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'series' }]" @click="toggleStreamSection('series')">
+            <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg></span>
+            <span class="nav-section-title">{{ t('nav.series') }}</span>
+            <span v-if="streamTypeCounts.series" class="nav-section-count">{{ streamTypeCounts.series }}</span>
+            <svg :class="['nav-chevron', { open: activeStreamType === 'series' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+          <div v-if="activeStreamType === 'series'" class="nav-items">
+            <div :class="['nav-item', { active: activeView === 'basic' }]" @click="activeView = 'basic'">
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.channelEditor') }}
+            </div>
+            <div :class="['nav-item', { active: activeView === 'sort' }]" @click="activeView = 'sort'">
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
+            </div>
+            <div :class="['nav-item', { active: activeView === 'category' }]" @click="activeView = 'category'">
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
             </div>
           </div>
         </div>
@@ -743,7 +785,8 @@ const logoUploading = ref(false)
 
 // Nav
 const activeView = ref('basic')
-const navChannelsOpen = ref(true)
+const activeStreamType = ref('live')
+const streamTypeCounts = ref({ live: 0, vod: 0, series: 0 })
 
 // Accordion
 const openAccordions = ref(new Set())
@@ -837,6 +880,34 @@ let searchTimer = null
 
 const allSelected = computed(() => channels.value.length > 0 && channels.value.every(ch => selectedIds.value.has(ch.id)))
 
+function toggleStreamSection(type) {
+  if (activeStreamType.value === type) return
+  activeStreamType.value = type
+  activeView.value = 'basic'
+  selectedCatId.value = null
+  editingChannel.value = null
+  page.value = 1
+  search.value = ''
+  loadChannels()
+  loadTotalCount()
+  loadCategories()
+}
+
+async function loadStreamTypeCounts() {
+  try {
+    const [liveRes, vodRes, seriesRes] = await Promise.all([
+      api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: 'live' } }),
+      api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: 'vod' } }),
+      api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: 'series' } })
+    ])
+    streamTypeCounts.value = {
+      live: liveRes.data.total || 0,
+      vod: vodRes.data.total || 0,
+      series: seriesRes.data.total || 0
+    }
+  } catch {}
+}
+
 onMounted(async () => {
   try {
     const [plRes, catRes] = await Promise.all([
@@ -849,7 +920,7 @@ onMounted(async () => {
       savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
     }
     categories.value = catRes.data
-    await Promise.all([loadChannels(), loadTotalCount()])
+    await Promise.all([loadChannels(), loadTotalCount(), loadStreamTypeCounts()])
   } catch { toast(t('toast.loadError'), 'error') }
   finally { pageLoading.value = false }
 })
@@ -863,7 +934,7 @@ watch(editingChannel, ch => { if (ch) loadEditChannelEpg() })
 async function loadChannels() {
   channelsLoading.value = true
   try {
-    const params = { page: page.value, limit: 50 }
+    const params = { page: page.value, limit: 50, streamType: activeStreamType.value }
     if (search.value) params.search = search.value
     if (selectedCatId.value) params.categoryId = selectedCatId.value
     const { data } = await api.get(`/playlists/${playlistId}/channels`, { params })
@@ -877,7 +948,7 @@ async function loadChannels() {
 
 async function loadTotalCount() {
   try {
-    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1 } })
+    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: activeStreamType.value } })
     totalChannelCount.value = data.total || 0
   } catch {}
 }
@@ -1091,7 +1162,7 @@ async function doXtreamImport() {
     const plRes = await api.get('/playlists')
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
     if (pl?.xtream_server_url) savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
-    loadCategories(); loadChannels(); loadTotalCount()
+    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
     for (const catId of openAccordions.value) loadAccChannels(catId)
   } catch (e) { importError.value = e.response?.data?.error?.message || t('toast.connectionError') }
   finally { importing.value = false }
@@ -1104,7 +1175,7 @@ async function doSync() {
     const plRes = await api.get('/playlists')
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
     if (pl?.last_synced_at) savedXtream.value = { ...savedXtream.value, lastSynced: pl.last_synced_at }
-    loadCategories(); loadChannels(); loadTotalCount()
+    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
   } catch (e) { toast(e.response?.data?.error?.message || t('toast.updateError'), 'error') }
   finally { syncing.value = false }
 }
@@ -1937,6 +2008,8 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .spinner-sm { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+.nav-section-active { background: var(--bg-hover); border-left: 2px solid var(--accent); }
+.nav-section-count { font-size: 11px; color: var(--text-muted); background: var(--bg-tertiary); padding: 1px 6px; border-radius: 8px; margin-left: auto; margin-right: 4px; }
 .stream-type-group { display: flex; gap: 16px; margin-top: 4px; }
 .stream-type-label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; color: var(--text-secondary); }
 .stream-type-label input[type="checkbox"] { accent-color: var(--accent); }

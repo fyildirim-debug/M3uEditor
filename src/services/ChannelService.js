@@ -44,11 +44,15 @@ class ChannelService {
    * @param {{ page?: number, limit?: number, search?: string, categoryId?: string }} options
    * @returns {Promise<{ channels: object[], total: number }>}
    */
-  async list(userId, playlistId, { page = 1, limit = 100, search, categoryId } = {}) {
+  async list(userId, playlistId, { page = 1, limit = 100, search, categoryId, streamType } = {}) {
     await this._verifyPlaylistOwnership(userId, playlistId);
 
     const query = db('channels')
       .where('channels.playlist_id', playlistId);
+
+    if (streamType) {
+      query.andWhere('channels.stream_type', streamType);
+    }
 
     if (categoryId) {
       query.andWhere('channels.category_id', categoryId);
