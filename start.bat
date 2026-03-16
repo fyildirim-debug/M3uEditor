@@ -106,7 +106,7 @@ echo [1/4] Bagimliliklar kontrol ediliyor...
 
 if not exist "%ROOT_DIR%\node_modules" (
     echo   → Backend bagimliliklari yukleniyor...
-    cd /d "%ROOT_DIR%" && npm install --silent
+    cd /d "%ROOT_DIR%" && call npm install --silent
     echo   + Backend hazir
 ) else (
     echo   + Backend bagimliliklari mevcut
@@ -114,7 +114,7 @@ if not exist "%ROOT_DIR%\node_modules" (
 
 if not exist "%FRONTEND_DIR%\node_modules" (
     echo   → Frontend bagimliliklari yukleniyor...
-    cd /d "%FRONTEND_DIR%" && npm install --silent
+    cd /d "%FRONTEND_DIR%" && call npm install --silent
     echo   + Frontend hazir
 ) else (
     echo   + Frontend bagimliliklari mevcut
