@@ -120,7 +120,10 @@
     "noChannelsInCat": "No channels in this category",
     "noChannels": "No channels yet. Import with Xtream.",
     "selectChannelToEdit": "Select a channel to edit",
-    "channelsAvailable": "{count} channels available"
+    "channelsAvailable": "{count} channels available",
+    "showCategory": "Show",
+    "hideCategory": "Hide",
+    "rename": "Rename"
   },
   "editPanel": {
     "title": "Edit Channel",
@@ -155,6 +158,7 @@
     "urlPlaceholder": "https://epg-source.com/guide.xml",
     "statusActive": "Active",
     "statusError": "Error",
+    "statusPending": "Pending",
     "noSources": "No EPG sources added yet",
     "addSourcesHint": "Add an XMLTV source using the form above",
     "live": "LIVE",

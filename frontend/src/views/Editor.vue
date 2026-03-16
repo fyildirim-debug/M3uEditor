@@ -6,36 +6,36 @@
         <div class="nav-section">
           <div class="nav-section-header" @click="navChannelsOpen = !navChannelsOpen">
             <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
-            <span class="nav-section-title">Kanallar</span>
+            <span class="nav-section-title">{{ t('common.channels') }}</span>
             <svg :class="['nav-chevron', { open: navChannelsOpen }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div v-if="navChannelsOpen" class="nav-items">
             <div :class="['nav-item', { active: activeView === 'basic' }]" @click="activeView = 'basic'">
-              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Kanal Editörü
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.channelEditor') }}
             </div>
             <div :class="['nav-item', { active: activeView === 'sort' }]" @click="activeView = 'sort'">
-              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> Sıralama
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
             </div>
             <div :class="['nav-item', { active: activeView === 'epg' }]" @click="activeView = 'epg'">
-              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> EPG Editörü
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> {{ t('nav.epgEditor') }}
             </div>
             <div :class="['nav-item', { active: activeView === 'category' }]" @click="activeView = 'category'">
-              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Kategori Editörü
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
             </div>
             <div :class="['nav-item', { active: activeView === 'update' }]" @click="activeView = 'update'">
-              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg> Güncelle
+              <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg> {{ t('nav.update') }}
             </div>
           </div>
         </div>
         <div class="nav-bottom">
           <div class="nav-item" @click="$router.push('/dashboard')">
-            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> Dashboard
+            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> {{ t('nav.dashboard') }}
           </div>
           <div class="nav-item" @click="doExport">
-            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> M3U İndir
+            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> {{ t('nav.downloadM3u') }}
           </div>
           <div class="nav-item" @click="doShare">
-            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Paylaş
+            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> {{ t('nav.share') }}
           </div>
         </div>
       </nav>
@@ -46,15 +46,15 @@
         <div class="top-bar">
           <div class="top-bar-left">
             <h2 class="playlist-title">{{ playlistName }}</h2>
-            <span class="channel-count-badge">{{ totalChannelCount }} kanal</span>
+            <span class="channel-count-badge">{{ totalChannelCount }} {{ t('common.channel') }}</span>
           </div>
           <div class="top-bar-right">
             <div class="search-box">
               <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input class="search-input" v-model="search" placeholder="Kanal ara..." @input="debouncedSearch" />
+              <input class="search-input" v-model="search" :placeholder="t('editor.searchPlaceholder')" @input="debouncedSearch" />
             </div>
             <button class="btn btn-secondary btn-sm" @click="openXtream">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> Xtream İçe Aktar
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> {{ t('xtream.importTitle') }}
             </button>
           </div>
         </div>
@@ -68,15 +68,15 @@
                 <!-- Sol: Kategori Sidebar -->
                 <div class="cat-sidebar">
                   <div class="cat-sidebar-header">
-                    <span class="cat-sidebar-title">Kategoriler</span>
-                    <button class="btn btn-ghost btn-icon-sm" @click="showCatCreate = true" title="Yeni Kategori">
+                    <span class="cat-sidebar-title">{{ t('common.categories') }}</span>
+                    <button class="btn btn-ghost btn-icon-sm" @click="showCatCreate = true" :title="t('editor.newCategory')">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     </button>
                   </div>
                   <div class="cat-sidebar-list">
                     <div :class="['cat-sb-item', { active: !selectedCatId }]" @click="selectCategory(null)">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
-                      <span class="cat-sb-name">Tüm Kanallar</span>
+                      <span class="cat-sb-name">{{ t('editor.allChannels') }}</span>
                       <span class="cat-sb-count">{{ totalChannelCount }}</span>
                     </div>
                     <div v-for="cat in categories" :key="cat.id"
@@ -93,14 +93,14 @@
                       <span v-else class="cat-sb-name" @dblclick.stop="startInlineEdit(cat)">{{ cat.name }}</span>
                       <span class="cat-sb-count">{{ cat.channel_count || 0 }}</span>
                       <div class="cat-sb-actions">
-                        <button class="cat-sb-btn" @click.stop="toggleCatHidden(cat.id)" :title="hiddenCats.has(cat.id) ? 'Göster' : 'Gizle'">
+                        <button class="cat-sb-btn" @click.stop="toggleCatHidden(cat.id)" :title="hiddenCats.has(cat.id) ? t('editor.showCategory') : t('editor.hideCategory')">
                           <svg v-if="!hiddenCats.has(cat.id)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                           <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                         </button>
-                        <button class="cat-sb-btn" @click.stop="startInlineEdit(cat)" title="Yeniden Adlandır">
+                        <button class="cat-sb-btn" @click.stop="startInlineEdit(cat)" :title="t('editor.rename')">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
-                        <button class="cat-sb-btn cat-sb-btn-danger" @click.stop="confirmDeleteCat(cat)" title="Sil">
+                        <button class="cat-sb-btn cat-sb-btn-danger" @click.stop="confirmDeleteCat(cat)" :title="t('common.delete')">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                         </button>
                       </div>
@@ -111,17 +111,17 @@
                 <!-- Sağ: Kanal Listesi -->
                 <div class="channel-main">
                   <div v-if="selectedIds.size > 0" class="bulk-bar">
-                    <span class="badge badge-accent">{{ selectedIds.size }} seçili</span>
-                    <button class="btn btn-secondary btn-xs" @click="showBulkMove = true">Taşı</button>
-                    <button class="btn btn-danger btn-xs" @click="bulkDelete">Sil</button>
+                    <span class="badge badge-accent">{{ selectedIds.size }} {{ t('common.selected') }}</span>
+                    <button class="btn btn-secondary btn-xs" @click="showBulkMove = true">{{ t('common.move') }}</button>
+                    <button class="btn btn-danger btn-xs" @click="bulkDelete">{{ t('common.delete') }}</button>
                   </div>
                   <div v-if="channelsLoading" class="center-loading"><span class="spinner"></span></div>
                   <div v-else-if="channels.length === 0 && !search" class="center-empty">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
-                    <p>{{ selectedCatId ? 'Bu kategoride kanal yok' : 'Henüz kanal yok. Xtream ile içe aktar.' }}</p>
+                    <p>{{ selectedCatId ? t('editor.noChannelsInCat') : t('editor.noChannels') }}</p>
                   </div>
                   <div v-else-if="channels.length === 0 && search" class="center-empty">
-                    <p>Sonuç bulunamadı</p>
+                    <p>{{ t('common.noResults') }}</p>
                   </div>
                   <div v-else class="channel-table-wrap">
                     <table class="ch-table">
@@ -129,9 +129,9 @@
                         <tr>
                           <th class="th-check"><input type="checkbox" @change="toggleSelectAll" :checked="allSelected" /></th>
                           <th class="th-num">#</th>
-                          <th class="th-name">Ad</th>
-                          <th class="th-url">URL</th>
-                          <th class="th-epg">EPG</th>
+                          <th class="th-name">{{ t('table.name') }}</th>
+                          <th class="th-url">{{ t('table.url') }}</th>
+                          <th class="th-epg">{{ t('table.epg') }}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -165,13 +165,13 @@
             <!-- SORT VIEW -->
             <template v-if="activeView === 'sort'">
               <div class="view-header">
-                <h3>Sıralama</h3>
-                <p class="view-desc">Sol panelden kategori seç → sağda kanalları sürükle</p>
+                <h3>{{ t('sort.title') }}</h3>
+                <p class="view-desc">{{ t('sort.instruction') }}</p>
               </div>
               <div class="sort-panels">
                 <!-- Sol: Kategoriler -->
                 <div class="sort-panel sort-panel-cats">
-                  <div class="sort-panel-title">Kategoriler</div>
+                  <div class="sort-panel-title">{{ t('common.categories') }}</div>
                   <div class="sort-list">
                     <div v-for="(cat, idx) in categories" :key="cat.id"
                       :class="['sort-item', { 'sort-item-active': sortSelectedCat?.id === cat.id }]"
@@ -189,14 +189,14 @@
                 <!-- Sağ: Kanallar -->
                 <div class="sort-panel sort-panel-channels">
                   <div class="sort-panel-title">
-                    {{ sortSelectedCat ? sortSelectedCat.name + ' Kanalları' : 'Kategori seçin' }}
+                    {{ sortSelectedCat ? sortSelectedCat.name + ' ' + t('common.channels') : t('sort.selectCategory') }}
                   </div>
                   <div v-if="!sortSelectedCat" class="sort-empty">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
-                    <span>Sol panelden bir kategori seçin</span>
+                    <span>{{ t('sort.selectFromLeft') }}</span>
                   </div>
                   <div v-else-if="sortCatLoading" class="sort-empty"><span class="spinner"></span></div>
-                  <div v-else-if="sortCatChannels.length === 0" class="sort-empty">Bu kategoride kanal yok</div>
+                  <div v-else-if="sortCatChannels.length === 0" class="sort-empty">{{ t('sort.noChannels') }}</div>
                   <div v-else class="sort-list">
                     <div v-for="(ch, idx) in sortVisibleChannels" :key="ch.id" class="sort-item"
                       draggable="true"
@@ -209,7 +209,7 @@
                       <span class="sort-count">#{{ idx + 1 }}</span>
                     </div>
                     <button v-if="sortRenderCount < sortCatChannels.length" class="btn btn-secondary btn-sm load-more-btn" @click="sortRenderCount += SORT_RENDER_LIMIT">
-                      {{ sortCatChannels.length - sortRenderCount }} kanal daha göster
+                      {{ t('common.showMore', { count: sortCatChannels.length - sortRenderCount }) }}
                     </button>
                   </div>
                 </div>
@@ -223,11 +223,11 @@
                 <div class="epg-tabs">
                   <button :class="['epg-tab', { active: epgTab === 'guide' }]" @click="epgTab = 'guide'">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                    TV Rehberi
+                    {{ t('epg.guideTab') }}
                   </button>
                   <button :class="['epg-tab', { active: epgTab === 'sources' }]" @click="epgTab = 'sources'">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></svg>
-                    Kaynaklar
+                    {{ t('epg.sourcesTab') }}
                     <span v-if="epgSources.length" class="epg-tab-badge">{{ epgSources.length }}</span>
                   </button>
                 </div>
@@ -235,7 +235,7 @@
                   <button v-if="epgTab === 'guide'" class="btn btn-secondary btn-sm" @click="doAutoMatch" :disabled="autoMatching || !epgSources.length">
                     <span v-if="autoMatching" class="spinner" style="width:13px;height:13px"></span>
                     <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                    Otomatik Eslesir
+                    {{ t('epg.autoMatch') }}
                   </button>
                   <span v-if="matchResult" class="badge badge-success">{{ matchResult.matched }}/{{ matchResult.total }}</span>
                 </div>
@@ -264,14 +264,14 @@
                 <!-- Guide Grid -->
                 <div v-if="guideLoading" class="epg-guide-loading">
                   <span class="spinner"></span>
-                  <span>Program rehberi yukleniyor...</span>
+                  <span>{{ t('epg.loadingGuide') }}</span>
                 </div>
                 <div v-else-if="guideChannels.length === 0" class="epg-guide-empty">
                   <div class="epg-guide-empty-icon">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                   </div>
-                  <p>EPG verisi bulunamadi</p>
-                  <span class="epg-guide-empty-hint">Once "Kaynaklar" sekmesinden EPG kaynagi ekleyin, sonra "Otomatik Eslesir" ile kanallari eslestirin.</span>
+                  <p>{{ t('epg.noData') }}</p>
+                  <span class="epg-guide-empty-hint">{{ t('epg.emptyHint') }}</span>
                 </div>
                 <div v-else class="epg-grid-container" ref="epgGridRef">
                   <!-- Time Header -->
@@ -312,7 +312,7 @@
                           <span class="epg-prog-block-time">{{ formatTime(prog.start_time) }}</span>
                         </div>
                         <!-- Empty state for row -->
-                        <div v-if="!ch.programs.length" class="epg-row-empty">Veri yok</div>
+                        <div v-if="!ch.programs.length" class="epg-row-empty">{{ t('epg.rowEmpty') }}</div>
                       </div>
                       <!-- Now indicator line -->
                       <div v-if="isGuideToday" class="epg-now-line" :style="{ left: nowOffset + 'px' }">
@@ -331,13 +331,13 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   </div>
                   <div class="epg-add-card-body">
-                    <div class="epg-add-card-title">EPG Kaynagi Ekle</div>
-                    <div class="epg-add-card-desc">XMLTV formatinda EPG URL'si girin</div>
+                    <div class="epg-add-card-title">{{ t('epg.addSourceTitle') }}</div>
+                    <div class="epg-add-card-desc">{{ t('epg.addSourceDesc') }}</div>
                     <div class="epg-add-input-row">
                       <input class="input" v-model="newEpgUrl" placeholder="https://epg-source.com/guide.xml" @keyup.enter="addEpgSource" />
                       <button class="btn btn-primary btn-sm" @click="addEpgSource" :disabled="addingEpg || !newEpgUrl.trim()">
                         <span v-if="addingEpg" class="spinner" style="width:13px;height:13px"></span>
-                        <span v-else>Ekle</span>
+                        <span v-else>{{ t('common.add') }}</span>
                       </button>
                     </div>
                   </div>
@@ -355,7 +355,7 @@
                       <div class="epg-src-info">
                         <div class="epg-src-url">{{ s.url }}</div>
                         <div class="epg-src-meta">
-                          <span :class="['epg-src-badge', 'badge-' + s.status]">{{ s.status === 'active' ? 'Aktif' : s.status === 'error' ? 'Hata' : 'Bekliyor' }}</span>
+                          <span :class="['epg-src-badge', 'badge-' + s.status]">{{ s.status === 'active' ? t('epg.statusActive') : s.status === 'error' ? t('epg.statusError') : t('epg.statusPending') }}</span>
                           <span v-if="s.last_fetched_at" class="epg-src-date">
                             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             {{ formatDateTime(s.last_fetched_at) }}
@@ -363,11 +363,11 @@
                         </div>
                       </div>
                       <div class="epg-src-actions">
-                        <button class="epg-src-btn" @click="refreshEpgSource(s)" :disabled="s._refreshing" title="Yenile">
+                        <button class="epg-src-btn" @click="refreshEpgSource(s)" :disabled="s._refreshing" :title="t('common.refresh')">
                           <span v-if="s._refreshing" class="spinner" style="width:12px;height:12px"></span>
                           <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
                         </button>
-                        <button class="epg-src-btn epg-src-btn-danger" @click="deleteEpgSource(s)" title="Sil">
+                        <button class="epg-src-btn epg-src-btn-danger" @click="deleteEpgSource(s)" :title="t('common.delete')">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                         </button>
                       </div>
@@ -378,8 +378,8 @@
                   <div class="epg-no-sources-icon">
                     <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></svg>
                   </div>
-                  <p>Henuz EPG kaynagi eklenmedi</p>
-                  <span>Yukaridaki formu kullanarak XMLTV kaynagi ekleyin</span>
+                  <p>{{ t('epg.noSources') }}</p>
+                  <span>{{ t('epg.addSourcesHint') }}</span>
                 </div>
               </div>
             </template>
@@ -387,19 +387,19 @@
             <!-- CATEGORY EDITOR VIEW -->
             <template v-if="activeView === 'category'">
               <div class="view-header">
-                <h3>Kategori Editörü</h3>
+                <h3>{{ t('categoryEditor.title') }}</h3>
                 <div class="view-header-actions">
-                  <button class="btn btn-primary btn-sm" @click="showCatCreate = true">+ Yeni Kategori</button>
+                  <button class="btn btn-primary btn-sm" @click="showCatCreate = true">{{ t('categoryEditor.newCategory') }}</button>
                 </div>
               </div>
               <div class="cat-editor-list">
                 <div v-for="cat in categories" :key="cat.id" class="cat-editor-item">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                   <span class="cat-editor-name">{{ cat.name }}</span>
-                  <span class="cat-editor-count">{{ cat.channel_count || 0 }} kanal</span>
+                  <span class="cat-editor-count">{{ cat.channel_count || 0 }} {{ t('common.channel') }}</span>
                   <div class="cat-editor-actions">
-                    <button class="btn btn-ghost btn-xs" @click="startEditCat(cat)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Düzenle</button>
-                    <button class="btn btn-ghost btn-xs" style="color:var(--danger)" @click="confirmDeleteCat(cat)">🗑 Sil</button>
+                    <button class="btn btn-ghost btn-xs" @click="startEditCat(cat)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('common.edit') }}</button>
+                    <button class="btn btn-ghost btn-xs" style="color:var(--danger)" @click="confirmDeleteCat(cat)">{{ t('common.delete') }}</button>
                   </div>
                 </div>
               </div>
@@ -408,8 +408,8 @@
             <!-- UPDATE VIEW -->
             <template v-if="activeView === 'update'">
               <div class="view-header">
-                <h3>Güncelle</h3>
-                <p class="view-desc">Xtream Codes kaynağından kanalları yeniden çek</p>
+                <h3>{{ t('updateView.title') }}</h3>
+                <p class="view-desc">{{ t('updateView.subtitle') }}</p>
               </div>
               <div class="update-panel">
                 <!-- Saved Xtream source card -->
@@ -419,24 +419,24 @@
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
                     </div>
                     <div class="xtream-source-info">
-                      <div class="xtream-source-title">Xtream Codes Kaynağı</div>
+                      <div class="xtream-source-title">{{ t('xtream.sourceTitle') }}</div>
                       <div class="xtream-source-detail">{{ savedXtream.username }} @ {{ savedXtream.serverUrl }}</div>
                     </div>
-                    <span class="badge badge-success" style="font-size:10px">Bağlı</span>
+                    <span class="badge badge-success" style="font-size:10px">{{ t('status.connected') }}</span>
                   </div>
                   <div class="xtream-source-meta" v-if="savedXtream.lastSynced">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    Son güncelleme: {{ new Date(savedXtream.lastSynced).toLocaleString('tr-TR') }}
+                    {{ t('xtream.lastSynced') }} {{ new Date(savedXtream.lastSynced).toLocaleString() }}
                   </div>
                   <div class="xtream-source-actions">
                     <button class="btn btn-primary" @click="doSync" :disabled="syncing" style="flex:1">
                       <span v-if="syncing" class="spinner" style="width:14px;height:14px"></span>
                       <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                      {{ syncing ? 'Güncelleniyor...' : 'Kanalları Güncelle' }}
+                      {{ syncing ? t('xtream.updating') : t('xtream.updateChannels') }}
                     </button>
-                    <button class="btn btn-secondary" @click="openXtream" title="Farklı hesapla içe aktar">
+                    <button class="btn btn-secondary" @click="openXtream" :title="t('xtream.changeAccount')">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                      Değiştir
+                      {{ t('common.change') }}
                     </button>
                   </div>
                 </div>
@@ -446,20 +446,20 @@
                   <div class="xtream-no-source-icon">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
                   </div>
-                  <p>Kayıtlı Xtream Codes kaynağı yok</p>
+                  <p>{{ t('xtream.noSource') }}</p>
                   <button class="btn btn-primary" @click="openXtream">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    Xtream Codes Ekle
+                    {{ t('xtream.addXtream') }}
                   </button>
                 </div>
 
                 <div class="update-info">
                   <div class="update-stat">
-                    <span class="update-stat-label">Toplam Kanal</span>
+                    <span class="update-stat-label">{{ t('updateView.totalChannels') }}</span>
                     <span class="update-stat-value">{{ totalChannelCount }}</span>
                   </div>
                   <div class="update-stat">
-                    <span class="update-stat-label">Kategori</span>
+                    <span class="update-stat-label">{{ t('common.category') }}</span>
                     <span class="update-stat-value">{{ categories.length }}</span>
                   </div>
                 </div>
@@ -470,26 +470,26 @@
           <!-- Right: Edit panel (always visible) -->
           <aside class="edit-panel" v-if="editingChannel">
             <div class="ep-header">
-              <h3>Kanal Düzenle</h3>
+              <h3>{{ t('editPanel.title') }}</h3>
               <button class="btn btn-ghost btn-icon-sm" @click="editingChannel = null">✕</button>
             </div>
             <div class="ep-body">
               <div class="ep-logo-area">
-                <div v-if="editForm.logo_url" class="ep-logo-preview" @click="triggerLogoUpload" title="Logo yükle">
+                <div v-if="editForm.logo_url" class="ep-logo-preview" @click="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
                   <img :src="editForm.logo_url" @error="$event.target.style.display='none'" />
                   <div class="ep-logo-overlay">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   </div>
                 </div>
-                <div v-else class="ep-logo-placeholder ep-logo-upload" @click="triggerLogoUpload" title="Logo yükle">
+                <div v-else class="ep-logo-placeholder ep-logo-upload" @click="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  <span class="ep-logo-upload-hint">Yükle</span>
+                  <span class="ep-logo-upload-hint">{{ t('common.upload') }}</span>
                 </div>
                 <input ref="logoFileInput" type="file" accept="image/*" style="display:none" @change="handleLogoUpload" />
               </div>
               <div class="ep-form">
                 <div class="form-group epg-ac-wrap">
-                  <label>Kanal Adı</label>
+                  <label>{{ t('editPanel.channelName') }}</label>
                   <input class="input" v-model="editForm.name" @input="onNameInput" @focus="onNameFocus" @blur="onNameBlur" autocomplete="off" />
                   <!-- EPG Autocomplete Dropdown -->
                   <div v-if="epgAcResults.length > 0 && epgAcOpen" class="epg-ac-dropdown">
@@ -507,8 +507,8 @@
                 </div>
                 <div class="form-row">
                   <div class="form-group epg-ac-wrap" style="flex:1">
-                    <label>EPG ID</label>
-                    <input class="input" v-model="editForm.epg_channel_id" placeholder="Opsiyonel" @input="onEpgIdInput" @focus="onEpgIdFocus" @blur="onEpgIdBlur" autocomplete="off" />
+                    <label>{{ t('editPanel.epgId') }}</label>
+                    <input class="input" v-model="editForm.epg_channel_id" :placeholder="t('common.optional')" @input="onEpgIdInput" @focus="onEpgIdFocus" @blur="onEpgIdBlur" autocomplete="off" />
                     <div v-if="epgIdAcResults.length > 0 && epgIdAcOpen" class="epg-ac-dropdown">
                       <div v-for="epgCh in epgIdAcResults" :key="epgCh.channel_id" class="epg-ac-item" @mousedown.prevent="selectEpgFromId(epgCh)">
                         <img v-if="epgCh.icon_url" :src="epgCh.icon_url" class="epg-ac-logo" @error="$event.target.style.display='none'" />
@@ -529,18 +529,18 @@
                     <img :src="epgSelectedIcon" class="epg-logo-offer-img" @error="epgSelectedIcon = null" />
                   </div>
                   <div class="epg-logo-offer-info">
-                    <span class="epg-logo-offer-label">EPG logosu mevcut</span>
+                    <span class="epg-logo-offer-label">{{ t('editPanel.epgLogoAvailable') }}</span>
                     <button class="btn btn-accent btn-xs" @click="applyEpgLogo">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      Logoyu EPG'den Çek
+                      {{ t('editPanel.getLogoFromEpg') }}
                     </button>
                   </div>
                 </div>
-                <div class="form-group"><label>Logo URL</label><input class="input" v-model="editForm.logo_url" placeholder="https://..." /></div>
-                <div class="form-group"><label>Stream URL</label><input class="input" v-model="editForm.stream_url" /></div>
-                <div class="form-group"><label>Kategori</label>
+                <div class="form-group"><label>{{ t('editPanel.logoUrl') }}</label><input class="input" v-model="editForm.logo_url" placeholder="https://..." /></div>
+                <div class="form-group"><label>{{ t('editPanel.streamUrl') }}</label><input class="input" v-model="editForm.stream_url" /></div>
+                <div class="form-group"><label>{{ t('common.category') }}</label>
                   <select class="input" v-model="editForm.category_id">
-                    <option :value="null">Kategorisiz</option>
+                    <option :value="null">{{ t('common.uncategorized') }}</option>
                     <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
                   </select>
                 </div>
@@ -549,14 +549,14 @@
               <div v-if="editingChannel.epg_channel_id && getCurrentAndNext().length" class="ep-epg-section">
                 <div class="ep-epg-header">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  <span>Yayın Akışı</span>
+                  <span>{{ t('editPanel.broadcast') }}</span>
                 </div>
                 <div class="ep-epg-list">
                   <div v-for="(prog, idx) in getCurrentAndNext()" :key="prog.id" class="ep-epg-item">
                     <div class="ep-epg-item-header">
                       <span class="ep-epg-time">{{ formatTime(prog.start_time) }}</span>
-                      <span v-if="idx === 0 && isProgramLive(prog)" class="badge badge-danger" style="font-size:9px;padding:2px 6px">LIVE</span>
-                      <span v-else-if="idx === 1" class="badge badge-accent" style="font-size:9px;padding:2px 6px">NEXT</span>
+                      <span v-if="idx === 0 && isProgramLive(prog)" class="badge badge-danger" style="font-size:9px;padding:2px 6px">{{ t('epg.live') }}</span>
+                      <span v-else-if="idx === 1" class="badge badge-accent" style="font-size:9px;padding:2px 6px">{{ t('epg.next') }}</span>
                     </div>
                     <div class="ep-epg-title">{{ prog.title }}</div>
                     <div v-if="prog.description" class="ep-epg-desc">{{ prog.description }}</div>
@@ -567,9 +567,9 @@
             <div class="ep-btn-row">
               <button class="btn btn-success" @click="saveChannel" style="flex:1">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                Kaydet
+                {{ t('common.save') }}
               </button>
-              <button class="btn btn-secondary" @click="resetChannel" :title="editingChannel.original_name ? 'Xtream orijinaline sıfırla' : 'Orijinal yok'">
+              <button class="btn btn-secondary" @click="resetChannel" :title="editingChannel.original_name ? t('editPanel.resetToOriginal') : t('editPanel.noOriginal')">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
               </button>
               <button class="btn btn-danger" @click="deleteChannel(editingChannel)">
@@ -580,8 +580,8 @@
           <aside class="edit-panel edit-panel-empty" v-else>
             <div class="ep-empty">
               <div class="ep-empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></div>
-              <p>Düzenlemek için bir kanal seçin</p>
-              <span class="ep-empty-hint">{{ totalChannelCount }} kanal mevcut</span>
+              <p>{{ t('editor.selectChannelToEdit') }}</p>
+              <span class="ep-empty-hint">{{ t('editor.channelsAvailable', { count: totalChannelCount }) }}</span>
             </div>
           </aside>
         </div>
@@ -592,21 +592,21 @@
     <Teleport to="body">
       <div v-if="showXtreamModal" class="modal-overlay" @click.self="showXtreamModal = false">
         <div class="modal" style="max-width:500px">
-          <div class="modal-header"><h3>Xtream Codes İçe Aktar</h3>
+          <div class="modal-header"><h3>{{ t('xtream.importTitle') }}</h3>
             <button class="btn btn-ghost btn-icon-sm" @click="showXtreamModal = false">✕</button>
           </div>
-          <div class="form-group"><label>Sunucu URL</label><input class="input" v-model="xtreamForm.serverUrl" placeholder="http://example.com:8080" /></div>
-          <div class="form-group"><label>Kullanıcı Adı</label><input class="input" v-model="xtreamForm.username" /></div>
-          <div class="form-group"><label>Şifre</label><input class="input" type="password" v-model="xtreamForm.password" /></div>
+          <div class="form-group"><label>{{ t('xtream.serverUrl') }}</label><input class="input" v-model="xtreamForm.serverUrl" placeholder="http://example.com:8080" /></div>
+          <div class="form-group"><label>{{ t('xtream.username') }}</label><input class="input" v-model="xtreamForm.username" /></div>
+          <div class="form-group"><label>{{ t('xtream.password') }}</label><input class="input" type="password" v-model="xtreamForm.password" /></div>
           <div v-if="importResult" class="result-box success">
-            {{ importResult.totalChannels }} kanal, {{ importResult.totalCategories }} kategori içe aktarıldı ({{ (importResult.duration / 1000).toFixed(1) }}s)
+            {{ t('toast.importSuccess', { channels: importResult.totalChannels, categories: importResult.totalCategories, duration: (importResult.duration / 1000).toFixed(1) }) }}
           </div>
           <div v-if="importError" class="result-box error">{{ importError }}</div>
           <div class="modal-actions">
-            <button class="btn btn-secondary" @click="showXtreamModal = false">Kapat</button>
+            <button class="btn btn-secondary" @click="showXtreamModal = false">{{ t('common.close') }}</button>
             <button class="btn btn-primary" @click="doXtreamImport" :disabled="importing || !xtreamForm.serverUrl || !xtreamForm.username || !xtreamForm.password">
               <span v-if="importing" class="spinner" style="width:14px;height:14px"></span>
-              {{ importing ? 'İçe aktarılıyor...' : 'İçe Aktar' }}
+              {{ importing ? t('common.importing') : t('common.import') }}
             </button>
           </div>
         </div>
@@ -615,15 +615,15 @@
     <Teleport to="body">
       <div v-if="showBulkMove" class="modal-overlay" @click.self="showBulkMove = false">
         <div class="modal">
-          <div class="modal-header"><h3>Kanalları Taşı</h3><button class="btn btn-ghost btn-icon-sm" @click="showBulkMove = false">✕</button></div>
-          <div class="form-group"><label>Hedef Kategori</label>
+          <div class="modal-header"><h3>{{ t('bulkMove.title') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="showBulkMove = false">✕</button></div>
+          <div class="form-group"><label>{{ t('bulkMove.targetCategory') }}</label>
             <select class="input" v-model="bulkTargetCat">
               <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
           </div>
           <div class="modal-actions">
-            <button class="btn btn-secondary" @click="showBulkMove = false">İptal</button>
-            <button class="btn btn-primary" @click="doBulkMove" :disabled="!bulkTargetCat">Taşı</button>
+            <button class="btn btn-secondary" @click="showBulkMove = false">{{ t('common.cancel') }}</button>
+            <button class="btn btn-primary" @click="doBulkMove" :disabled="!bulkTargetCat">{{ t('common.move') }}</button>
           </div>
         </div>
       </div>
@@ -631,37 +631,37 @@
     <Teleport to="body">
       <div v-if="showCatCreate" class="modal-overlay" @click.self="showCatCreate = false">
         <div class="modal">
-          <div class="modal-header"><h3>Yeni Kategori</h3><button class="btn btn-ghost btn-icon-sm" @click="showCatCreate = false">✕</button></div>
-          <div class="form-group"><label>Kategori Adı</label><input class="input" v-model="newCatName" @keyup.enter="createCategory" autofocus /></div>
-          <div class="modal-actions"><button class="btn btn-secondary" @click="showCatCreate = false">İptal</button><button class="btn btn-primary" @click="createCategory" :disabled="!newCatName.trim()">Oluştur</button></div>
+          <div class="modal-header"><h3>{{ t('categoryEditor.createTitle') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="showCatCreate = false">✕</button></div>
+          <div class="form-group"><label>{{ t('categoryEditor.nameLabel') }}</label><input class="input" v-model="newCatName" @keyup.enter="createCategory" autofocus /></div>
+          <div class="modal-actions"><button class="btn btn-secondary" @click="showCatCreate = false">{{ t('common.cancel') }}</button><button class="btn btn-primary" @click="createCategory" :disabled="!newCatName.trim()">{{ t('common.create') }}</button></div>
         </div>
       </div>
     </Teleport>
     <Teleport to="body">
       <div v-if="editingCat" class="modal-overlay" @click.self="editingCat = null">
         <div class="modal">
-          <div class="modal-header"><h3>Kategori Düzenle</h3><button class="btn btn-ghost btn-icon-sm" @click="editingCat = null">✕</button></div>
-          <div class="form-group"><label>Kategori Adı</label><input class="input" v-model="editCatName" @keyup.enter="updateCategory" /></div>
-          <div class="modal-actions"><button class="btn btn-secondary" @click="editingCat = null">İptal</button><button class="btn btn-primary" @click="updateCategory" :disabled="!editCatName.trim()">Kaydet</button></div>
+          <div class="modal-header"><h3>{{ t('categoryEditor.editTitle') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="editingCat = null">✕</button></div>
+          <div class="form-group"><label>{{ t('categoryEditor.nameLabel') }}</label><input class="input" v-model="editCatName" @keyup.enter="updateCategory" /></div>
+          <div class="modal-actions"><button class="btn btn-secondary" @click="editingCat = null">{{ t('common.cancel') }}</button><button class="btn btn-primary" @click="updateCategory" :disabled="!editCatName.trim()">{{ t('common.save') }}</button></div>
         </div>
       </div>
     </Teleport>
     <Teleport to="body">
       <div v-if="deletingCat" class="modal-overlay" @click.self="deletingCat = null">
         <div class="modal">
-          <div class="modal-header"><h3>Kategori Sil</h3><button class="btn btn-ghost btn-icon-sm" @click="deletingCat = null">✕</button></div>
-          <p style="font-size:13px;color:var(--text-secondary)">"{{ deletingCat.name }}" kategorisini silmek istediğine emin misin?</p>
-          <div class="modal-actions"><button class="btn btn-secondary" @click="deletingCat = null">İptal</button><button class="btn btn-danger" @click="doDeleteCat">Sil</button></div>
+          <div class="modal-header"><h3>{{ t('categoryEditor.deleteTitle') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="deletingCat = null">✕</button></div>
+          <p style="font-size:13px;color:var(--text-secondary)">"{{ deletingCat.name }}" {{ t('categoryEditor.deleteConfirm') }}</p>
+          <div class="modal-actions"><button class="btn btn-secondary" @click="deletingCat = null">{{ t('common.cancel') }}</button><button class="btn btn-danger" @click="doDeleteCat">{{ t('common.delete') }}</button></div>
         </div>
       </div>
     </Teleport>
     <Teleport to="body">
       <div v-if="shareUrl" class="modal-overlay" @click.self="shareUrl = null">
         <div class="modal">
-          <div class="modal-header"><h3>Paylaşım Linki</h3><button class="btn btn-ghost btn-icon-sm" @click="shareUrl = null">✕</button></div>
+          <div class="modal-header"><h3>{{ t('share.title') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="shareUrl = null">✕</button></div>
           <div class="form-group"><input class="input" :value="shareUrl" readonly @click="$event.target.select()" /></div>
-          <p style="font-size:12px;color:var(--text-muted)">Bu linki IPTV oynatıcına ekleyebilirsin.</p>
-          <div class="modal-actions"><button class="btn btn-primary" @click="copyShare">Kopyala</button><button class="btn btn-secondary" @click="shareUrl = null">Kapat</button></div>
+          <p style="font-size:12px;color:var(--text-muted)">{{ t('share.instruction') }}</p>
+          <div class="modal-actions"><button class="btn btn-primary" @click="copyShare">{{ t('common.copy') }}</button><button class="btn btn-secondary" @click="shareUrl = null">{{ t('common.close') }}</button></div>
         </div>
       </div>
     </Teleport>
@@ -680,12 +680,12 @@
           </div>
           <div class="epg-detail-body">
             <div class="epg-detail-badge-row">
-              <span v-if="isProgramLive(selectedProgram)" class="badge badge-danger">CANLI</span>
+              <span v-if="isProgramLive(selectedProgram)" class="badge badge-danger">{{ t('epg.live') }}</span>
               <span class="badge badge-accent">
                 {{ formatTime(selectedProgram.start_time) }} - {{ formatTime(selectedProgram.end_time) }}
               </span>
               <span class="badge" style="background:var(--bg-tertiary);color:var(--text-secondary)">
-                {{ getProgramDuration(selectedProgram) }} dk
+                {{ getProgramDuration(selectedProgram) }} {{ t('epg.durationSuffix') }}
               </span>
             </div>
             <h3 class="epg-detail-title">{{ selectedProgram.title }}</h3>
@@ -696,7 +696,7 @@
               <span class="epg-detail-progress-text">%{{ getProgramProgress(selectedProgram) }}</span>
             </div>
             <p v-if="selectedProgram.description" class="epg-detail-desc">{{ selectedProgram.description }}</p>
-            <p v-else class="epg-detail-no-desc">Aciklama mevcut degil</p>
+            <p v-else class="epg-detail-no-desc">{{ t('epg.noDescription') }}</p>
           </div>
         </div>
       </div>
@@ -709,9 +709,11 @@
 import { ref, reactive, onMounted, onUnmounted, inject, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
+import { useI18n } from '../langs/useI18n'
 
 const route = useRoute()
 const toast = inject('toast')
+const { t } = useI18n()
 const playlistId = route.params.id
 
 const pageLoading = ref(true)
@@ -807,7 +809,7 @@ function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(
 const isGuideToday = computed(() => guideDate.value === todayStr())
 const guideDateOptions = computed(() => {
   const days = []
-  const dayNames = ['Paz', 'Pzt', 'Sal', 'Car', 'Per', 'Cum', 'Cmt']
+  const dayNames = [t('days.sun'), t('days.mon'), t('days.tue'), t('days.wed'), t('days.thu'), t('days.fri'), t('days.sat')]
   const base = new Date(guideDate.value + 'T00:00:00')
   for (let i = -2; i <= 4; i++) {
     const d = new Date(base)
@@ -840,7 +842,7 @@ onMounted(async () => {
     }
     categories.value = catRes.data
     await Promise.all([loadChannels(), loadTotalCount()])
-  } catch { toast('Yüklenirken hata oluştu', 'error') }
+  } catch { toast(t('toast.loadError'), 'error') }
   finally { pageLoading.value = false }
 })
 
@@ -861,7 +863,7 @@ async function loadChannels() {
     totalPages.value = data.totalPages || 1
     tableTotal.value = data.total || channels.value.length
     if (!selectedCatId.value && !search.value) totalChannelCount.value = data.total || channels.value.length
-  } catch { toast('Kanallar yüklenemedi', 'error') }
+  } catch { toast(t('toast.channelsLoadError'), 'error') }
   finally { channelsLoading.value = false }
 }
 
@@ -920,20 +922,20 @@ function startEditChannel(ch) {
 async function saveChannel() {
   try {
     await api.put(`/channels/${editingChannel.value.id}`, editForm.value)
-    toast('Kanal güncellendi', 'success'); editingChannel.value = null
+    toast(t('toast.channelUpdated'), 'success'); editingChannel.value = null
     loadChannels(); loadCategories(); loadTotalCount()
     for (const catId of openAccordions.value) loadAccChannels(catId)
-  } catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 
 async function deleteChannel(ch) {
-  if (!confirm(`"${ch.name}" kanalını silmek istediğine emin misin?`)) return
+  if (!confirm(`"${ch.name}" ${t('toast.deleteChannelConfirm', { count: 1 })}`)) return
   try {
     await api.delete(`/channels/${ch.id}`)
     if (editingChannel.value?.id === ch.id) editingChannel.value = null
-    toast('Silindi', 'success'); loadChannels(); loadCategories(); loadTotalCount()
+    toast(t('toast.deleted'), 'success'); loadChannels(); loadCategories(); loadTotalCount()
     for (const catId of openAccordions.value) loadAccChannels(catId)
-  } catch { toast('Silinemedi', 'error') }
+  } catch { toast(t('toast.deleteFailed'), 'error') }
 }
 
 async function resetChannel() {
@@ -942,9 +944,9 @@ async function resetChannel() {
     const { data } = await api.post(`/channels/${editingChannel.value.id}/reset`)
     editForm.value = { name: data.name, logo_url: data.logo_url || '', epg_channel_id: data.epg_channel_id || '', category_id: data.category_id || null, stream_url: data.stream_url || '' }
     editingChannel.value = data
-    toast('Xtream orijinaline döndürüldü', 'success')
+    toast(t('toast.resetToOriginal'), 'success')
     loadChannels()
-  } catch (e) { toast(e.response?.data?.error?.message || 'Sıfırlama hatası', 'error') }
+  } catch (e) { toast(e.response?.data?.error?.message || t('toast.resetError'), 'error') }
 }
 
 function triggerLogoUpload() {
@@ -954,7 +956,7 @@ function triggerLogoUpload() {
 async function handleLogoUpload(event) {
   const file = event.target.files?.[0]
   if (!file || !editingChannel.value) return
-  if (file.size > 2 * 1024 * 1024) { toast('Resim 2MB\'dan büyük olamaz', 'error'); return }
+  if (file.size > 2 * 1024 * 1024) { toast(t('toast.imageTooLarge'), 'error'); return }
 
   logoUploading.value = true
   try {
@@ -964,8 +966,8 @@ async function handleLogoUpload(event) {
         const { data } = await api.post(`/channels/${editingChannel.value.id}/logo`, { imageData: e.target.result })
         editForm.value.logo_url = data.logo_url || ''
         editingChannel.value = { ...editingChannel.value, logo_url: data.logo_url }
-        toast('Logo yüklendi', 'success')
-      } catch (err) { toast(err.response?.data?.error?.message || 'Logo yükleme hatası', 'error') }
+        toast(t('toast.logoUploaded'), 'success')
+      } catch (err) { toast(err.response?.data?.error?.message || t('toast.logoUploadError'), 'error') }
       finally { logoUploading.value = false }
     }
     reader.readAsDataURL(file)
@@ -975,13 +977,13 @@ async function handleLogoUpload(event) {
 }
 
 async function bulkDelete() {
-  if (!confirm(`${selectedIds.value.size} kanalı silmek istediğine emin misin?`)) return
+  if (!confirm(t('toast.deleteChannelConfirm', { count: selectedIds.value.size }))) return
   try {
     for (const id of selectedIds.value) await api.delete(`/channels/${id}`)
-    selectedIds.value = new Set(); toast('Silindi', 'success')
+    selectedIds.value = new Set(); toast(t('toast.deleted'), 'success')
     loadChannels(); loadCategories(); loadTotalCount()
     for (const catId of openAccordions.value) loadAccChannels(catId)
-  } catch { toast('Hata', 'error') }
+  } catch { toast(t('common.error'), 'error') }
 }
 
 async function doBulkMove() {
@@ -999,7 +1001,7 @@ async function doBulkMove() {
     affectedCats.add(bulkTargetCat.value)
 
     await api.post('/channels/bulk', { action: 'move', channelIds: [...selectedIds.value], targetCategoryId: bulkTargetCat.value })
-    showBulkMove.value = false; selectedIds.value = new Set(); toast('Taşındı', 'success')
+    showBulkMove.value = false; selectedIds.value = new Set(); toast(t('toast.moved'), 'success')
 
     // Clear cached accordion data for all affected categories
     for (const catId of affectedCats) {
@@ -1014,39 +1016,39 @@ async function doBulkMove() {
         loadAccChannels(catId)
       }
     }
-  } catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 
 async function createCategory() {
   if (!newCatName.value.trim()) return
-  try { await api.post(`/playlists/${playlistId}/categories`, { name: newCatName.value.trim() }); newCatName.value = ''; showCatCreate.value = false; toast('Oluşturuldu', 'success'); loadCategories() }
-  catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
+  try { await api.post(`/playlists/${playlistId}/categories`, { name: newCatName.value.trim() }); newCatName.value = ''; showCatCreate.value = false; toast(t('toast.created'), 'success'); loadCategories() }
+  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 function startEditCat(cat) { editingCat.value = cat; editCatName.value = cat.name }
 async function updateCategory() {
   if (!editCatName.value.trim()) return
-  try { await api.put(`/categories/${editingCat.value.id}`, { name: editCatName.value.trim() }); editingCat.value = null; toast('Güncellendi', 'success'); loadCategories() }
-  catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
+  try { await api.put(`/categories/${editingCat.value.id}`, { name: editCatName.value.trim() }); editingCat.value = null; toast(t('toast.updated'), 'success'); loadCategories() }
+  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 function confirmDeleteCat(cat) { deletingCat.value = cat }
 function toggleCatHidden(catId) { const s = new Set(hiddenCats.value); s.has(catId) ? s.delete(catId) : s.add(catId); hiddenCats.value = s }
 function startInlineEdit(cat) { inlineEditCatId.value = cat.id; inlineEditName.value = cat.name }
 async function saveInlineEdit(cat) {
   if (!inlineEditName.value.trim() || inlineEditName.value === cat.name) { inlineEditCatId.value = null; return }
-  try { await api.put(`/categories/${cat.id}`, { name: inlineEditName.value.trim() }); toast('Yeniden adlandırıldı', 'success'); loadCategories() }
-  catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
+  try { await api.put(`/categories/${cat.id}`, { name: inlineEditName.value.trim() }); toast(t('toast.renamed'), 'success'); loadCategories() }
+  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
   finally { inlineEditCatId.value = null }
 }
 async function doDeleteCat() {
-  try { await api.delete(`/categories/${deletingCat.value.id}`); if (selectedCatId.value === deletingCat.value?.id) selectedCatId.value = null; deletingCat.value = null; toast('Silindi', 'success'); loadCategories(); loadChannels() }
-  catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
+  try { await api.delete(`/categories/${deletingCat.value.id}`); if (selectedCatId.value === deletingCat.value?.id) selectedCatId.value = null; deletingCat.value = null; toast(t('toast.deleted'), 'success'); loadCategories(); loadChannels() }
+  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 
 async function catDrop(idx) {
   if (sortDragIdx === null || sortDragIdx === idx) return
   const cat = categories.value[sortDragIdx]
   try { await api.put(`/categories/${cat.id}/order`, { newPosition: idx }); loadCategories() }
-  catch { toast('Sıralama hatası', 'error') }
+  catch { toast(t('toast.sortingError'), 'error') }
   sortDragIdx = null
 }
 
@@ -1057,7 +1059,7 @@ async function selectSortCat(cat) {
   try {
     const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { categoryId: cat.id, limit: 1000 } })
     sortCatChannels.value = data.channels || data
-  } catch { toast('Kanallar yüklenemedi', 'error') }
+  } catch { toast(t('toast.channelsLoadError'), 'error') }
   finally { sortCatLoading.value = false }
 }
 
@@ -1068,7 +1070,7 @@ async function chanDrop(idx) {
   sortCatChannels.value.splice(idx, 0, moved)
   sortChanDragIdx = null
   try { await api.put(`/channels/${ch.id}/order`, { newPosition: idx }) }
-  catch { toast('Kanal sıralama hatası', 'error') }
+  catch { toast(t('toast.sortingError'), 'error') }
 }
 
 function openXtream() { showXtreamModal.value = true; importResult.value = null; importError.value = '' }
@@ -1076,26 +1078,26 @@ async function doXtreamImport() {
   importing.value = true; importResult.value = null; importError.value = ''
   try {
     const { data } = await api.post(`/playlists/${playlistId}/import/xtream`, xtreamForm.value)
-    importResult.value = data; toast(`${data.totalChannels} kanal içe aktarıldı`, 'success')
+    importResult.value = data; toast(t('toast.importSuccess', { channels: data.totalChannels, categories: data.totalCategories, duration: (data.duration / 1000).toFixed(1) }), 'success')
     // Refresh saved xtream info
     const plRes = await api.get('/playlists')
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
     if (pl?.xtream_server_url) savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
     loadCategories(); loadChannels(); loadTotalCount()
     for (const catId of openAccordions.value) loadAccChannels(catId)
-  } catch (e) { importError.value = e.response?.data?.error?.message || 'Bağlantı hatası.' }
+  } catch (e) { importError.value = e.response?.data?.error?.message || t('toast.connectionError') }
   finally { importing.value = false }
 }
 async function doSync() {
   syncing.value = true
   try {
     const { data } = await api.post(`/playlists/${playlistId}/sync`)
-    toast(`Güncellendi: +${data.added} eklendi, ${data.updated} güncellendi, ${data.removed} silindi`, 'success')
+    toast(t('toast.syncResult', { added: data.added, updated: data.updated, removed: data.removed }), 'success')
     const plRes = await api.get('/playlists')
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
     if (pl?.last_synced_at) savedXtream.value = { ...savedXtream.value, lastSynced: pl.last_synced_at }
     loadCategories(); loadChannels(); loadTotalCount()
-  } catch (e) { toast(e.response?.data?.error?.message || 'Güncelleme hatası', 'error') }
+  } catch (e) { toast(e.response?.data?.error?.message || t('toast.updateError'), 'error') }
   finally { syncing.value = false }
 }
 
@@ -1106,25 +1108,25 @@ async function loadAllChannels() {
 async function loadEpgSources() { try { const { data } = await api.get('/epg/sources'); epgSources.value = data } catch {} }
 async function addEpgSource() {
   if (!newEpgUrl.value.trim()) return; addingEpg.value = true
-  try { const { data } = await api.post('/epg/sources', { url: newEpgUrl.value.trim() }); toast(`EPG eklendi: ${data.channelCount} kanal, ${data.programCount} program`, 'success'); newEpgUrl.value = ''; loadEpgSources(); loadGuide() }
-  catch (e) { toast(e.response?.data?.error?.message || 'EPG hatasi', 'error') }
+  try { const { data } = await api.post('/epg/sources', { url: newEpgUrl.value.trim() }); toast(t('toast.epgAdded', { channels: data.channelCount, programs: data.programCount }), 'success'); newEpgUrl.value = ''; loadEpgSources(); loadGuide() }
+  catch (e) { toast(e.response?.data?.error?.message || t('toast.epgError'), 'error') }
   finally { addingEpg.value = false }
 }
 async function refreshEpgSource(source) {
   source._refreshing = true
-  try { const { data } = await api.post(`/epg/sources/${source.id}/refresh`); toast(`Yenilendi: ${data.channelCount} kanal, ${data.programCount} program`, 'success'); loadEpgSources(); loadGuide() }
-  catch (e) { toast(e.response?.data?.error?.message || 'Yenileme hatasi', 'error') }
+  try { const { data } = await api.post(`/epg/sources/${source.id}/refresh`); toast(t('toast.epgRefreshed', { channels: data.channelCount, programs: data.programCount }), 'success'); loadEpgSources(); loadGuide() }
+  catch (e) { toast(e.response?.data?.error?.message || t('toast.epgRefreshError'), 'error') }
   finally { source._refreshing = false }
 }
 async function deleteEpgSource(source) {
-  if (!confirm('Bu EPG kaynagini silmek istediginize emin misiniz?')) return
-  try { await api.delete(`/epg/sources/${source.id}`); toast('EPG kaynagi silindi', 'success'); loadEpgSources(); loadGuide() }
-  catch (e) { toast(e.response?.data?.error?.message || 'Silme hatasi', 'error') }
+  if (!confirm(t('toast.categoryDeleteConfirm'))) return
+  try { await api.delete(`/epg/sources/${source.id}`); toast(t('toast.epgSourceDeleted'), 'success'); loadEpgSources(); loadGuide() }
+  catch (e) { toast(e.response?.data?.error?.message || t('toast.deletionError'), 'error') }
 }
 async function doAutoMatch() {
   autoMatching.value = true
-  try { const { data } = await api.post(`/playlists/${playlistId}/epg/auto-match`); matchResult.value = data; toast(`${data.matched}/${data.total} kanal eslesirildi`, 'success'); loadGuide(); loadChannels() }
-  catch { toast('Eslestirme hatasi', 'error') }
+  try { const { data } = await api.post(`/playlists/${playlistId}/epg/auto-match`); matchResult.value = data; toast(t('toast.channelsMatched', { count: `${data.matched}/${data.total}` }), 'success'); loadGuide(); loadChannels() }
+  catch { toast(t('toast.matchingError'), 'error') }
   finally { autoMatching.value = false }
 }
 async function loadGuide() {
@@ -1189,7 +1191,7 @@ function getCurrentAndNext() {
   const upcoming = editChannelEpg.value.filter(p => new Date(p.start_time) >= now || isProgramLive(p))
   return upcoming.slice(0, 3)
 }
-function formatDateTime(d) { if (!d) return ''; return new Date(d).toLocaleString('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }
+function formatDateTime(d) { if (!d) return ''; return new Date(d).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) }
 function getProgramDuration(prog) { return Math.round((new Date(prog.end_time) - new Date(prog.start_time)) / 60000) }
 function getProgramProgress(prog) { const now = Date.now(); const s = new Date(prog.start_time).getTime(); const e = new Date(prog.end_time).getTime(); return Math.min(100, Math.max(0, Math.round(((now - s) / (e - s)) * 100))) }
 // Update now offset every minute
@@ -1203,14 +1205,14 @@ async function doExport() {
     const { data } = await api.get(`/playlists/${playlistId}/export`, { responseType: 'blob', params })
     const url = URL.createObjectURL(new Blob([data])); const a = document.createElement('a'); a.href = url; a.download = 'playlist.m3u'; a.click(); URL.revokeObjectURL(url)
     const hiddenCount = hiddenCats.value.size
-    toast(hiddenCount > 0 ? `M3U indirildi (${hiddenCount} kategori hariç)` : 'M3U indirildi', 'success')
-  } catch { toast('İndirme hatası', 'error') }
+    toast(hiddenCount > 0 ? t('toast.m3uDownloadedExcluded') : t('toast.m3uDownloaded'), 'success')
+  } catch { toast(t('toast.downloadError'), 'error') }
 }
 async function doShare() {
   try { const { data } = await api.post(`/playlists/${playlistId}/share`); shareUrl.value = window.location.origin + '/api/shared/' + data.token }
-  catch (e) { toast(e.response?.data?.error?.message || 'Paylaşım hatası', 'error') }
+  catch (e) { toast(e.response?.data?.error?.message || t('toast.shareError'), 'error') }
 }
-function copyShare() { navigator.clipboard.writeText(shareUrl.value); toast('Kopyalandı', 'success') }
+function copyShare() { navigator.clipboard.writeText(shareUrl.value); toast(t('toast.copied'), 'success') }
 // EPG Autocomplete functions
 function onNameInput() {
   clearTimeout(epgAcTimer)
@@ -1240,7 +1242,7 @@ function selectEpgChannel(epgCh) {
 function applyEpgLogo() {
   if (epgSelectedIcon.value) {
     editForm.value.logo_url = epgSelectedIcon.value
-    toast('EPG logosu uygulandı', 'success')
+    toast(t('toast.epgLogoApplied'), 'success')
   }
 }
 // EPG ID field autocomplete
@@ -1267,8 +1269,8 @@ function selectEpgFromId(epgCh) {
   }
 }
 
-function formatDate(d) { if (!d) return ''; return new Date(d).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) }
-function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) }
+function formatDate(d) { if (!d) return ''; return new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) }
+function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) }
 </script>
 
 <style scoped>
