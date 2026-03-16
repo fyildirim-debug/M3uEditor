@@ -258,10 +258,10 @@
     "metadataFetched": "Metadata fetched",
     "metadataError": "Could not fetch metadata",
     "metadataNotFound": "Not found on TMDB",
-    "noTmdbKey": "TMDB API key not configured"
+    "noXtreamSource": "Xtream Codes source not found"
   },
   "metadata": {
-    "fetchFromTmdb": "Fetch from TMDB",
+    "fetch": "Fetch Info",
     "refetch": "Refetch",
     "overview": "Overview",
     "cast": "Cast",

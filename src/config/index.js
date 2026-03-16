@@ -12,11 +12,6 @@ const config = {
     secret: process.env.JWT_SECRET || 'dev-secret-key',
     expiresIn: process.env.JWT_EXPIRES_IN || '24h',
   },
-  tmdb: {
-    apiKey: process.env.TMDB_API_KEY || '',
-    baseUrl: 'https://api.themoviedb.org/3',
-    imageBaseUrl: 'https://image.tmdb.org/t/p',
-  },
 };
 
 module.exports = config;

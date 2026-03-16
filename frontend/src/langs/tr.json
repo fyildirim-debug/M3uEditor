@@ -258,10 +258,10 @@
     "metadataFetched": "Metadata cekildi",
     "metadataError": "Metadata cekilemedi",
     "metadataNotFound": "TMDB'de bulunamadi",
-    "noTmdbKey": "TMDB API key tanimlanmamis"
+    "noXtreamSource": "Xtream Codes kaynagi bulunamadi"
   },
   "metadata": {
-    "fetchFromTmdb": "TMDB'den Bilgi Cek",
+    "fetch": "Bilgi Cek",
     "refetch": "Tekrar Cek",
     "overview": "Ozet",
     "cast": "Oyuncular",

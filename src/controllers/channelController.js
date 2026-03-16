@@ -162,7 +162,7 @@ async function uploadLogo(req, res, next) {
 
 /**
  * POST /api/channels/:id/metadata
- * Fetch metadata from TMDB and update channel extras.
+ * Fetch metadata from Xtream get_vod_info / get_series_info and update channel extras.
  */
 async function fetchMetadata(req, res, next) {
   try {
@@ -172,24 +172,63 @@ async function fetchMetadata(req, res, next) {
     const channel = await channelService._verifyChannelOwnership(req.userId, channelId);
     const extras = channel.extras || {};
 
-    // Zaten cekilmis ve force degil → mevcut veriyi don
     if (extras.metadata_fetched && !force) {
       return res.json(channel);
     }
 
-    const tmdbService = require('../services/TMDBService');
-    if (!tmdbService.enabled) {
-      throw createAppError('VALIDATION_ERROR', 'TMDB API key tanımlanmamış');
+    if (channel.stream_type !== 'vod' && channel.stream_type !== 'series') {
+      throw createAppError('VALIDATION_ERROR', 'Metadata sadece film ve dizi icin cekilebilir');
     }
 
-    const metadata = await tmdbService.enrichMetadata(
-      channel.name,
-      channel.stream_type,
-      extras.year ? parseInt(extras.year, 10) : undefined
-    );
+    // Playlist'ten Xtream credentials al
+    const playlist = await db('playlists').where('id', channel.playlist_id).first();
+    if (!playlist?.xtream_server_url || !playlist?.xtream_username || !playlist?.xtream_password_enc) {
+      throw createAppError('VALIDATION_ERROR', 'Xtream Codes kaynagi bulunamadi');
+    }
 
-    if (!metadata) {
-      throw createAppError('NOT_FOUND', 'TMDB\'de bulunamadı');
+    const XtreamClient = require('../services/XtreamClient');
+    const client = new XtreamClient(playlist.xtream_server_url, playlist.xtream_username, playlist.xtream_password_enc);
+
+    let info;
+    if (channel.stream_type === 'vod') {
+      info = await client.getVodInfo(extras.stream_id);
+    } else {
+      info = await client.getSeriesInfo(extras.stream_id);
+    }
+
+    if (!info) {
+      throw createAppError('NOT_FOUND', 'Xtream API\'den bilgi alinamadi');
+    }
+
+    // VOD info normalize
+    const movieInfo = info.info || info.movie_data || info;
+    const metadata = {
+      metadata_fetched: true,
+      tmdb_id: movieInfo.tmdb_id || movieInfo.tmdb || extras.tmdb_id || null,
+      imdb_id: movieInfo.imdb_id || null,
+      title: movieInfo.name || movieInfo.title || movieInfo.o_name || null,
+      overview: movieInfo.plot || movieInfo.description || movieInfo.overview || null,
+      year: movieInfo.year || movieInfo.releaseDate?.slice(0, 4) || movieInfo.releasedate?.slice(0, 4) || extras.year || null,
+      rating: movieInfo.rating || movieInfo.rating_5based ? String(parseFloat(movieInfo.rating_5based || 0) * 2) : extras.rating || null,
+      genre: movieInfo.genre || movieInfo.category_name || extras.genre || null,
+      cast: movieInfo.cast || movieInfo.actors || null,
+      director: movieInfo.director || null,
+      runtime: movieInfo.duration || movieInfo.runtime || movieInfo.episode_run_time || null,
+      backdrop_url: movieInfo.backdrop_path?.[0] || movieInfo.cover_big || movieInfo.cover || null,
+      poster_url: movieInfo.movie_image || movieInfo.cover || channel.logo_url || null,
+    };
+
+    // Series ek bilgiler
+    if (channel.stream_type === 'series') {
+      const seasons = info.seasons || info.episodes;
+      if (seasons) {
+        metadata.seasons = Object.keys(seasons).length || null;
+        let totalEp = 0;
+        for (const s of Object.values(seasons)) {
+          totalEp += Array.isArray(s) ? s.length : 0;
+        }
+        metadata.episodes = totalEp || null;
+      }
     }
 
     const updatedExtras = { ...extras, ...metadata };

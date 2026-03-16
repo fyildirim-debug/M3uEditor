@@ -614,10 +614,10 @@
               <div v-if="activeStreamType !== 'live'" class="ep-metadata-section">
                 <div class="ep-metadata-header">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                  <span>TMDB</span>
-                  <button class="btn btn-accent btn-xs" @click="fetchTmdbMetadata" :disabled="fetchingMetadata" style="margin-left:auto">
+                  <span>Metadata</span>
+                  <button class="btn btn-accent btn-xs" @click="fetchXtreamMetadata" :disabled="fetchingMetadata" style="margin-left:auto">
                     <span v-if="fetchingMetadata" class="spinner" style="width:11px;height:11px"></span>
-                    {{ fetchingMetadata ? t('metadata.fetching') : (editingChannel.extras?.metadata_fetched ? t('metadata.refetch') : t('metadata.fetchFromTmdb')) }}
+                    {{ fetchingMetadata ? t('metadata.fetching') : (editingChannel.extras?.metadata_fetched ? t('metadata.refetch') : t('metadata.fetch')) }}
                   </button>
                 </div>
                 <div v-if="editingChannel.extras?.metadata_fetched" class="ep-metadata-body">
@@ -653,8 +653,8 @@
                   <div v-if="editingChannel.extras.director" class="ep-meta-info">
                     <span class="ep-meta-label">{{ t('metadata.director') }}:</span> {{ editingChannel.extras.director }}
                   </div>
-                  <div v-if="editingChannel.extras.cast?.length" class="ep-meta-info">
-                    <span class="ep-meta-label">{{ t('metadata.cast') }}:</span> {{ editingChannel.extras.cast.slice(0, 5).join(', ') }}
+                  <div v-if="editingChannel.extras.cast" class="ep-meta-info">
+                    <span class="ep-meta-label">{{ t('metadata.cast') }}:</span> {{ typeof editingChannel.extras.cast === 'string' ? editingChannel.extras.cast : editingChannel.extras.cast.slice(0, 5).join(', ') }}
                   </div>
                   <div v-if="editingChannel.extras.imdb_id" class="ep-meta-info ep-meta-ids">
                     <span>IMDB: {{ editingChannel.extras.imdb_id }}</span>
@@ -1390,7 +1390,7 @@ function applyEpgLogo() {
     toast(t('toast.epgLogoApplied'), 'success')
   }
 }
-async function fetchTmdbMetadata() {
+async function fetchXtreamMetadata() {
   if (!editingChannel.value) return
   fetchingMetadata.value = true
   try {
