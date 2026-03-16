@@ -88,12 +88,12 @@
         <div class="top-bar">
           <div class="top-bar-left">
             <h2 class="playlist-title">{{ playlistName }}</h2>
-            <span class="channel-count-badge">{{ totalChannelCount }} {{ t('common.channel') }}</span>
+            <span class="channel-count-badge">{{ totalChannelCount }} {{ streamTypeLabel.unit }}</span>
           </div>
           <div class="top-bar-right">
             <div class="search-box">
               <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input class="search-input" v-model="search" :placeholder="t('editor.searchPlaceholder')" @input="debouncedSearch" />
+              <input class="search-input" v-model="search" :placeholder="streamTypeLabel.search" @input="debouncedSearch" />
             </div>
             <button class="btn btn-secondary btn-sm" @click="openXtream">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> {{ t('xtream.importTitle') }}
@@ -118,7 +118,7 @@
                   <div class="cat-sidebar-list">
                     <div :class="['cat-sb-item', { active: !selectedCatId }]" @click="selectCategory(null)">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
-                      <span class="cat-sb-name">{{ t('editor.allChannels') }}</span>
+                      <span class="cat-sb-name">{{ streamTypeLabel.all }}</span>
                       <span class="cat-sb-count">{{ totalChannelCount }}</span>
                     </div>
                     <div v-for="cat in categories" :key="cat.id"
@@ -438,7 +438,7 @@
                 <div v-for="cat in categories" :key="cat.id" class="cat-editor-item">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                   <span class="cat-editor-name">{{ cat.name }}</span>
-                  <span class="cat-editor-count">{{ cat.channel_count || 0 }} {{ t('common.channel') }}</span>
+                  <span class="cat-editor-count">{{ cat.channel_count || 0 }} {{ streamTypeLabel.unit }}</span>
                   <div class="cat-editor-actions">
                     <button class="btn btn-ghost btn-xs" @click="startEditCat(cat)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('common.edit') }}</button>
                     <button class="btn btn-ghost btn-xs" style="color:var(--danger)" @click="confirmDeleteCat(cat)">{{ t('common.delete') }}</button>
@@ -623,7 +623,7 @@
             <div class="ep-empty">
               <div class="ep-empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></div>
               <p>{{ t('editor.selectChannelToEdit') }}</p>
-              <span class="ep-empty-hint">{{ t('editor.channelsAvailable', { count: totalChannelCount }) }}</span>
+              <span class="ep-empty-hint">{{ totalChannelCount }} {{ streamTypeLabel.unit }}</span>
             </div>
           </aside>
         </div>
@@ -879,6 +879,14 @@ const shareUrl = ref(null)
 let searchTimer = null
 
 const allSelected = computed(() => channels.value.length > 0 && channels.value.every(ch => selectedIds.value.has(ch.id)))
+
+const streamTypeLabel = computed(() => {
+  switch (activeStreamType.value) {
+    case 'vod': return { all: t('editor.allMovies'), unit: t('common.movie'), search: t('editor.searchMovies') }
+    case 'series': return { all: t('editor.allSeries'), unit: t('common.serie'), search: t('editor.searchSeries') }
+    default: return { all: t('editor.allChannels'), unit: t('common.channel'), search: t('editor.searchPlaceholder') }
+  }
+})
 
 function toggleStreamSection(type) {
   if (activeStreamType.value === type) return
