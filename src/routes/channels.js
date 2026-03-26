@@ -23,6 +23,15 @@ router.post('/channels/:id/logo', authMiddleware, channelController.uploadLogo);
 // Fetch metadata from TMDB
 router.post('/channels/:id/metadata', authMiddleware, channelController.fetchMetadata);
 
+// Stream test
+router.post('/channels/:id/test', authMiddleware, channelController.testStream);
+
+// Manual channel create
+router.post('/playlists/:id/channels', authMiddleware, channelController.createChannel);
+
+// Bulk rename
+router.post('/channels/bulk-rename', authMiddleware, channelController.bulkRename);
+
 // Bulk operations (must be after :id routes to avoid conflict)
 router.post('/channels/bulk', authMiddleware, channelController.bulkAction);
 

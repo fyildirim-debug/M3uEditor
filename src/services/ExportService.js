@@ -27,13 +27,17 @@ class ExportService {
    * Fetch channels for a playlist ordered by category sort_order then channel sort_order,
    * and map them to M3UFormatter's ChannelData format.
    */
-  async _getOrderedChannels(playlistId, excludeCategories = []) {
+  async _getOrderedChannels(playlistId, excludeCategories = [], streamType = null) {
     let query = db('channels')
       .leftJoin('categories', 'channels.category_id', 'categories.id')
       .where('channels.playlist_id', playlistId);
 
     if (excludeCategories.length > 0) {
       query = query.whereNotIn('channels.category_id', excludeCategories);
+    }
+
+    if (streamType) {
+      query = query.where('channels.stream_type', streamType);
     }
 
     const channels = await query.select(
@@ -66,9 +70,9 @@ class ExportService {
    * @param {string} playlistId
    * @returns {Promise<string>} M3U formatted content
    */
-  async exportAsM3U(userId, playlistId, excludeCategories = []) {
+  async exportAsM3U(userId, playlistId, excludeCategories = [], streamType = null) {
     await this._verifyPlaylistOwnership(userId, playlistId);
-    const channelData = await this._getOrderedChannels(playlistId, excludeCategories);
+    const channelData = await this._getOrderedChannels(playlistId, excludeCategories, streamType);
     return this.formatter.format(channelData);
   }
 
@@ -78,15 +82,23 @@ class ExportService {
    * @param {string} playlistId
    * @returns {Promise<{ url: string, token: string }>}
    */
-  async generateShareUrl(userId, playlistId) {
+  async generateShareUrl(userId, playlistId, { expiresInDays, password } = {}) {
     await this._verifyPlaylistOwnership(userId, playlistId);
 
     const token = crypto.randomBytes(32).toString('hex');
+    const updates = { share_token: token, updated_at: db.fn.now() };
 
-    await db('playlists')
-      .where({ id: playlistId })
-      .update({ share_token: token, updated_at: db.fn.now() });
+    if (expiresInDays) {
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+      updates.share_expires_at = expiresAt;
+    } else {
+      updates.share_expires_at = null;
+    }
 
+    updates.share_password = password || null;
+
+    await db('playlists').where({ id: playlistId }).update(updates);
     return { url: `/api/shared/${token}`, token };
   }
 
@@ -96,13 +108,23 @@ class ExportService {
    * @param {string} shareToken
    * @returns {Promise<string>} M3U formatted content
    */
-  async getSharedPlaylist(shareToken) {
+  async getSharedPlaylist(shareToken, password) {
     const playlist = await db('playlists')
       .where({ share_token: shareToken })
       .first();
 
     if (!playlist) {
       throw createAppError('NOT_FOUND');
+    }
+
+    // Check expiry
+    if (playlist.share_expires_at && new Date(playlist.share_expires_at) < new Date()) {
+      throw createAppError('FORBIDDEN', 'Paylasim linkinin suresi dolmus');
+    }
+
+    // Check password
+    if (playlist.share_password && playlist.share_password !== password) {
+      throw createAppError('INVALID_CREDENTIALS', 'Paylasim sifresi yanlis');
     }
 
     const channelData = await this._getOrderedChannels(playlist.id);

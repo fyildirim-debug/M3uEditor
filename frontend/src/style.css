@@ -72,6 +72,71 @@
   --sidebar-width: 220px;
 }
 
+/* Light mode */
+[data-theme="light"] {
+  --bg-primary: #f8f9fc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f3f8;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f5f6fa;
+  --bg-hover: #eef0f6;
+  --bg-active: #e5e8f0;
+  --border: rgba(0,0,0,0.08);
+  --border-light: rgba(0,0,0,0.12);
+  --border-focus: rgba(99,102,241,0.5);
+  --text-primary: #1a1d2e;
+  --text-secondary: #5f6580;
+  --text-muted: #9096ad;
+  --text-disabled: #c0c4d4;
+  --accent: #4f46e5;
+  --accent-hover: #6366f1;
+  --accent-soft: rgba(79,70,229,0.08);
+  --accent-glow: rgba(79,70,229,0.15);
+  --success-soft: rgba(16,185,129,0.08);
+  --danger-soft: rgba(239,68,68,0.08);
+  --warning-soft: rgba(245,158,11,0.08);
+  --info-soft: rgba(59,130,246,0.08);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow: 0 4px 16px rgba(0,0,0,0.1);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
+  --shadow-xl: 0 24px 64px rgba(0,0,0,0.15);
+  --shadow-glow: 0 0 24px rgba(79,70,229,0.08);
+  --shadow-glow-md: 0 0 40px rgba(79,70,229,0.12);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg-primary: #f8f9fc;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f3f8;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f5f6fa;
+    --bg-hover: #eef0f6;
+    --bg-active: #e5e8f0;
+    --border: rgba(0,0,0,0.08);
+    --border-light: rgba(0,0,0,0.12);
+    --border-focus: rgba(99,102,241,0.5);
+    --text-primary: #1a1d2e;
+    --text-secondary: #5f6580;
+    --text-muted: #9096ad;
+    --text-disabled: #c0c4d4;
+    --accent: #4f46e5;
+    --accent-hover: #6366f1;
+    --accent-soft: rgba(79,70,229,0.08);
+    --accent-glow: rgba(79,70,229,0.15);
+    --success-soft: rgba(16,185,129,0.08);
+    --danger-soft: rgba(239,68,68,0.08);
+    --warning-soft: rgba(245,158,11,0.08);
+    --info-soft: rgba(59,130,246,0.08);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow: 0 4px 16px rgba(0,0,0,0.1);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,0.12);
+    --shadow-xl: 0 24px 64px rgba(0,0,0,0.15);
+    --shadow-glow: 0 0 24px rgba(79,70,229,0.08);
+    --shadow-glow-md: 0 0 40px rgba(79,70,229,0.12);
+  }
+}
+
 body {
   font-family: var(--font-sans);
   background: var(--bg-primary);

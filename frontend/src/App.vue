@@ -37,10 +37,10 @@
         <div class="header-sep hide-mobile" aria-hidden="true"></div>
 
         <div class="user-menu" role="group" aria-label="Kullanici bilgisi">
-          <div class="user-avatar" aria-hidden="true" title="{{ auth.user?.email }}">
+          <router-link to="/account" class="user-avatar" :title="auth.user?.email" style="text-decoration:none;color:inherit;">
             {{ auth.user?.email?.charAt(0).toUpperCase() }}
-          </div>
-          <span class="user-email hide-mobile">{{ auth.user?.email }}</span>
+          </router-link>
+          <router-link to="/account" class="user-email hide-mobile" style="text-decoration:none;color:inherit;">{{ auth.user?.email }}</router-link>
         </div>
 
         <button class="btn btn-ghost btn-sm logout-btn" @click="handleLogout" aria-label="Cikis yap">

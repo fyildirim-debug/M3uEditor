@@ -13,5 +13,12 @@ router.post('/import/xtream', authMiddleware, importController.importFromXtreamN
 // Mevcut Xtream kaynağından senkronize et
 router.post('/playlists/:id/sync', authMiddleware, importController.syncPlaylist);
 
+// Add stream types to existing playlist (stored Xtream credentials)
+router.post('/playlists/:id/import/add-types', authMiddleware, importController.addStreamTypes);
+
+// M3U file/URL import
+router.post('/import/m3u', authMiddleware, importController.importFromM3U);
+router.post('/playlists/:id/import/m3u', authMiddleware, importController.importM3UToPlaylist);
+
 module.exports = router;
 

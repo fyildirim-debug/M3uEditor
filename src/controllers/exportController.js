@@ -10,8 +10,9 @@ async function exportPlaylist(req, res, next) {
     const excludeCategories = req.query.excludeCategories
       ? req.query.excludeCategories.split(',').filter(Boolean)
       : [];
+    const streamType = req.query.streamType || null;
 
-    const m3uContent = await exportService.exportAsM3U(req.userId, playlistId, excludeCategories);
+    const m3uContent = await exportService.exportAsM3U(req.userId, playlistId, excludeCategories, streamType);
 
     res.setHeader('Content-Type', 'audio/x-mpegurl');
     res.setHeader('Content-Disposition', 'attachment; filename="playlist.m3u"');
@@ -28,8 +29,8 @@ async function exportPlaylist(req, res, next) {
 async function sharePlaylist(req, res, next) {
   try {
     const { id: playlistId } = req.params;
-    const result = await exportService.generateShareUrl(req.userId, playlistId);
-
+    const { expiresInDays, password } = req.body || {};
+    const result = await exportService.generateShareUrl(req.userId, playlistId, { expiresInDays, password });
     res.status(201).json(result);
   } catch (err) {
     next(err);
@@ -43,7 +44,8 @@ async function sharePlaylist(req, res, next) {
 async function getShared(req, res, next) {
   try {
     const { token } = req.params;
-    const m3uContent = await exportService.getSharedPlaylist(token);
+    const password = req.query.password || req.headers['x-share-password'] || null;
+    const m3uContent = await exportService.getSharedPlaylist(token, password);
 
     res.setHeader('Content-Type', 'audio/x-mpegurl');
     res.send(m3uContent);

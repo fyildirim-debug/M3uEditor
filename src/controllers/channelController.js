@@ -244,4 +244,137 @@ async function fetchMetadata(req, res, next) {
   }
 }
 
-module.exports = { listChannels, updateChannel, deleteChannel, updateChannelOrder, bulkAction, resetChannel, uploadLogo, fetchMetadata };
+/**
+ * POST /api/channels/bulk-rename
+ * Bulk rename channels using find/replace or regex
+ */
+async function bulkRename(req, res, next) {
+  try {
+    const { channelIds, find, replace, useRegex } = req.body;
+
+    if (!Array.isArray(channelIds) || channelIds.length === 0) {
+      throw createAppError('VALIDATION_ERROR', 'channelIds bos olmayan bir dizi olmalidir');
+    }
+    if (find === undefined || find === '') {
+      throw createAppError('VALIDATION_ERROR', 'find alani gereklidir');
+    }
+
+    // Verify ownership
+    const owned = await db('channels')
+      .join('playlists', 'channels.playlist_id', 'playlists.id')
+      .whereIn('channels.id', channelIds)
+      .andWhere('playlists.user_id', req.userId)
+      .select('channels.id', 'channels.name');
+
+    if (owned.length !== channelIds.length) {
+      throw createAppError('NOT_FOUND');
+    }
+
+    let renamed = 0;
+    for (const ch of owned) {
+      let newName;
+      if (useRegex) {
+        try {
+          const regex = new RegExp(find, 'g');
+          newName = ch.name.replace(regex, replace || '');
+        } catch (e) {
+          throw createAppError('VALIDATION_ERROR', 'Gecersiz regex deseni');
+        }
+      } else {
+        newName = ch.name.split(find).join(replace || '');
+      }
+
+      if (newName !== ch.name) {
+        await db('channels').where('id', ch.id).update({ name: newName, updated_at: new Date() });
+        renamed++;
+      }
+    }
+
+    res.json({ renamed, total: channelIds.length });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/channels/:id/test
+ * Test if a stream URL is reachable
+ */
+async function testStream(req, res, next) {
+  try {
+    const { id: channelId } = req.params;
+    const channel = await channelService._verifyChannelOwnership(req.userId, channelId);
+
+    if (!channel.stream_url) {
+      return res.json({ reachable: false, error: 'Stream URL bos' });
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(channel.stream_url, {
+        method: 'HEAD',
+        signal: controller.signal,
+        redirect: 'follow',
+      });
+      clearTimeout(timeoutId);
+
+      res.json({
+        reachable: response.ok || response.status === 302 || response.status === 301,
+        status: response.status,
+        contentType: response.headers.get('content-type') || null,
+      });
+    } catch (err) {
+      res.json({ reachable: false, error: err.message });
+    }
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/playlists/:id/channels
+ * Create a channel manually
+ */
+async function createChannel(req, res, next) {
+  try {
+    const { id: playlistId } = req.params;
+    const { name, streamUrl, logoUrl, categoryId, epgChannelId, streamType } = req.body;
+
+    if (!name || !streamUrl) {
+      throw createAppError('VALIDATION_ERROR', 'name ve streamUrl gereklidir');
+    }
+
+    // Verify playlist ownership
+    const playlist = await db('playlists').where({ id: playlistId, user_id: req.userId }).first();
+    if (!playlist) throw createAppError('NOT_FOUND');
+
+    // Get max sort_order
+    const maxSort = await db('channels').where({ playlist_id: playlistId }).max('sort_order as max').first();
+    const sortOrder = (maxSort?.max ?? -1) + 1;
+
+    const { v4: uuidv4 } = require('uuid');
+    const [channel] = await db('channels')
+      .insert({
+        id: uuidv4(),
+        playlist_id: playlistId,
+        name,
+        original_name: name,
+        stream_url: streamUrl,
+        logo_url: logoUrl || null,
+        original_logo_url: logoUrl || null,
+        category_id: categoryId || null,
+        epg_channel_id: epgChannelId || null,
+        stream_type: streamType || 'live',
+        sort_order: sortOrder,
+        extras: JSON.stringify({}),
+      })
+      .returning('*');
+
+    res.status(201).json(channel);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listChannels, updateChannel, deleteChannel, updateChannelOrder, bulkAction, resetChannel, uploadLogo, fetchMetadata, bulkRename, testStream, createChannel };

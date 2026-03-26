@@ -276,5 +276,103 @@
     "tmdbId": "TMDB ID",
     "fetching": "Fetching info...",
     "min": "min"
+  },
+  "bulkRename": {
+    "title": "Bulk Rename",
+    "find": "Find",
+    "replace": "Replace",
+    "findPlaceholder": "Text or regex to find",
+    "replacePlaceholder": "Replacement text",
+    "useRegex": "Use regex",
+    "preview": "Preview",
+    "apply": "Apply",
+    "result": "{renamed}/{total} channels renamed"
+  },
+  "streamTest": {
+    "test": "Test",
+    "testing": "Testing...",
+    "reachable": "Reachable",
+    "unreachable": "Unreachable",
+    "status": "Status: {status}"
+  },
+  "m3uImport": {
+    "title": "Import M3U",
+    "fromUrl": "Import from URL",
+    "fromFile": "Import from File",
+    "urlPlaceholder": "https://example.com/playlist.m3u",
+    "selectFile": "Select File",
+    "playlistName": "Playlist Name",
+    "namePlaceholder": "e.g. My M3U List"
+  },
+  "addChannel": {
+    "title": "Add Channel",
+    "name": "Channel Name",
+    "streamUrl": "Stream URL",
+    "logoUrl": "Logo URL",
+    "streamType": "Content Type"
+  },
+  "account": {
+    "title": "Account Settings",
+    "profile": "Profile",
+    "email": "Email",
+    "memberSince": "Member Since",
+    "stats": "Statistics",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "changeEmail": "Change Email",
+    "newEmail": "New Email",
+    "passwordRequired": "Enter your password",
+    "deleteAccount": "Delete Account",
+    "deleteWarning": "This action cannot be undone. All playlists and channels will be deleted.",
+    "passwordChanged": "Password changed",
+    "emailChanged": "Email changed",
+    "accountDeleted": "Account deleted"
+  },
+  "share2": {
+    "expiry": "Expiry",
+    "noExpiry": "No expiry",
+    "days7": "7 days",
+    "days30": "30 days",
+    "days90": "90 days",
+    "password": "Password Protection",
+    "passwordPlaceholder": "Optional password"
+  },
+  "keyboard": {
+    "shortcuts": "Keyboard Shortcuts",
+    "save": "Save",
+    "delete": "Delete",
+    "selectAll": "Select All",
+    "search": "Search",
+    "escape": "Cancel / Close"
+  },
+  "addTypes": {
+    "title": "Add Content Type",
+    "desc": "Automatically fetch additional content types from your saved Xtream account.",
+    "addMovies": "Add Movies",
+    "addSeries": "Add Series",
+    "addBoth": "Add Movies + Series",
+    "allAdded": "All content types already added",
+    "result": "{added} new channels added ({types}) - {duration}s",
+    "emptyVod": "No movies yet. You can automatically fetch movies from your Xtream account.",
+    "emptySeries": "No series yet. You can automatically fetch series from your Xtream account.",
+    "fetchMovies": "Fetch Movies",
+    "fetchSeries": "Fetch Series",
+    "noMoviesYet": "No Movies Yet",
+    "noSeriesYet": "No Series Yet",
+    "noChannelsYet": "No Channels Yet",
+    "chooseSource": "Where would you like to import content from?",
+    "xtreamOption": "Connect with Xtream Codes",
+    "xtreamOptionDesc": "Connect with server URL, username and password. Live TV, movies and series are fetched automatically.",
+    "m3uOption": "Import from M3U File",
+    "m3uOptionDesc": "Upload an M3U/M3U8 file or paste a URL. Channels are automatically categorized.",
+    "providerEmpty": "No Content Found from Provider",
+    "providerEmptyDesc": "This content type is not available in your Xtream account or your provider doesn't support it."
+  },
+  "theme": {
+    "light": "Light Theme",
+    "dark": "Dark Theme",
+    "system": "System"
   }
 }

@@ -6,6 +6,10 @@
         <p class="dash-subtitle">{{ t('dashboard.subtitle') }}</p>
       </div>
       <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" @click="showM3uImport = true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          {{ t('m3uImport.title') }}
+        </button>
         <button class="btn btn-secondary" @click="openXtream">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           {{ t('xtream.importTitle') }}
@@ -193,7 +197,7 @@
             </div>
             <div v-if="importResult" class="result-box success">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              {{ importResult.totalChannels }} kanal, {{ importResult.totalCategories }} kategori içe aktarıldı ({{ (importResult.duration / 1000).toFixed(1) }}s)
+              {{ t('toast.importSuccess', { channels: importResult.totalChannels, categories: importResult.totalCategories, duration: (importResult.duration / 1000).toFixed(1) }) }}
             </div>
             <div v-if="importError" class="result-box error">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
@@ -204,6 +208,41 @@
               <button class="btn btn-primary" @click="doXtreamImport" :disabled="importing || !xtreamForm.serverUrl || !xtreamForm.username || !xtreamForm.password || !xtreamForm.streamTypes.length">
                 <span v-if="importing" class="spinner" style="width:14px;height:14px"></span>
                 {{ importing ? t('common.importing') : t('common.import') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- M3U Import Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showM3uImport" class="modal-overlay" @click.self="showM3uImport = false">
+          <div class="modal-content">
+            <h3 class="modal-title">{{ t('m3uImport.title') }}</h3>
+            <div class="form-group">
+              <label>{{ t('m3uImport.fromUrl') }}</label>
+              <input class="input" v-model="m3uImportForm.url" :placeholder="t('m3uImport.urlPlaceholder')" />
+            </div>
+            <div class="url-divider"><span>{{ t('common.or') }}</span></div>
+            <div class="form-group">
+              <label>{{ t('m3uImport.fromFile') }}</label>
+              <input type="file" accept=".m3u,.m3u8,.txt" @change="onM3uFileSelect" class="input" />
+            </div>
+            <div class="form-group">
+              <label>{{ t('m3uImport.playlistName') }}</label>
+              <input class="input" v-model="m3uImportForm.name" :placeholder="t('m3uImport.namePlaceholder')" />
+            </div>
+            <div v-if="m3uImportResult" class="result-box success">
+              {{ t('toast.importSuccess', { channels: m3uImportResult.totalChannels, categories: m3uImportResult.totalCategories, duration: (m3uImportResult.duration / 1000).toFixed(1) }) }}
+            </div>
+            <div v-if="m3uImportError" class="result-box error">{{ m3uImportError }}</div>
+            <div class="modal-actions">
+              <button class="btn btn-secondary" @click="showM3uImport = false">{{ t('common.close') }}</button>
+              <button class="btn btn-primary" @click="doM3uImport" :disabled="m3uImporting || (!m3uImportForm.url && !m3uImportForm.content)">
+                <span v-if="m3uImporting" class="spinner" style="width:14px;height:14px"></span>
+                {{ m3uImporting ? t('common.importing') : t('common.import') }}
               </button>
             </div>
           </div>
@@ -297,7 +336,8 @@ async function deletePlaylist() {
 
 function formatDate(d) {
   if (!d) return ''
-  return new Date(d).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })
+  const locale = localStorage.getItem('app_lang') === 'en' ? 'en-US' : 'tr-TR'
+  return new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 // M3U URL parse state
@@ -368,6 +408,46 @@ async function doXtreamImport() {
   } catch (e) {
     importError.value = e.response?.data?.error?.message || t('toast.connectionError')
   } finally { importing.value = false }
+}
+
+// M3U Import
+const showM3uImport = ref(false)
+const m3uImportForm = ref({ url: '', content: '', name: '' })
+const m3uImporting = ref(false)
+const m3uImportResult = ref(null)
+const m3uImportError = ref('')
+
+function onM3uFileSelect(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => { m3uImportForm.value.content = reader.result }
+  reader.readAsText(file)
+  if (!m3uImportForm.value.name) {
+    m3uImportForm.value.name = file.name.replace(/\.(m3u8?|txt)$/i, '')
+  }
+}
+
+async function doM3uImport() {
+  m3uImporting.value = true; m3uImportResult.value = null; m3uImportError.value = ''
+  try {
+    const payload = { playlistName: m3uImportForm.value.name || 'M3U Import' }
+    if (m3uImportForm.value.content) {
+      payload.m3uContent = m3uImportForm.value.content
+    } else {
+      payload.m3uUrl = m3uImportForm.value.url
+    }
+    const { data } = await api.post('/import/m3u', payload)
+    m3uImportResult.value = data
+    toast(t('toast.importSuccess', { channels: data.totalChannels, categories: data.totalCategories, duration: (data.duration / 1000).toFixed(1) }), 'success')
+    await loadPlaylists()
+    setTimeout(() => {
+      showM3uImport.value = false
+      if (data.playlistId) router.push('/playlist/' + data.playlistId)
+    }, 2000)
+  } catch (e) {
+    m3uImportError.value = e.response?.data?.error?.message || t('toast.genericError')
+  } finally { m3uImporting.value = false }
 }
 </script>
 

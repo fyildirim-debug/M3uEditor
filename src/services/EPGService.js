@@ -91,32 +91,45 @@ class EPGService {
     // Build a map of channelId → DB UUID for program insertion
     const channelIdMap = {};
 
+    // Batch insert channels (100 at a time)
+    const BATCH_SIZE = 100;
+    const channelBatch = [];
     for (const ch of parsed.channels) {
       const channelUuid = uuidv4();
-      await db('epg_channels').insert({
+      channelIdMap[ch.channelId] = channelUuid;
+      channelBatch.push({
         id: channelUuid,
         source_id: sourceId,
         channel_id: ch.channelId,
         display_name: ch.displayName || null,
         icon_url: ch.iconUrl || null,
       });
-      channelIdMap[ch.channelId] = channelUuid;
       channelCount++;
     }
 
+    for (let i = 0; i < channelBatch.length; i += BATCH_SIZE) {
+      await db('epg_channels').insert(channelBatch.slice(i, i + BATCH_SIZE));
+    }
+
+    // Batch insert programs (100 at a time)
+    const programBatch = [];
     for (const prog of parsed.programs) {
       const epgChannelUuid = channelIdMap[prog.channelId];
-      if (!epgChannelUuid) continue; // skip programs for unknown channels
+      if (!epgChannelUuid) continue;
 
-      await db('epg_programs').insert({
+      programBatch.push({
         id: uuidv4(),
         epg_channel_id: epgChannelUuid,
         start_time: prog.startTime,
-        end_time: prog.endTime,
+        end_time: prog.endTime || null,
         title: prog.title || '',
         description: prog.description || null,
       });
       programCount++;
+    }
+
+    for (let i = 0; i < programBatch.length; i += BATCH_SIZE) {
+      await db('epg_programs').insert(programBatch.slice(i, i + BATCH_SIZE));
     }
 
     // Update source status to 'active' and last_fetched_at
@@ -327,7 +340,7 @@ class EPGService {
     // Step 1: Get ALL channels for the playlist (not just matched ones)
     const channels = await db('channels')
       .where({ playlist_id: playlistId })
-      .orderBy('position', 'asc')
+      .orderBy('sort_order', 'asc')
       .select('id', 'name', 'logo_url', 'epg_channel_id');
 
     if (channels.length === 0) {

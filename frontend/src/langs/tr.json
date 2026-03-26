@@ -276,5 +276,103 @@
     "tmdbId": "TMDB ID",
     "fetching": "Bilgiler aliniyor...",
     "min": "dk"
+  },
+  "bulkRename": {
+    "title": "Toplu Yeniden Adlandir",
+    "find": "Bul",
+    "replace": "Degistir",
+    "findPlaceholder": "Aranacak metin veya regex",
+    "replacePlaceholder": "Yerine konacak metin",
+    "useRegex": "Regex kullan",
+    "preview": "Onizle",
+    "apply": "Uygula",
+    "result": "{renamed}/{total} kanal yeniden adlandirildi"
+  },
+  "streamTest": {
+    "test": "Test Et",
+    "testing": "Test ediliyor...",
+    "reachable": "Eriselebilir",
+    "unreachable": "Erisilemez",
+    "status": "Durum: {status}"
+  },
+  "m3uImport": {
+    "title": "M3U Ice Aktar",
+    "fromUrl": "URL'den Ice Aktar",
+    "fromFile": "Dosyadan Ice Aktar",
+    "urlPlaceholder": "https://example.com/playlist.m3u",
+    "selectFile": "Dosya Sec",
+    "playlistName": "Playlist Adi",
+    "namePlaceholder": "Orn: M3U Listem"
+  },
+  "addChannel": {
+    "title": "Kanal Ekle",
+    "name": "Kanal Adi",
+    "streamUrl": "Stream URL",
+    "logoUrl": "Logo URL",
+    "streamType": "Icerik Tipi"
+  },
+  "account": {
+    "title": "Hesap Ayarlari",
+    "profile": "Profil",
+    "email": "E-posta",
+    "memberSince": "Uyelik Tarihi",
+    "stats": "Istatistikler",
+    "changePassword": "Sifre Degistir",
+    "currentPassword": "Mevcut Sifre",
+    "newPassword": "Yeni Sifre",
+    "confirmNewPassword": "Yeni Sifre (Tekrar)",
+    "changeEmail": "E-posta Degistir",
+    "newEmail": "Yeni E-posta",
+    "passwordRequired": "Sifrenizi Girin",
+    "deleteAccount": "Hesabi Sil",
+    "deleteWarning": "Bu islem geri alinamaz. Tum playlist ve kanallariniz silinir.",
+    "passwordChanged": "Sifre degistirildi",
+    "emailChanged": "E-posta degistirildi",
+    "accountDeleted": "Hesap silindi"
+  },
+  "share2": {
+    "expiry": "Sure Siniri",
+    "noExpiry": "Suresiz",
+    "days7": "7 gun",
+    "days30": "30 gun",
+    "days90": "90 gun",
+    "password": "Sifre Korumasi",
+    "passwordPlaceholder": "Opsiyonel sifre"
+  },
+  "keyboard": {
+    "shortcuts": "Klavye Kisayollari",
+    "save": "Kaydet",
+    "delete": "Sil",
+    "selectAll": "Tumunu Sec",
+    "search": "Arama",
+    "escape": "Iptal / Kapat"
+  },
+  "addTypes": {
+    "title": "Icerik Tipi Ekle",
+    "desc": "Kayitli Xtream hesabindan ek icerik tiplerini otomatik olarak cekebilirsiniz.",
+    "addMovies": "Filmleri Ekle",
+    "addSeries": "Dizileri Ekle",
+    "addBoth": "Film + Dizi Ekle",
+    "allAdded": "Tum icerik tipleri zaten eklenmis",
+    "result": "{added} yeni kanal eklendi ({types}) - {duration}s",
+    "emptyVod": "Henuz film eklenmemis. Xtream hesabindan filmleri otomatik cekebilirsiniz.",
+    "emptySeries": "Henuz dizi eklenmemis. Xtream hesabindan dizileri otomatik cekebilirsiniz.",
+    "fetchMovies": "Filmleri Cek",
+    "fetchSeries": "Dizileri Cek",
+    "noMoviesYet": "Henuz Film Yok",
+    "noSeriesYet": "Henuz Dizi Yok",
+    "noChannelsYet": "Henuz Kanal Yok",
+    "chooseSource": "Icerikleri nereden cekmek istiyorsunuz?",
+    "xtreamOption": "Xtream Codes ile Baglan",
+    "xtreamOptionDesc": "Sunucu URL, kullanici adi ve sifre ile baglanin. Canli TV, film ve dizi icerikleri otomatik cekilir.",
+    "m3uOption": "M3U Dosyasindan Ice Aktar",
+    "m3uOptionDesc": "M3U/M3U8 dosyasi yukleyin veya bir URL yapistirin. Kanallar otomatik kategorize edilir.",
+    "providerEmpty": "Saglaycida Icerik Bulunamadi",
+    "providerEmptyDesc": "Bu icerik tipi Xtream hesabinizda mevcut degil veya saglayiciniz bu tipi desteklemiyor."
+  },
+  "theme": {
+    "light": "Acik Tema",
+    "dark": "Koyu Tema",
+    "system": "Sistem"
   }
 }

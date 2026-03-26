@@ -176,6 +176,138 @@ class ImportService {
   }
 
   /**
+   * Add new stream types (vod, series) to an existing playlist using stored Xtream credentials.
+   * Does NOT remove existing channels — only adds the new types.
+   * @param {string} userId
+   * @param {string} playlistId
+   * @param {string[]} newTypes - e.g. ['vod'], ['series'], or ['vod', 'series']
+   * @returns {Promise<{ added: number, totalChannels: number, totalCategories: number, duration: number }>}
+   */
+  async addStreamTypes(userId, playlistId, newTypes) {
+    const startTime = Date.now();
+
+    const playlist = await db('playlists')
+      .where({ id: playlistId, user_id: userId })
+      .first();
+
+    if (!playlist) {
+      throw createAppError('NOT_FOUND', 'Playlist bulunamadi');
+    }
+
+    if (!playlist.xtream_server_url || !playlist.xtream_username || !playlist.xtream_password_enc) {
+      throw createAppError('VALIDATION_ERROR', 'Bu playlist Xtream Codes kaynagina sahip degil');
+    }
+
+    // Mevcut tipleri al
+    const existingTypes = playlist.xtream_stream_types
+      ? JSON.parse(playlist.xtream_stream_types)
+      : ['live'];
+
+    // Sadece yeni tipleri filtrele (zaten var olanlari atla)
+    const typesToAdd = newTypes.filter(t => !existingTypes.includes(t));
+    if (typesToAdd.length === 0) {
+      throw createAppError('VALIDATION_ERROR', 'Secilen icerik tipleri zaten mevcut');
+    }
+
+    // Mevcut kanal sayisini say
+    const beforeCount = await db('channels')
+      .where({ playlist_id: playlistId })
+      .count('id as count')
+      .first();
+    const existingCount = parseInt(beforeCount.count, 10);
+
+    // Sadece yeni tipleri cek
+    const client = new XtreamClient(
+      playlist.xtream_server_url,
+      playlist.xtream_username,
+      playlist.xtream_password_enc
+    );
+
+    try {
+      await client.authenticate();
+    } catch (err) {
+      if (err.code === 'XTREAM_AUTH_FAILED' || err.code === 'XTREAM_CONNECTION_FAILED') throw err;
+      throw createAppError('IMPORT_FAILED', err.message);
+    }
+
+    const { categories, channels } = await client.getAllChannels(typesToAdd);
+
+    // Kategorileri ekle
+    const categoryMap = await this._upsertCategories(playlist.id, categories);
+
+    // Mevcut max sort_order'i al
+    const maxSort = await db('channels')
+      .where({ playlist_id: playlistId })
+      .max('sort_order as max')
+      .first();
+    const startSortOrder = (maxSort?.max ?? -1) + 1;
+
+    // Kanal kayitlarini olustur
+    const channelRecords = channels.map((ch, index) => {
+      const baseUrl = playlist.xtream_server_url.replace(/\/+$/, '');
+      const ext = ch.container_extension || 'ts';
+      let urlPath;
+      switch (ch.stream_type) {
+        case 'vod': urlPath = 'movie'; break;
+        case 'series': urlPath = 'series'; break;
+        default: urlPath = 'live'; break;
+      }
+      const streamUrl = `${baseUrl}/${urlPath}/${playlist.xtream_username}/${playlist.xtream_password_enc}/${ch.stream_id}.${ext}`;
+
+      return {
+        id: uuidv4(),
+        playlist_id: playlist.id,
+        name: ch.name,
+        logo_url: ch.stream_icon || null,
+        original_logo_url: ch.stream_icon || null,
+        stream_url: streamUrl,
+        epg_channel_id: ch.epg_channel_id || null,
+        category_id: ch.category_id ? (categoryMap[ch.category_id] || null) : null,
+        sort_order: startSortOrder + index,
+        stream_type: ch.stream_type || 'live',
+        original_name: ch.name,
+        extras: JSON.stringify({
+          stream_id: ch.stream_id,
+          stream_type: ch.stream_type || 'live',
+          ...(ch.rating && { rating: ch.rating }),
+          ...(ch.genre && { genre: ch.genre }),
+          ...(ch.plot && { plot: ch.plot }),
+          ...(ch.year && { year: ch.year }),
+          ...(ch.tmdb_id && { tmdb_id: ch.tmdb_id }),
+          metadata_fetched: false,
+        }),
+      };
+    });
+
+    // Bulk upsert (zaten var olan URL'ler guncellenir, yeniler eklenir)
+    await this._bulkUpsertChannels(playlist.id, channelRecords);
+
+    // xtream_stream_types'i guncelle — eski + yeni
+    const allTypes = [...existingTypes, ...typesToAdd];
+    await db('playlists').where({ id: playlistId }).update({
+      xtream_stream_types: JSON.stringify(allTypes),
+      last_synced_at: new Date(),
+      updated_at: new Date(),
+    });
+
+    const afterCount = await db('channels')
+      .where({ playlist_id: playlistId })
+      .count('id as count')
+      .first();
+    const added = parseInt(afterCount.count, 10) - existingCount;
+
+    const duration = Date.now() - startTime;
+    return {
+      added,
+      totalChannels: channelRecords.length,
+      totalCategories: categories.length,
+      addedTypes: typesToAdd,
+      allTypes,
+      duration,
+    };
+  }
+
+  /**
    * Get or create a playlist for the given user + server combination.
    * @private
    */
@@ -285,6 +417,79 @@ class ImportService {
         onProgress({ processed: Math.min(i + BATCH_SIZE, total), total });
       }
     }
+  }
+  /**
+   * Import channels from M3U content (file or URL).
+   * @param {string} userId
+   * @param {string} m3uContent - raw M3U text
+   * @param {string} playlistId - existing playlist or null to create new
+   * @param {string} [playlistName] - name if creating new playlist
+   * @returns {Promise<{ playlistId: string, totalChannels: number, totalCategories: number, duration: number }>}
+   */
+  async importFromM3U(userId, m3uContent, playlistId, playlistName) {
+    const startTime = Date.now();
+    const M3UParser = require('../parsers/M3UParser');
+    const parser = new M3UParser();
+
+    const { channels: parsedChannels, errors } = parser.parse(m3uContent);
+
+    if (parsedChannels.length === 0) {
+      throw createAppError('VALIDATION_ERROR', 'M3U dosyasinda kanal bulunamadi');
+    }
+
+    // Get or create playlist
+    let playlist;
+    if (playlistId) {
+      playlist = await db('playlists').where({ id: playlistId, user_id: userId }).first();
+      if (!playlist) throw createAppError('NOT_FOUND', 'Playlist bulunamadi');
+    } else {
+      const [created] = await db('playlists')
+        .insert({
+          id: uuidv4(),
+          user_id: userId,
+          name: playlistName || 'M3U Import',
+        })
+        .returning('*');
+      playlist = created;
+    }
+
+    // Extract unique groups as categories
+    const groups = [...new Set(parsedChannels.map(ch => ch.group).filter(Boolean))];
+    const categoryMap = {};
+    for (let i = 0; i < groups.length; i++) {
+      let existing = await db('categories')
+        .where({ playlist_id: playlist.id, name: groups[i] })
+        .first();
+      if (existing) {
+        categoryMap[groups[i]] = existing.id;
+      } else {
+        const [created] = await db('categories')
+          .insert({ id: uuidv4(), playlist_id: playlist.id, name: groups[i], sort_order: i })
+          .returning('*');
+        categoryMap[groups[i]] = created.id;
+      }
+    }
+
+    // Build channel records
+    const channelRecords = parsedChannels.map((ch, index) => ({
+      id: uuidv4(),
+      playlist_id: playlist.id,
+      name: ch.name || 'Unnamed',
+      logo_url: ch.logo || null,
+      original_logo_url: ch.logo || null,
+      stream_url: ch.url,
+      epg_channel_id: ch.epgId || null,
+      category_id: ch.group ? (categoryMap[ch.group] || null) : null,
+      sort_order: index,
+      stream_type: 'live',
+      original_name: ch.name || 'Unnamed',
+      extras: JSON.stringify(ch.extras || {}),
+    }));
+
+    await this._bulkUpsertChannels(playlist.id, channelRecords);
+
+    const duration = Date.now() - startTime;
+    return { playlistId: playlist.id, totalChannels: channelRecords.length, totalCategories: groups.length, duration };
   }
 }
 

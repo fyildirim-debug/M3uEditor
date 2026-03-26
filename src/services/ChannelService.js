@@ -134,11 +134,11 @@ class ChannelService {
       // Insert at new position
       filtered.splice(clampedPos, 0, { id: channelId });
 
-      // Update sort_order for all channels to maintain consecutive ordering
-      for (let i = 0; i < filtered.length; i++) {
-        await trx('channels')
-          .where('id', filtered[i].id)
-          .update({ sort_order: i });
+      // Bulk update sort_order using a single query with CASE
+      if (filtered.length > 0) {
+        const cases = filtered.map((c, i) => `WHEN '${c.id}' THEN ${i}`).join(' ');
+        const ids = filtered.map(c => `'${c.id}'`).join(',');
+        await trx.raw(`UPDATE channels SET sort_order = CASE id ${cases} END WHERE id IN (${ids})`);
       }
     });
   }
@@ -262,10 +262,10 @@ class ChannelService {
         .orderBy('sort_order', 'asc')
         .select('id');
 
-      for (let i = 0; i < remaining.length; i++) {
-        await trx('channels')
-          .where('id', remaining[i].id)
-          .update({ sort_order: i });
+      if (remaining.length > 0) {
+        const cases = remaining.map((c, i) => `WHEN '${c.id}' THEN ${i}`).join(' ');
+        const ids = remaining.map(c => `'${c.id}'`).join(',');
+        await trx.raw(`UPDATE channels SET sort_order = CASE id ${cases} END WHERE id IN (${ids})`);
       }
     });
   }
@@ -286,6 +286,45 @@ class ChannelService {
     });
 
     return db('channels').where('id', channelId).first();
+  }
+
+  /**
+   * Bulk rename channels using find/replace.
+   * @param {string} userId
+   * @param {string[]} channelIds
+   * @param {string} find - text to find
+   * @param {string} replace - replacement text
+   * @param {boolean} useRegex - treat find as regex
+   * @returns {Promise<{ renamed: number, total: number }>}
+   */
+  async bulkRename(userId, channelIds, find, replace = '', useRegex = false) {
+    const owned = await db('channels')
+      .join('playlists', 'channels.playlist_id', 'playlists.id')
+      .whereIn('channels.id', channelIds)
+      .andWhere('playlists.user_id', userId)
+      .select('channels.id', 'channels.name');
+
+    if (owned.length !== channelIds.length) {
+      throw createAppError('NOT_FOUND');
+    }
+
+    let renamed = 0;
+    for (const ch of owned) {
+      let newName;
+      if (useRegex) {
+        const regex = new RegExp(find, 'g');
+        newName = ch.name.replace(regex, replace);
+      } else {
+        newName = ch.name.split(find).join(replace);
+      }
+
+      if (newName !== ch.name) {
+        await db('channels').where('id', ch.id).update({ name: newName, updated_at: new Date() });
+        renamed++;
+      }
+    }
+
+    return { renamed, total: channelIds.length };
   }
 
   /**

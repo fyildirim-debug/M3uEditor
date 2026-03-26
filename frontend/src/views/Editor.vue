@@ -159,8 +159,95 @@
                   </div>
                   <div v-if="channelsLoading" class="center-loading"><span class="spinner"></span></div>
                   <div v-else-if="channels.length === 0 && !search" class="center-empty">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
-                    <p>{{ selectedCatId ? t('editor.noChannelsInCat') : t('editor.noChannels') }}</p>
+                    <!-- Kategori icinde bos -->
+                    <template v-if="selectedCatId">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                      <p>{{ t('editor.noChannelsInCat') }}</p>
+                    </template>
+
+                    <!-- Xtream VAR + tip henuz cekilmemis → tek buton ile cek -->
+                    <template v-else-if="savedXtream && activeStreamType === 'vod' && !savedXtreamTypes.includes('vod')">
+                      <div class="empty-smart">
+                        <div class="empty-smart-icon vod">
+                          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                        </div>
+                        <h3 class="empty-smart-title">{{ t('addTypes.emptyVod') }}</h3>
+                        <button class="btn btn-primary" @click="doAddTypes(['vod'])" :disabled="addingTypes">
+                          <span v-if="addingTypes" class="spinner" style="width:14px;height:14px"></span>
+                          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                          {{ addingTypes ? t('common.importing') : t('addTypes.fetchMovies') }}
+                        </button>
+                      </div>
+                    </template>
+                    <template v-else-if="savedXtream && activeStreamType === 'series' && !savedXtreamTypes.includes('series')">
+                      <div class="empty-smart">
+                        <div class="empty-smart-icon series">
+                          <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+                        </div>
+                        <h3 class="empty-smart-title">{{ t('addTypes.emptySeries') }}</h3>
+                        <button class="btn btn-primary" @click="doAddTypes(['series'])" :disabled="addingTypes">
+                          <span v-if="addingTypes" class="spinner" style="width:14px;height:14px"></span>
+                          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                          {{ addingTypes ? t('common.importing') : t('addTypes.fetchSeries') }}
+                        </button>
+                      </div>
+                    </template>
+
+                    <!-- Xtream VAR + tip cekilmis ama saglaycida icerik yok -->
+                    <template v-else-if="savedXtream && (activeStreamType === 'vod' || activeStreamType === 'series') && savedXtreamTypes.includes(activeStreamType)">
+                      <div class="empty-smart">
+                        <div class="empty-smart-icon muted">
+                          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        </div>
+                        <h3 class="empty-smart-title">{{ t('addTypes.providerEmpty') }}</h3>
+                        <p class="empty-smart-desc">{{ t('addTypes.providerEmptyDesc') }}</p>
+                      </div>
+                    </template>
+
+                    <!-- Xtream YOK → kaynak secim ekrani -->
+                    <template v-else-if="!selectedCatId && (activeStreamType !== 'live' || totalChannelCount === 0)">
+                      <div class="empty-smart">
+                        <div class="empty-smart-icon accent">
+                          <svg v-if="activeStreamType === 'vod'" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                          <svg v-else-if="activeStreamType === 'series'" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+                          <svg v-else width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+                        </div>
+                        <h3 class="empty-smart-title">{{ emptySmartTitle }}</h3>
+                        <p class="empty-smart-desc">{{ t('addTypes.chooseSource') }}</p>
+
+                        <div class="empty-smart-options">
+                          <!-- Xtream Codes ile baglan -->
+                          <div class="empty-option-card" @click="openXtream">
+                            <div class="empty-option-icon xtream">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                            </div>
+                            <div class="empty-option-info">
+                              <div class="empty-option-title">{{ t('addTypes.xtreamOption') }}</div>
+                              <div class="empty-option-desc">{{ t('addTypes.xtreamOptionDesc') }}</div>
+                            </div>
+                            <svg class="empty-option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                          </div>
+
+                          <!-- M3U dosyasindan ice aktar -->
+                          <div class="empty-option-card" @click="showM3uImportInEditor = true">
+                            <div class="empty-option-icon m3u">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                            </div>
+                            <div class="empty-option-info">
+                              <div class="empty-option-title">{{ t('addTypes.m3uOption') }}</div>
+                              <div class="empty-option-desc">{{ t('addTypes.m3uOptionDesc') }}</div>
+                            </div>
+                            <svg class="empty-option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+
+                    <!-- Fallback genel bos -->
+                    <template v-else>
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+                      <p>{{ t('editor.noChannels') }}</p>
+                    </template>
                   </div>
                   <div v-else-if="channels.length === 0 && search" class="center-empty">
                     <p>{{ t('common.noResults') }}</p>
@@ -500,6 +587,41 @@
                   </button>
                 </div>
 
+                <!-- Add Stream Types Section -->
+                <div v-if="savedXtream" class="add-types-section">
+                  <h4 class="add-types-title">{{ t('addTypes.title') }}</h4>
+                  <p class="add-types-desc">{{ t('addTypes.desc') }}</p>
+                  <div class="add-types-current">
+                    <span class="badge" :class="savedXtreamTypes.includes('live') ? 'badge-success' : 'badge-accent'" v-if="savedXtreamTypes.includes('live')">{{ t('xtream.typeLive') }}</span>
+                    <span class="badge" :class="savedXtreamTypes.includes('vod') ? 'badge-success' : 'badge-accent'" v-if="savedXtreamTypes.includes('vod')">{{ t('xtream.typeVod') }}</span>
+                    <span class="badge" :class="savedXtreamTypes.includes('series') ? 'badge-success' : 'badge-accent'" v-if="savedXtreamTypes.includes('series')">{{ t('xtream.typeSeries') }}</span>
+                  </div>
+                  <div class="add-types-buttons">
+                    <button v-if="!savedXtreamTypes.includes('vod')"
+                      class="btn btn-secondary" @click="doAddTypes(['vod'])" :disabled="addingTypes">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                      {{ addingTypes ? t('common.importing') : t('addTypes.addMovies') }}
+                    </button>
+                    <button v-if="!savedXtreamTypes.includes('series')"
+                      class="btn btn-secondary" @click="doAddTypes(['series'])" :disabled="addingTypes">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
+                      {{ addingTypes ? t('common.importing') : t('addTypes.addSeries') }}
+                    </button>
+                    <button v-if="!savedXtreamTypes.includes('vod') && !savedXtreamTypes.includes('series')"
+                      class="btn btn-primary" @click="doAddTypes(['vod', 'series'])" :disabled="addingTypes">
+                      <span v-if="addingTypes" class="spinner" style="width:14px;height:14px"></span>
+                      {{ addingTypes ? t('common.importing') : t('addTypes.addBoth') }}
+                    </button>
+                  </div>
+                  <div v-if="addTypesResult" class="result-box success" style="margin-top:12px">
+                    {{ t('addTypes.result', { added: addTypesResult.added, types: addTypesResult.addedTypes.join(', '), duration: (addTypesResult.duration / 1000).toFixed(1) }) }}
+                  </div>
+                  <div v-if="savedXtreamTypes.includes('vod') && savedXtreamTypes.includes('series') && savedXtreamTypes.includes('live')" class="add-types-complete">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    {{ t('addTypes.allAdded') }}
+                  </div>
+                </div>
+
                 <div class="update-info">
                   <div class="update-stat">
                     <span class="update-stat-label">{{ t('updateView.totalChannels') }}</span>
@@ -719,6 +841,37 @@
         </div>
       </div>
     </Teleport>
+    <!-- M3U Import Modal (Editor) -->
+    <Teleport to="body">
+      <div v-if="showM3uImportInEditor" class="modal-overlay" @click.self="showM3uImportInEditor = false">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>{{ t('m3uImport.title') }}</h3>
+            <button class="btn btn-ghost btn-icon-sm" @click="showM3uImportInEditor = false">✕</button>
+          </div>
+          <div class="form-group">
+            <label>{{ t('m3uImport.fromUrl') }}</label>
+            <input class="input" v-model="editorM3uForm.url" :placeholder="t('m3uImport.urlPlaceholder')" />
+          </div>
+          <div class="url-divider"><span>{{ t('common.or') }}</span></div>
+          <div class="form-group">
+            <label>{{ t('m3uImport.fromFile') }}</label>
+            <input type="file" accept=".m3u,.m3u8,.txt" @change="onEditorM3uFile" class="input" />
+          </div>
+          <div v-if="editorM3uError" class="result-box error">{{ editorM3uError }}</div>
+          <div v-if="editorM3uResult" class="result-box success">
+            {{ t('toast.importSuccess', { channels: editorM3uResult.totalChannels, categories: editorM3uResult.totalCategories, duration: (editorM3uResult.duration / 1000).toFixed(1) }) }}
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" @click="showM3uImportInEditor = false">{{ t('common.close') }}</button>
+            <button class="btn btn-primary" @click="doEditorM3uImport" :disabled="editorM3uImporting || (!editorM3uForm.url && !editorM3uForm.content)">
+              <span v-if="editorM3uImporting" class="spinner" style="width:14px;height:14px"></span>
+              {{ editorM3uImporting ? t('common.importing') : t('common.import') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
     <Teleport to="body">
       <div v-if="showBulkMove" class="modal-overlay" @click.self="showBulkMove = false">
         <div class="modal">
@@ -878,7 +1031,10 @@ const importing = ref(false)
 const importResult = ref(null)
 const importError = ref('')
 const savedXtream = ref(null) // { serverUrl, username, lastSynced }
+const savedXtreamTypes = ref(['live'])
 const syncing = ref(false)
+const addingTypes = ref(false)
+const addTypesResult = ref(null)
 
 // EPG
 const epgSources = ref([])
@@ -946,6 +1102,16 @@ const streamTypeLabel = computed(() => {
   }
 })
 
+const emptySmartTitle = computed(() => {
+  switch (activeStreamType.value) {
+    case 'vod': return t('addTypes.noMoviesYet')
+    case 'series': return t('addTypes.noSeriesYet')
+    default: return t('addTypes.noChannelsYet')
+  }
+})
+
+const showM3uImportInEditor = ref(false)
+
 function toggleStreamSection(type) {
   if (activeStreamType.value === type) return
   activeStreamType.value = type
@@ -984,6 +1150,7 @@ onMounted(async () => {
     playlistName.value = pl?.name || 'Playlist'
     if (pl?.xtream_server_url) {
       savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
+      savedXtreamTypes.value = pl.xtream_stream_types ? JSON.parse(pl.xtream_stream_types) : ['live']
     }
     categories.value = catRes.data
     await Promise.all([loadChannels(), loadTotalCount(), loadStreamTypeCounts()])
@@ -1227,7 +1394,10 @@ async function doXtreamImport() {
     // Refresh saved xtream info
     const plRes = await api.get('/playlists')
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
-    if (pl?.xtream_server_url) savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
+    if (pl?.xtream_server_url) {
+      savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
+      savedXtreamTypes.value = pl.xtream_stream_types ? JSON.parse(pl.xtream_stream_types) : ['live']
+    }
     loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
     for (const catId of openAccordions.value) loadAccChannels(catId)
   } catch (e) { importError.value = e.response?.data?.error?.message || t('toast.connectionError') }
@@ -1244,6 +1414,50 @@ async function doSync() {
     loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
   } catch (e) { toast(e.response?.data?.error?.message || t('toast.updateError'), 'error') }
   finally { syncing.value = false }
+}
+
+async function doAddTypes(types) {
+  addingTypes.value = true
+  addTypesResult.value = null
+  try {
+    const { data } = await api.post(`/playlists/${playlistId}/import/add-types`, { streamTypes: types })
+    addTypesResult.value = data
+    savedXtreamTypes.value = data.allTypes
+    toast(t('addTypes.result', { added: data.added, types: data.addedTypes.join(', '), duration: (data.duration / 1000).toFixed(1) }), 'success')
+    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
+  } catch (e) {
+    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+  } finally { addingTypes.value = false }
+}
+
+// M3U Import in Editor
+const editorM3uForm = ref({ url: '', content: '' })
+const editorM3uImporting = ref(false)
+const editorM3uResult = ref(null)
+const editorM3uError = ref('')
+
+function onEditorM3uFile(e) {
+  const file = e.target.files[0]
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => { editorM3uForm.value.content = reader.result }
+  reader.readAsText(file)
+}
+
+async function doEditorM3uImport() {
+  editorM3uImporting.value = true; editorM3uResult.value = null; editorM3uError.value = ''
+  try {
+    const payload = {}
+    if (editorM3uForm.value.content) payload.m3uContent = editorM3uForm.value.content
+    else payload.m3uUrl = editorM3uForm.value.url
+    const { data } = await api.post(`/playlists/${playlistId}/import/m3u`, payload)
+    editorM3uResult.value = data
+    toast(t('toast.importSuccess', { channels: data.totalChannels, categories: data.totalCategories, duration: (data.duration / 1000).toFixed(1) }), 'success')
+    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
+    setTimeout(() => { showM3uImportInEditor.value = false }, 2000)
+  } catch (e) {
+    editorM3uError.value = e.response?.data?.error?.message || t('toast.genericError')
+  } finally { editorM3uImporting.value = false }
 }
 
 async function loadAllChannels() {
@@ -1929,6 +2143,48 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 
 /* Update view */
 .update-panel { padding: 16px 20px; }
+/* Smart empty state */
+.empty-smart { display: flex; flex-direction: column; align-items: center; padding: 20px 0; max-width: 420px; margin: 0 auto; }
+.empty-smart-icon { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+.empty-smart-icon.vod { background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(99,102,241,0.08)); color: #8b5cf6; }
+.empty-smart-icon.series { background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(99,102,241,0.08)); color: #3b82f6; }
+.empty-smart-icon.accent { background: linear-gradient(135deg, var(--accent-soft), rgba(99,102,241,0.06)); color: var(--accent); }
+.empty-smart-icon.muted { background: var(--bg-hover); color: var(--text-muted); }
+.empty-smart-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; text-align: center; }
+.empty-smart-desc { font-size: 13px; color: var(--text-secondary); text-align: center; line-height: 1.6; margin-bottom: 20px; }
+
+/* Source option cards */
+.empty-smart-options { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 4px; }
+.empty-option-card {
+  display: flex; align-items: center; gap: 14px; padding: 16px 18px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); cursor: pointer; transition: var(--transition);
+}
+.empty-option-card:hover { background: var(--bg-card-hover); border-color: var(--border-light); transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.empty-option-icon {
+  width: 44px; height: 44px; border-radius: var(--radius); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.empty-option-icon.xtream { background: linear-gradient(135deg, #6366f1, #818cf8); color: white; }
+.empty-option-icon.m3u { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
+.empty-option-info { flex: 1; min-width: 0; }
+.empty-option-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.empty-option-desc { font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; }
+.empty-option-arrow { color: var(--text-muted); flex-shrink: 0; transition: var(--transition); }
+.empty-option-card:hover .empty-option-arrow { color: var(--accent); transform: translateX(3px); }
+
+/* Add Types Section */
+.add-types-section {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 16px; margin-bottom: 8px; margin-top: 8px;
+}
+.add-types-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.add-types-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
+.add-types-current { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.add-types-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.add-types-complete { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--success); margin-top: 8px; }
+.result-box { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.result-box.success { background: var(--success-soft); color: var(--success); border: 1px solid rgba(16,185,129,0.2); }
+
 .update-info { display: flex; gap: 16px; margin-top: 16px; }
 .update-stat {
   flex: 1; background: var(--bg-secondary); border: 1px solid var(--border);
