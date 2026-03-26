@@ -374,5 +374,80 @@
     "light": "Acik Tema",
     "dark": "Koyu Tema",
     "system": "Sistem"
+  },
+  "forgotPw": {
+    "title": "Sifremi Unuttum",
+    "subtitle": "E-posta adresinizi girin, sifre sifirlama linki gonderelim.",
+    "submit": "Sifirlama Linki Gonder",
+    "sent": "Sifre sifirlama linki e-posta adresinize gonderildi. Lutfen e-postanizi kontrol edin.",
+    "backToLogin": "Girise Don",
+    "link": "Sifremi Unuttum"
+  },
+  "resetPw": {
+    "title": "Yeni Sifre Belirle",
+    "submit": "Sifremi Degistir",
+    "success": "Sifreniz basariyla degistirildi. Simdi giris yapabilirsiniz."
+  },
+  "landing": {
+    "heroTitle": "IPTV Playlistlerini Profesyonelce Yonet",
+    "heroSubtitle": "Xtream Codes, M3U dosyalari ve EPG verileriyle kanallarinizi duzenleyin, kategorize edin ve paylasin.",
+    "ctaStart": "Ucretsiz Basla",
+    "ctaPlans": "Planlari Gor",
+    "featXtream": "Xtream Codes Entegrasyonu",
+    "featXtreamDesc": "Sunucu URL, kullanici adi ve sifre ile otomatik kanal cekme. Canli TV, film ve dizi destegi.",
+    "featM3u": "M3U Import / Export",
+    "featM3uDesc": "M3U dosyasi veya URL'den ice aktar, duzenle ve tekrar disa aktar.",
+    "featEpg": "EPG TV Rehberi",
+    "featEpgDesc": "XMLTV kaynaklariyla program rehberi. Otomatik kanal eslestirme.",
+    "featBulk": "Toplu Duzenleme",
+    "featBulkDesc": "Regex ile toplu yeniden adlandirma, surukle-birak siralama, toplu tasima ve silme.",
+    "featVod": "Film ve Dizi Destegi",
+    "featVodDesc": "VOD ve Series icerik tipleri, metadata bilgileri, IMDB/TMDB entegrasyonu.",
+    "featShare": "Paylasim Linkleri",
+    "featShareDesc": "Sureli ve sifreli paylasim linkleri olusturun. IPTV oynaticilara dogrudan ekleyin.",
+    "howTitle": "Nasil Calisir?",
+    "step1": "Kayit Ol",
+    "step1Desc": "Ucretsiz hesap olusturun",
+    "step2": "Kanallari Ice Aktar",
+    "step2Desc": "Xtream Codes veya M3U ile",
+    "step3": "Duzenle ve Paylas",
+    "step3Desc": "Kanallarinizi yonetin ve paylasin",
+    "footerRights": "Tum haklari saklidir."
+  },
+  "pricing2": {
+    "title": "Planlar ve Fiyatlar",
+    "subtitle": "Ihtiyaciniza uygun plani secin",
+    "free": "Ucretsiz",
+    "pro": "Pro",
+    "business": "Business",
+    "popular": "Populer",
+    "month": "ay",
+    "freePlaylists": "3 Playlist",
+    "freeChannels": "500 Kanal / Playlist",
+    "freeFeatures": "Temel ozellikler",
+    "freeM3u": "M3U Import/Export",
+    "proPlaylists": "10 Playlist",
+    "proChannels": "5.000 Kanal / Playlist",
+    "proEpg": "EPG TV Rehberi",
+    "proMeta": "Film/Dizi Metadata",
+    "proSupport": "Oncelikli Destek",
+    "bizPlaylists": "Sinirsiz Playlist",
+    "bizChannels": "Sinirsiz Kanal",
+    "bizApi": "API Erisimi",
+    "bizSupport": "Ozel Destek",
+    "bizWhitelabel": "White-label Secenegi",
+    "ctaFree": "Ucretsiz Basla",
+    "ctaPro": "Pro'ya Gec",
+    "ctaBusiness": "Iletisime Gec"
+  },
+  "legal": {
+    "termsTitle": "Kullanim Sartlari",
+    "privacyTitle": "Gizlilik Politikasi",
+    "lastUpdated": "Son guncelleme: 2026-03-26"
+  },
+  "notFound": {
+    "title": "Sayfa Bulunamadi",
+    "desc": "Aradiginiz sayfa mevcut degil veya tasindi.",
+    "goHome": "Ana Sayfaya Don"
   }
 }

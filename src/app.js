@@ -56,6 +56,7 @@ app.use('/api', require('./routes/import'));
 app.use('/api', require('./routes/epg'));
 app.use('/api', require('./routes/export'));
 app.use('/api', require('./routes/playlists'));
+app.use('/api/admin', require('./routes/admin'));
 
 // Client-side routing: serve index.html for non-API routes
 app.get('*', (req, res, next) => {

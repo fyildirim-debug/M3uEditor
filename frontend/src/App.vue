@@ -1,6 +1,35 @@
 <template>
   <div id="app-root">
-    <header v-if="auth.isLoggedIn" class="app-header">
+    <!-- Public header (not logged in, on public pages) -->
+    <header v-if="!auth.isLoggedIn && isPublicPage" class="app-header">
+      <router-link to="/" class="logo" aria-label="Ana sayfa">
+        <div class="logo-mark">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+          </svg>
+        </div>
+        <span class="logo-text">M3U Editor</span>
+      </router-link>
+
+      <div class="header-nav" style="flex:1;"></div>
+
+      <div class="header-right">
+        <div class="lang-switcher" v-if="langs.length > 1">
+          <button v-for="l in langs" :key="l.code"
+            :class="['lang-btn', { active: lang === l.code }]"
+            @click="setLang(l.code)"
+            :title="l.name">
+            <span class="lang-flag" v-html="l.flag"></span>
+          </button>
+        </div>
+
+        <router-link to="/login" class="btn btn-ghost btn-sm">{{ t('auth.login') }}</router-link>
+        <router-link to="/login" class="btn btn-primary btn-sm" style="text-decoration:none;">{{ t('auth.register') }}</router-link>
+      </div>
+    </header>
+
+    <!-- Authenticated header -->
+    <header v-else-if="auth.isLoggedIn" class="app-header">
       <router-link to="/dashboard" class="logo" aria-label="Ana sayfa">
         <div class="logo-mark">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -75,14 +104,18 @@
 </template>
 
 <script setup>
-import { ref, provide } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, provide } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useI18n } from './langs/useI18n'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const { t, lang, setLang, langs } = useI18n()
+
+const publicPaths = ['/', '/pricing', '/terms', '/privacy']
+const isPublicPage = computed(() => publicPaths.includes(route.path))
 const toasts = ref([])
 
 function showToast(message, type = 'info') {

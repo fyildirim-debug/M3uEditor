@@ -61,6 +61,7 @@
             <p v-if="confirmPassword && confirmPassword !== password" class="field-error">{{ t('auth.passwordMismatch') }}</p>
           </div>
 
+          <router-link v-if="!isRegister" to="/forgot-password" style="display:block;text-align:right;font-size:12px;color:var(--accent);text-decoration:none;margin-top:-4px;margin-bottom:8px">{{ t('forgotPw.link') }}</router-link>
           <button class="btn btn-primary btn-submit" type="submit" :disabled="loading || (isRegister && (!confirmPassword || confirmPassword !== password))">
             <span v-if="loading" class="spinner" style="width:16px;height:16px;border-width:2px"></span>
             <template v-else>

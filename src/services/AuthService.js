@@ -22,6 +22,10 @@ class AuthService {
     const token = this._generateToken(user.id);
     const refreshToken = await this._generateRefreshToken(user.id);
 
+    // Send welcome email (fire-and-forget)
+    const emailService = require('./EmailService');
+    emailService.sendWelcome(email).catch(() => {});
+
     return { user: { id: user.id, email: user.email }, token, refreshToken };
   }
 
@@ -115,6 +119,52 @@ class AuthService {
       playlistCount: parseInt(stats.count, 10),
       channelCount: parseInt(channelCount.count, 10),
     };
+  }
+
+  async forgotPassword(email) {
+    const user = await db('users').where({ email }).first();
+    if (!user) {
+      // Don't reveal whether email exists — always return success
+      return { success: true };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expires = new Date();
+    expires.setHours(expires.getHours() + 1); // 1 hour expiry
+
+    await db('users').where({ id: user.id }).update({
+      password_reset_token: resetToken,
+      password_reset_expires: expires,
+    });
+
+    const emailService = require('./EmailService');
+    await emailService.sendPasswordReset(email, resetToken);
+
+    return { success: true };
+  }
+
+  async resetPassword(token, newPassword) {
+    if (!token || !newPassword) {
+      throw createAppError('VALIDATION_ERROR', 'Token ve yeni sifre gereklidir');
+    }
+
+    const user = await db('users').where({ password_reset_token: token }).first();
+    if (!user) {
+      throw createAppError('INVALID_CREDENTIALS', 'Gecersiz veya suresi dolmus token');
+    }
+
+    if (user.password_reset_expires && new Date(user.password_reset_expires) < new Date()) {
+      throw createAppError('TOKEN_EXPIRED', 'Sifre sifirlama linkinin suresi dolmus');
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await db('users').where({ id: user.id }).update({
+      password_hash: passwordHash,
+      password_reset_token: null,
+      password_reset_expires: null,
+    });
+
+    return { success: true };
   }
 
   verifyToken(token) {
