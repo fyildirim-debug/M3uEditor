@@ -70,7 +70,8 @@
     "passwordPlaceholder": "En az 6 karakter",
     "confirmPassword": "Sifre Tekrar",
     "confirmPlaceholder": "Sifreyi tekrar gir",
-    "passwordMismatch": "Sifreler eslesmemis"
+    "passwordMismatch": "Sifreler eslesmemis",
+    "socialProof": "1.000+ kullanici guvenle kullaniyor"
   },
   "passwordStrength": {
     "weak": "Zayif",
@@ -86,7 +87,21 @@
     "statsLastUpdated": "Son Guncelleme",
     "noPlaylists": "Henuz playlist yok",
     "createFirstHint": "Ilk playlistini olustur ve Xtream Codes ile kanallarini ice aktar.",
-    "createFirst": "Ilk Playlistini Olustur"
+    "createFirst": "Ilk Playlistini Olustur",
+    "onboardStep1Title": "Ice Aktar",
+    "onboardStep1Desc": "Xtream Codes veya M3U ile kanallari ice aktar",
+    "onboardStep2Title": "Duzenle",
+    "onboardStep2Desc": "Kanallari duzenle, kategorize et",
+    "onboardStep3Title": "Paylas",
+    "onboardStep3Desc": "M3U indir veya paylasim linki olustur",
+    "planUsage": "Plan Kullanimi",
+    "playlistUsage": "Playlist: {current}/{max}",
+    "upgrade": "Yukselt",
+    "lastEdited": "Son duzenleme: {time}",
+    "justNow": "az once",
+    "minutesAgo": "{n} dk once",
+    "hoursAgo": "{n} saat once",
+    "daysAgo": "{n} gun once"
   },
   "playlist": {
     "newPlaylist": "Yeni Playlist",
@@ -438,7 +453,21 @@
     "bizWhitelabel": "White-label Secenegi",
     "ctaFree": "Ucretsiz Basla",
     "ctaPro": "Pro'ya Gec",
-    "ctaBusiness": "Iletisime Gec"
+    "ctaBusiness": "Iletisime Gec",
+    "annual": "Yillik",
+    "monthly": "Aylik",
+    "annualDiscount": "%20 indirimli",
+    "perYear": "yil",
+    "featureComparison": "Ozellik Karsilastirmasi",
+    "faq": "Sikca Sorulan Sorular",
+    "faq1q": "Ucretsiz plan ne kadar sure gecerli?",
+    "faq1a": "Ucretsiz plan suresiz gecerlidir. Istediginiz surece kullanabilirsiniz.",
+    "faq2q": "Plan degisikligi aninda mi uygulanir?",
+    "faq2a": "Evet, plan yukseltmesi aninda uygulanir ve yeni limitler hemen aktif olur.",
+    "faq3q": "Iptal edebilir miyim?",
+    "faq3a": "Evet, istediginiz zaman iptal edebilirsiniz. Mevcut donem sonuna kadar erisim devam eder.",
+    "faq4q": "Odeme yontemleri nelerdir?",
+    "faq4a": "Kredi karti ve banka karti ile odeme yapabilirsiniz. Tum odemeler guvenli SSL ile korunur."
   },
   "legal": {
     "termsTitle": "Kullanim Sartlari",

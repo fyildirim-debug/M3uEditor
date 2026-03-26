@@ -70,7 +70,8 @@
     "passwordPlaceholder": "At least 6 characters",
     "confirmPassword": "Confirm Password",
     "confirmPlaceholder": "Re-enter your password",
-    "passwordMismatch": "Passwords do not match"
+    "passwordMismatch": "Passwords do not match",
+    "socialProof": "Trusted by 1,000+ users"
   },
   "passwordStrength": {
     "weak": "Weak",
@@ -86,7 +87,21 @@
     "statsLastUpdated": "Last Updated",
     "noPlaylists": "No playlists yet",
     "createFirstHint": "Create your first playlist and import channels with Xtream Codes.",
-    "createFirst": "Create Your First Playlist"
+    "createFirst": "Create Your First Playlist",
+    "onboardStep1Title": "Import",
+    "onboardStep1Desc": "Import channels via Xtream Codes or M3U",
+    "onboardStep2Title": "Edit",
+    "onboardStep2Desc": "Edit and categorize your channels",
+    "onboardStep3Title": "Share",
+    "onboardStep3Desc": "Download M3U or create a share link",
+    "planUsage": "Plan Usage",
+    "playlistUsage": "Playlist: {current}/{max}",
+    "upgrade": "Upgrade",
+    "lastEdited": "Last edited: {time}",
+    "justNow": "just now",
+    "minutesAgo": "{n}m ago",
+    "hoursAgo": "{n}h ago",
+    "daysAgo": "{n}d ago"
   },
   "playlist": {
     "newPlaylist": "New Playlist",
@@ -438,7 +453,21 @@
     "bizWhitelabel": "White-label Option",
     "ctaFree": "Get Started Free",
     "ctaPro": "Upgrade to Pro",
-    "ctaBusiness": "Contact Us"
+    "ctaBusiness": "Contact Us",
+    "annual": "Annual",
+    "monthly": "Monthly",
+    "annualDiscount": "20% off",
+    "perYear": "year",
+    "featureComparison": "Feature Comparison",
+    "faq": "Frequently Asked Questions",
+    "faq1q": "How long is the free plan valid?",
+    "faq1a": "The free plan is valid indefinitely. You can use it as long as you want.",
+    "faq2q": "Is the plan change applied immediately?",
+    "faq2a": "Yes, plan upgrades are applied immediately and new limits become active right away.",
+    "faq3q": "Can I cancel?",
+    "faq3a": "Yes, you can cancel at any time. Access continues until the end of the current period.",
+    "faq4q": "What payment methods are available?",
+    "faq4a": "You can pay with credit card and debit card. All payments are secured with SSL."
   },
   "legal": {
     "termsTitle": "Terms of Service",

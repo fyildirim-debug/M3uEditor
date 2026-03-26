@@ -1,7 +1,7 @@
 <template>
   <div id="app-root">
     <!-- Public header (not logged in, on public pages) -->
-    <header v-if="!auth.isLoggedIn && isPublicPage" class="app-header">
+    <header v-if="!auth.isLoggedIn && isPublicPage" class="app-header glass" :class="{ 'header-hidden': headerHidden }">
       <router-link to="/" class="logo" aria-label="Ana sayfa">
         <div class="logo-mark">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -104,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, computed, provide } from 'vue'
+import { ref, computed, provide, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useI18n } from './langs/useI18n'
@@ -117,6 +117,17 @@ const { t, lang, setLang, langs } = useI18n()
 const publicPaths = ['/', '/pricing', '/terms', '/privacy']
 const isPublicPage = computed(() => publicPaths.includes(route.path))
 const toasts = ref([])
+
+// Header scroll behavior
+const headerHidden = ref(false)
+let lastScrollY = 0
+function handleScroll() {
+  const currentY = window.scrollY
+  headerHidden.value = currentY > 100 && currentY > lastScrollY
+  lastScrollY = currentY
+}
+onMounted(() => window.addEventListener('scroll', handleScroll, { passive: true }))
+onUnmounted(() => window.removeEventListener('scroll', handleScroll))
 
 function showToast(message, type = 'info') {
   const id = Date.now() + Math.random()
@@ -148,6 +159,7 @@ function handleLogout() {
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   box-shadow: 0 1px 0 rgba(99,102,241,0.06), 0 4px 24px rgba(0,0,0,0.35);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Logo */
@@ -326,6 +338,8 @@ function handleLogout() {
   from { opacity: 0; transform: translateX(60px) scale(0.94); }
   to   { opacity: 1; transform: translateX(0) scale(1); }
 }
+
+.header-hidden { transform: translateY(-100%); }
 
 /* ── Responsive ─────────────────────────────── */
 @media (max-width: 640px) {
