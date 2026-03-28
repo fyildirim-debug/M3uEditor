@@ -283,6 +283,14 @@ class XtreamClient {
   }
 
   /**
+   * Xtream Codes XMLTV EPG URL'sini döndür.
+   * @returns {string} XMLTV formatında EPG URL'si
+   */
+  getXmltvUrl() {
+    return `${this.serverUrl}/xmltv.php?username=${encodeURIComponent(this.username)}&password=${encodeURIComponent(this.password)}`;
+  }
+
+  /**
    * VOD (film) detay bilgisi getir.
    * @param {string} vodId
    * @returns {Promise<object|null>}

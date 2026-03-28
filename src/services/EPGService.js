@@ -3,7 +3,7 @@ const db = require('../config/database');
 const EPGParser = require('../parsers/EPGParser');
 const { createAppError } = require('../utils/AppError');
 
-const FETCH_TIMEOUT = 120000; // 120 seconds for EPG fetch (EPG files can be very large)
+const FETCH_TIMEOUT = 300000; // 300 seconds (5 dakika) for EPG fetch — Xtream XMLTV dosyaları çok büyük olabiliyor
 
 class EPGService {
   /**
@@ -22,6 +22,15 @@ class EPGService {
       new URL(url);
     } catch {
       throw createAppError('VALIDATION_ERROR', 'Geçersiz URL formatı');
+    }
+
+    // Aynı kullanıcı için aynı URL zaten varsa mevcut kaynağı döndür
+    const existing = await db('epg_sources')
+      .where({ user_id: userId, url })
+      .first();
+
+    if (existing) {
+      return existing;
     }
 
     const [source] = await db('epg_sources')

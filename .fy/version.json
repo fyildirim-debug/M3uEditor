@@ -1,6 +1,7 @@
 {
-  "version": "1.6.0.0",
+  "version": "1.6.3.0",
   "history": [
+    { "version": "1.6.3.0", "date": "2026-03-29", "summary": "Xtream EPG otomatik entegrasyonu: import/sync sirasinda xmltv.php EPG kaynagi otomatik eklenir ve kanallar eslestirilir. Turkce karakter duzeltmeleri (tr.json tam UTF-8). EPG tablolari varchar(255) → text migration (buyuk icon_url/display_name destegi)." },
     { "version": "1.6.0.0", "date": "2026-03-26", "summary": "Buyuk guncelleme: M3U import, refresh token, hesap ayarlari, toplu rename, stream test, manuel kanal ekleme, paylasim suresi/sifresi, stream type export, light mode, EPG batch insert, guvenlik (helmet+rate limit+CORS), Pino logging, graceful shutdown, i18n yeni key'ler" },
     { "version": "1.4.0.0", "date": "2026-03-16", "summary": "Xtream metadata sistemi: film/dizi bilgileri (ozet, oyuncular, tur, puan) cekme ve goruntuleme" },
     { "version": "1.3.2.1", "date": "2026-03-16", "summary": "Filmler/Diziler icin dinamik label'lar: Tum Filmler, film ara, dizi ara vb." },

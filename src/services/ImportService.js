@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
 const XtreamClient = require('./XtreamClient');
+const EPGService = require('./EPGService');
 const { createAppError } = require('../utils/AppError');
 
 const BATCH_SIZE = 100;
@@ -94,6 +95,16 @@ class ImportService {
     // Update last_synced_at
     await db('playlists').where({ id: playlist.id }).update({ last_synced_at: new Date(), updated_at: new Date() });
 
+    // Xtream Codes'un yerleşik EPG'sini arka planda ekle (xmltv.php)
+    // Import'u bloklamadan asenkron çalışır
+    const epgService = new EPGService();
+    const xmltvUrl = client.getXmltvUrl();
+    epgService.addSource(userId, xmltvUrl)
+      .then(epgSource => epgService.parseAndStore(epgSource.id)
+        .then(() => epgService.autoMatch(userId, playlist.id))
+      )
+      .catch(() => { /* EPG hatası import'u etkilemesin */ });
+
     const duration = Date.now() - startTime;
     return { playlistId: playlist.id, totalChannels: channelRecords.length, totalCategories: categories.length, duration };
   }
@@ -170,6 +181,16 @@ class ImportService {
         removed++;
       }
     }
+
+    // Sync sırasında EPG'yi arka planda yenile
+    const epgService = new EPGService();
+    const baseUrl = playlist.xtream_server_url.replace(/\/+$/, '');
+    const xmltvUrl = `${baseUrl}/xmltv.php?username=${encodeURIComponent(playlist.xtream_username)}&password=${encodeURIComponent(playlist.xtream_password_enc)}`;
+    epgService.addSource(userId, xmltvUrl)
+      .then(epgSource => epgService.parseAndStore(epgSource.id)
+        .then(() => epgService.autoMatch(userId, playlistId))
+      )
+      .catch(() => { /* EPG hatası sync'i etkilemesin */ });
 
     const duration = Date.now() - startTime;
     return { added, updated, removed, duration };

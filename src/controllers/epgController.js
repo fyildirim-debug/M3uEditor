@@ -10,17 +10,26 @@ const epgService = new EPGService();
  */
 async function addSource(req, res, next) {
   try {
-    const { url } = req.body;
+    const { url, async: asyncMode } = req.body;
 
     if (!url || typeof url !== 'string' || url.trim().length === 0) {
       throw createAppError('VALIDATION_ERROR', 'url alanı zorunludur');
     }
 
     const source = await epgService.addSource(req.userId, url.trim());
+
+    if (asyncMode) {
+      // Asenkron mod: hemen cevap dön, parse arka planda çalışsın
+      epgService.parseAndStore(source.id).catch(() => {});
+      const updatedSource = await db('epg_sources').where({ id: source.id }).first();
+      return res.status(202).json({ source: updatedSource, channelCount: 0, programCount: 0 });
+    }
+
     const parseResult = await epgService.parseAndStore(source.id);
+    const updatedSource = await db('epg_sources').where({ id: source.id }).first();
 
     res.status(201).json({
-      source,
+      source: updatedSource,
       channelCount: parseResult.channelCount,
       programCount: parseResult.programCount,
     });
