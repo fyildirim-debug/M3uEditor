@@ -6,6 +6,9 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-43853d.svg)](https://nodejs.org/)
 [![Vue 3](https://img.shields.io/badge/Vue-3.5-42b883.svg)](https://vuejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13%2B-336791.svg)](https://www.postgresql.org/)
+[![100% Free](https://img.shields.io/badge/100%25-FREE-success.svg)](#)
+
+> 📢 **This project replaces [xtreamcodesapitom3u](https://github.com/fyildirim-debug/xtreamcodesapitom3u).** All future development, new features and updates will continue here. **Completely free, no plan limits, no ads** — full Xtream Codes & M3U editor with EPG, drag-and-drop sorting, multi-language UI, themes, and much more than the original tool.
 
 ![M3U Playlist Editor – Landing](screenshot/main.png)
 
@@ -23,7 +26,8 @@
 - **Multi-language UI** — Turkish + English (i18n keys, easy to extend).
 - **Dark / Light / System theme** — Per-user preference saved in browser.
 - **Authentication** — JWT access tokens + refresh tokens, password reset flow with SMTP, account deletion.
-- **Self-hosted & free** — No accounts on third-party servers, no plan limits, no ads. MIT licensed.
+- **Self-hosted & 100% free** — No accounts on third-party servers, no plan limits, no ads. MIT licensed.
+- **Successor to [xtreamcodesapitom3u](https://github.com/fyildirim-debug/xtreamcodesapitom3u)** — All future development happens here, with a far richer feature set: full editor UI, EPG, drag-and-drop sorting, multi-user auth, themes, i18n, demo seed, Docker support and much more.
 
 ---
 
