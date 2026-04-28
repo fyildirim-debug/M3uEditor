@@ -81,14 +81,6 @@ async function getProfile(req, res, next) {
   } catch (err) { next(err); }
 }
 
-async function getPlan(req, res, next) {
-  try {
-    const planService = require('../services/PlanService');
-    const plan = await planService.getUserPlan(req.userId);
-    res.json(plan);
-  } catch (err) { next(err); }
-}
-
 async function forgotPassword(req, res, next) {
   try {
     const { email } = req.body;
@@ -108,4 +100,4 @@ async function resetPassword(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { register, login, refreshToken, logout, changePassword, changeEmail, deleteAccount, getProfile, getPlan, forgotPassword, resetPassword };
+module.exports = { register, login, refreshToken, logout, changePassword, changeEmail, deleteAccount, getProfile, forgotPassword, resetPassword };

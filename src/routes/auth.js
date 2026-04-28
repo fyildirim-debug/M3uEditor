@@ -14,6 +14,5 @@ router.get('/profile', authMiddleware, authController.getProfile);
 router.put('/password', authMiddleware, authController.changePassword);
 router.put('/email', authMiddleware, authController.changeEmail);
 router.delete('/account', authMiddleware, authController.deleteAccount);
-router.get('/plan', authMiddleware, authController.getPlan);
 
 module.exports = router;

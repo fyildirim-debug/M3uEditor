@@ -39,21 +39,6 @@
       </div>
     </div>
 
-    <!-- Plan Usage Bar -->
-    <div v-if="!loading && playlists.length > 0" class="plan-usage-bar">
-      <div class="plan-usage-left">
-        <span class="plan-badge" :class="'plan-' + currentPlan">{{ currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1) }}</span>
-        <span class="plan-usage-text">{{ t('dashboard.playlistUsage', { current: playlists.length, max: maxPlaylists }) }}</span>
-        <div class="plan-progress-wrap">
-          <div class="plan-progress-bar" :style="{ width: playlistUsagePercent + '%' }" :class="{ warn: playlistUsagePercent > 80 }"></div>
-        </div>
-      </div>
-      <router-link v-if="currentPlan !== 'business'" to="/pricing" class="btn btn-ghost btn-sm plan-upgrade-btn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        {{ t('dashboard.upgrade') }}
-      </router-link>
-    </div>
-
     <div v-if="loading" class="skeleton-grid">
       <div v-for="i in 6" :key="i" class="skeleton skeleton-card"></div>
     </div>
@@ -120,23 +105,20 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
           </div>
           <div class="pl-card-menu" @click.stop>
-            <button class="btn btn-ghost btn-icon-sm" @click="startEdit(pl)" :data-tooltip="t('common.edit')" :aria-label="t('common.edit')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <button class="pl-card-action" @click="startEdit(pl)" :data-tooltip="t('common.edit')" :aria-label="t('common.edit')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
-            <button class="btn btn-ghost btn-icon-sm" @click="confirmDelete(pl)" :data-tooltip="t('common.delete')" :aria-label="t('common.delete')" style="color:var(--danger)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <button class="pl-card-action pl-card-action-danger" @click="confirmDelete(pl)" :data-tooltip="t('common.delete')" :aria-label="t('common.delete')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
         </div>
         <h3 class="pl-name">{{ pl.name }}</h3>
 
-        <!-- Channel progress bar -->
+        <!-- Channel count -->
         <div class="pl-channel-progress">
           <div class="pl-progress-header">
-            <span>{{ pl.channel_count || 0 }} / {{ maxChannelsPerPlaylist }} {{ t('common.channel') }}</span>
-          </div>
-          <div class="pl-progress-track">
-            <div class="pl-progress-fill" :style="{ width: getChannelPercent(pl) + '%' }" :class="{ warn: getChannelPercent(pl) > 80 }"></div>
+            <span>{{ (pl.channel_count || 0).toLocaleString() }} {{ t('common.channel') }}</span>
           </div>
         </div>
 
@@ -266,6 +248,15 @@
                 <label class="stream-type-label"><input type="checkbox" value="series" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeSeries') }}</label>
               </div>
             </div>
+            <div v-if="importing" class="import-progress">
+              <div class="progress-stage">
+                <span class="spinner" style="width:14px;height:14px"></span>
+                <span class="progress-stage-text">{{ importStage || t('common.importing') }}</span>
+                <span class="progress-percent">{{ Math.round(importProgress) }}%</span>
+              </div>
+              <div class="progress-track"><div class="progress-fill" :style="{ width: importProgress + '%' }"></div></div>
+              <div class="progress-hint">{{ t('xtream.progressHint') }}</div>
+            </div>
             <div v-if="importResult" class="result-box success">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               {{ t('toast.importSuccess', { channels: importResult.totalChannels, categories: importResult.totalCategories, duration: (importResult.duration / 1000).toFixed(1) }) }}
@@ -275,7 +266,7 @@
               {{ importError }}
             </div>
             <div class="modal-actions">
-              <button class="btn btn-secondary" @click="showXtreamModal = false">{{ t('common.close') }}</button>
+              <button class="btn btn-secondary" @click="showXtreamModal = false" :disabled="importing">{{ t('common.close') }}</button>
               <button class="btn btn-primary" @click="doXtreamImport" :disabled="importing || !xtreamForm.serverUrl || !xtreamForm.username || !xtreamForm.password || !xtreamForm.streamTypes.length">
                 <span v-if="importing" class="spinner" style="width:14px;height:14px"></span>
                 {{ importing ? t('common.importing') : t('common.import') }}
@@ -328,11 +319,9 @@ import { ref, computed, onMounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
-import { useAuthStore } from '../stores/auth'
 
 const { t } = useI18n()
 const router = useRouter()
-const authStore = useAuthStore()
 
 const toast = inject('toast')
 const playlists = ref([])
@@ -354,28 +343,6 @@ const lastUpdated = computed(() => {
     .sort((a, b) => b - a)[0]
   return formatDate(latest)
 })
-
-// Plan limits
-const planLimits = {
-  free: { playlists: 3, channels: 500 },
-  pro: { playlists: 10, channels: 5000 },
-  business: { playlists: 999, channels: 999999 }
-}
-
-const currentPlan = computed(() => {
-  return authStore.user?.plan || 'free'
-})
-
-const maxPlaylists = computed(() => planLimits[currentPlan.value]?.playlists || 3)
-const maxChannelsPerPlaylist = computed(() => planLimits[currentPlan.value]?.channels || 500)
-
-const playlistUsagePercent = computed(() => {
-  return Math.min((playlists.value.length / maxPlaylists.value) * 100, 100)
-})
-
-function getChannelPercent(pl) {
-  return Math.min(((pl.channel_count || 0) / maxChannelsPerPlaylist.value) * 100, 100)
-}
 
 function hasStreamType(pl, type) {
   if (!pl.xtream_stream_types) return false
@@ -402,6 +369,9 @@ function getRelativeTime(dateStr) {
 const showXtreamModal = ref(false)
 const xtreamForm = ref({ serverUrl: '', username: '', password: '', streamTypes: ['live'] })
 const importing = ref(false)
+const importProgress = ref(0)
+const importStage = ref('')
+let importProgressTimer = null
 const importResult = ref(null)
 const importError = ref('')
 
@@ -496,15 +466,62 @@ function openXtream() {
   showXtreamModal.value = true
   importResult.value = null
   importError.value = ''
+  importProgress.value = 0
+  importStage.value = ''
+  if (importProgressTimer) { clearInterval(importProgressTimer); importProgressTimer = null }
   xtreamForm.value = { serverUrl: '', username: '', password: '', streamTypes: ['live'] }
   m3uUrlInput.value = ''
   m3uUrlParsed.value = false
 }
 
+function buildXtreamStages(types) {
+  const stages = [
+    { pct: 8,  key: 'xtream.stageConnecting' },
+    { pct: 15, key: 'xtream.stageAuth' },
+    { pct: 25, key: 'xtream.stageCategories' },
+  ]
+  if (types.includes('live'))   stages.push({ pct: 45, key: 'xtream.stageChannels' })
+  if (types.includes('vod'))    stages.push({ pct: 65, key: 'xtream.stageVod' })
+  if (types.includes('series')) stages.push({ pct: 80, key: 'xtream.stageSeries' })
+  stages.push({ pct: 90, key: 'xtream.stageProcessing' })
+  stages.push({ pct: 95, key: 'xtream.stageSaving' })
+  return stages
+}
+
+function startImportProgress(types) {
+  const stages = buildXtreamStages(types)
+  importProgress.value = 0
+  importStage.value = t(stages[0].key)
+  let stageIdx = 0
+  const stepMs = 250
+  if (importProgressTimer) clearInterval(importProgressTimer)
+  importProgressTimer = setInterval(() => {
+    const target = stages[stageIdx].pct
+    const cur = importProgress.value
+    if (cur < target) {
+      const delta = Math.max(0.4, (target - cur) * 0.06)
+      importProgress.value = Math.min(target, cur + delta)
+    } else if (stageIdx < stages.length - 1) {
+      stageIdx++
+      importStage.value = t(stages[stageIdx].key)
+    }
+  }, stepMs)
+}
+
+function stopImportProgress(success) {
+  if (importProgressTimer) { clearInterval(importProgressTimer); importProgressTimer = null }
+  if (success) {
+    importProgress.value = 100
+    importStage.value = t('xtream.stageFinalizing')
+  }
+}
+
 async function doXtreamImport() {
   importing.value = true; importResult.value = null; importError.value = ''
+  startImportProgress(xtreamForm.value.streamTypes)
   try {
     const { data } = await api.post('/import/xtream', xtreamForm.value)
+    stopImportProgress(true)
     importResult.value = data
     toast(`${data.totalChannels} ${t('common.channel')} ${t('common.import').toLowerCase()}`, 'success')
     await loadPlaylists()
@@ -515,8 +532,11 @@ async function doXtreamImport() {
       }
     }, 2000)
   } catch (e) {
+    stopImportProgress(false)
     importError.value = e.response?.data?.error?.message || t('toast.connectionError')
-  } finally { importing.value = false }
+  } finally {
+    importing.value = false
+  }
 }
 
 // M3U Import
@@ -584,88 +604,6 @@ async function doM3uImport() {
 .stat-label { font-size: 11px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; }
 .stat-sep { width: 1px; height: 36px; background: var(--border-light); flex-shrink: 0; }
 
-/* Plan Usage Bar */
-.plan-usage-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 12px 20px;
-  margin-bottom: 28px;
-  animation: fadeIn 0.3s ease 0.1s both;
-}
-
-.plan-usage-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-}
-
-.plan-badge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 3px 10px;
-  border-radius: 12px;
-  white-space: nowrap;
-}
-
-.plan-free {
-  background: rgba(100, 116, 139, 0.15);
-  color: #94a3b8;
-  border: 1px solid rgba(100, 116, 139, 0.2);
-}
-
-.plan-pro {
-  background: rgba(99, 102, 241, 0.15);
-  color: #a5b4fc;
-  border: 1px solid rgba(99, 102, 241, 0.25);
-}
-
-.plan-business {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.25);
-}
-
-.plan-usage-text {
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.plan-progress-wrap {
-  flex: 1;
-  max-width: 200px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.plan-progress-bar {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 3px;
-  transition: width 0.5s ease;
-}
-
-.plan-progress-bar.warn {
-  background: #f59e0b;
-}
-
-.plan-upgrade-btn {
-  gap: 6px;
-  color: var(--accent) !important;
-  white-space: nowrap;
-}
-
 /* Skeleton grid */
 .skeleton-grid {
   display: grid;
@@ -706,11 +644,25 @@ async function doM3uImport() {
   background: linear-gradient(135deg, rgba(99,102,241,0.2) 0%, rgba(124,58,237,0.18) 100%);
   border-color: rgba(99,102,241,0.25);
 }
-.pl-card-menu { display: flex; gap: 2px; opacity: 0; transition: opacity var(--transition); }
+.pl-card-menu { display: flex; gap: 6px; opacity: 0.55; transition: opacity var(--transition); }
 .pl-card:hover .pl-card-menu { opacity: 1; }
+.pl-card-action {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  background: var(--bg-elevated, rgba(255,255,255,0.04));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition), transform var(--transition);
+}
+.pl-card-action:hover { background: var(--bg-hover, rgba(255,255,255,0.08)); color: var(--text); border-color: var(--accent); transform: translateY(-1px); }
+.pl-card-action svg { display: block; }
+.pl-card-action-danger { color: var(--danger); }
+.pl-card-action-danger:hover { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.5); color: #fca5a5; }
 .pl-name { font-size: 16px; font-weight: 600; margin-bottom: 10px; letter-spacing: -0.2px; }
 
-/* Channel progress */
+/* Channel count */
 .pl-channel-progress {
   margin-bottom: 12px;
 }
@@ -718,33 +670,12 @@ async function doM3uImport() {
 .pl-progress-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 5px;
 }
 
 .pl-progress-header span {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   font-weight: 500;
-}
-
-.pl-progress-track {
-  width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.pl-progress-fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 2px;
-  transition: width 0.5s ease;
-  min-width: 2px;
-}
-
-.pl-progress-fill.warn {
-  background: #f59e0b;
 }
 
 /* Stream type badges */
@@ -937,6 +868,22 @@ async function doM3uImport() {
 .stream-type-label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; color: var(--text-secondary); }
 .stream-type-label input[type="checkbox"] { accent-color: var(--accent); }
 
+.import-progress {
+  margin-top: 16px; padding: 14px 16px;
+  background: var(--bg-elevated, rgba(255,255,255,0.03));
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.progress-stage { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
+.progress-stage-text { flex: 1; }
+.progress-percent { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); font-size: 13px; }
+.progress-track { height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; }
+.progress-fill {
+  height: 100%; background: linear-gradient(90deg, var(--accent), #6366f1);
+  border-radius: 999px; transition: width 0.25s ease-out;
+  box-shadow: 0 0 8px rgba(99,102,241,0.4);
+}
+.progress-hint { margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+
 /* Responsive */
 @media (max-width: 640px) {
   .onboard-steps {
@@ -948,18 +895,6 @@ async function doM3uImport() {
   }
   .onboard-step {
     max-width: 100%;
-  }
-  .plan-usage-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .plan-usage-left {
-    flex-wrap: wrap;
-  }
-  .plan-progress-wrap {
-    max-width: 100%;
-    width: 100%;
   }
 }
 </style>

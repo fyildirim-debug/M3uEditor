@@ -11,7 +11,8 @@
     "test:property": "cross-env NODE_OPTIONS=--localstorage-file=.node-localstorage jest --testPathPattern=property",
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
-    "seed": "knex seed:run"
+    "seed": "knex seed:run",
+    "seed:demo": "node scripts/seed-demo.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

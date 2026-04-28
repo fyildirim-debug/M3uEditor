@@ -114,7 +114,7 @@ const router = useRouter()
 const route = useRoute()
 const { t, lang, setLang, langs } = useI18n()
 
-const publicPaths = ['/', '/pricing', '/terms', '/privacy']
+const publicPaths = ['/', '/terms', '/privacy']
 const isPublicPage = computed(() => publicPaths.includes(route.path))
 const toasts = ref([])
 
@@ -150,7 +150,7 @@ function handleLogout() {
 <style>
 /* ── Header ─────────────────────────────────── */
 .app-header {
-  background: rgba(8, 10, 15, 0.9);
+  background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
   padding: 0 20px;
   height: var(--header-height, 52px);
@@ -158,7 +158,7 @@ function handleLogout() {
   position: sticky; top: 0; z-index: 200;
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  box-shadow: 0 1px 0 rgba(99,102,241,0.06), 0 4px 24px rgba(0,0,0,0.35);
+  box-shadow: 0 1px 0 rgba(99,102,241,0.06), var(--shadow);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

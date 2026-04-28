@@ -45,16 +45,6 @@
       </div>
     </div>
 
-    <!-- Plan Distribution -->
-    <div class="plan-distribution" v-if="stats.planDistribution && stats.planDistribution.length">
-      <h3>Plan Dagilimi</h3>
-      <div class="plan-badges">
-        <span v-for="p in stats.planDistribution" :key="p.plan" class="plan-badge" :class="'plan-' + p.plan">
-          {{ p.plan.toUpperCase() }}: {{ p.count }}
-        </span>
-      </div>
-    </div>
-
     <!-- User Table -->
     <div class="users-section">
       <div class="users-header">
@@ -74,10 +64,7 @@
           <thead>
             <tr>
               <th>E-posta</th>
-              <th>Plan</th>
               <th>Playlist</th>
-              <th>Max Playlist</th>
-              <th>Max Kanal</th>
               <th>Admin</th>
               <th>Kayit Tarihi</th>
               <th>Islemler</th>
@@ -86,10 +73,7 @@
           <tbody>
             <tr v-for="user in users" :key="user.id">
               <td class="email-cell">{{ user.email }}</td>
-              <td><span class="plan-tag" :class="'plan-' + (user.plan || 'free')">{{ (user.plan || 'free').toUpperCase() }}</span></td>
               <td>{{ user.playlist_count }}</td>
-              <td>{{ user.max_playlists }}</td>
-              <td>{{ user.max_channels_per_playlist }}</td>
               <td><span :class="user.is_admin ? 'badge-yes' : 'badge-no'">{{ user.is_admin ? 'Evet' : 'Hayir' }}</span></td>
               <td>{{ formatDate(user.created_at) }}</td>
               <td class="actions-cell">
@@ -102,7 +86,7 @@
               </td>
             </tr>
             <tr v-if="users.length === 0">
-              <td colspan="8" class="empty-row">Kullanici bulunamadi</td>
+              <td colspan="5" class="empty-row">Kullanici bulunamadi</td>
             </tr>
           </tbody>
         </table>
@@ -125,30 +109,6 @@
         </div>
         <div class="modal-body">
           <p class="modal-email">{{ editModal.user?.email }}</p>
-
-          <div class="form-group">
-            <label>Plan</label>
-            <select v-model="editModal.form.plan">
-              <option value="free">Free</option>
-              <option value="pro">Pro</option>
-              <option value="business">Business</option>
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label>Max Playlist</label>
-            <input type="number" v-model.number="editModal.form.max_playlists" min="1" />
-          </div>
-
-          <div class="form-group">
-            <label>Max Kanal / Playlist</label>
-            <input type="number" v-model.number="editModal.form.max_channels_per_playlist" min="1" />
-          </div>
-
-          <div class="form-group">
-            <label>Plan Bitis Tarihi</label>
-            <input type="datetime-local" v-model="editModal.form.plan_expires_at" />
-          </div>
 
           <div class="form-group checkbox-group">
             <label>
@@ -201,7 +161,6 @@ const stats = reactive({
   playlists: 0,
   channels: 0,
   newUsersThisWeek: 0,
-  planDistribution: [],
 });
 
 const users = ref([]);
@@ -215,11 +174,7 @@ const editModal = reactive({
   user: null,
   saving: false,
   form: {
-    plan: 'free',
-    max_playlists: 3,
-    max_channels_per_playlist: 500,
     is_admin: false,
-    plan_expires_at: '',
   },
 });
 
@@ -284,13 +239,7 @@ function formatDate(dateStr) {
 
 function openEditModal(user) {
   editModal.user = user;
-  editModal.form.plan = user.plan || 'free';
-  editModal.form.max_playlists = user.max_playlists || 3;
-  editModal.form.max_channels_per_playlist = user.max_channels_per_playlist || 500;
   editModal.form.is_admin = !!user.is_admin;
-  editModal.form.plan_expires_at = user.plan_expires_at
-    ? new Date(user.plan_expires_at).toISOString().slice(0, 16)
-    : '';
   editModal.visible = true;
 }
 
@@ -304,11 +253,7 @@ async function saveUser() {
   editModal.saving = true;
   try {
     const payload = {
-      plan: editModal.form.plan,
-      max_playlists: editModal.form.max_playlists,
-      max_channels_per_playlist: editModal.form.max_channels_per_playlist,
       is_admin: editModal.form.is_admin,
-      plan_expires_at: editModal.form.plan_expires_at || null,
     };
     await api.put(`/admin/users/${editModal.user.id}`, payload);
     toast?.success?.('Kullanici guncellendi');
@@ -426,34 +371,6 @@ async function doDelete() {
   margin-top: 2px;
 }
 
-/* Plan Distribution */
-.plan-distribution {
-  margin-bottom: 24px;
-}
-
-.plan-distribution h3 {
-  font-size: 1rem;
-  color: var(--text-secondary, #a1a1aa);
-  margin: 0 0 10px 0;
-}
-
-.plan-badges {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.plan-badge {
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.plan-free { background: rgba(161, 161, 170, 0.15); color: #a1a1aa; }
-.plan-pro { background: rgba(99, 102, 241, 0.15); color: #6366f1; }
-.plan-business { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
-
 /* Users Section */
 .users-section {
   background: var(--card-bg, #1e1e2e);
@@ -532,13 +449,6 @@ async function doDelete() {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.plan-tag {
-  padding: 3px 10px;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
 }
 
 .badge-yes {

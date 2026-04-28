@@ -1,0 +1,38 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Backend: Debug (watch)",
+      "program": "${workspaceFolder}/src/index.js",
+      "runtimeArgs": ["--watch"],
+      "envFile": "${workspaceFolder}/.env",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "restart": true
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Backend: Attach (9229)",
+      "port": 9229,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "type": "chrome",
+      "request": "launch",
+      "name": "Frontend: Chrome (Vite 5173)",
+      "url": "http://localhost:5173",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "sourceMaps": true
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack Debug",
+      "configurations": ["Backend: Debug (watch)", "Frontend: Chrome (Vite 5173)"]
+    }
+  ]
+}

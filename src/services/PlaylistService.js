@@ -9,9 +9,20 @@ class PlaylistService {
    * @returns {Promise<object[]>}
    */
   async list(userId) {
+    const channelCountSub = db('channels')
+      .select('playlist_id')
+      .count('id as channel_count')
+      .groupBy('playlist_id')
+      .as('cc');
+
     const playlists = await db('playlists')
-      .where('user_id', userId)
-      .orderBy('created_at', 'desc');
+      .leftJoin(channelCountSub, 'cc.playlist_id', 'playlists.id')
+      .where('playlists.user_id', userId)
+      .select(
+        'playlists.*',
+        db.raw('COALESCE(cc.channel_count, 0)::int as channel_count')
+      )
+      .orderBy('playlists.created_at', 'desc');
 
     return playlists;
   }

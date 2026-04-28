@@ -396,7 +396,7 @@ kbd {
   .hide-desktop { display: none !important; }
 }
 
-/* Premium utilities */
+/* Utilities */
 .btn-lg { padding: 12px 28px; font-size: 15px; border-radius: var(--radius-md); }
 
 .gradient-text { background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }

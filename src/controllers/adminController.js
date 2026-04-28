@@ -7,11 +7,6 @@ async function getStats(req, res, next) {
     const [playlistCount] = await db('playlists').count('id as count');
     const [channelCount] = await db('channels').count('id as count');
 
-    const planDistribution = await db('users')
-      .select('plan')
-      .count('id as count')
-      .groupBy('plan');
-
     const newUsersWeek = await db('users')
       .where('created_at', '>=', db.raw("NOW() - INTERVAL '7 days'"))
       .count('id as count');
@@ -20,7 +15,6 @@ async function getStats(req, res, next) {
       users: parseInt(userCount.count, 10),
       playlists: parseInt(playlistCount.count, 10),
       channels: parseInt(channelCount.count, 10),
-      planDistribution: planDistribution.map(p => ({ plan: p.plan || 'free', count: parseInt(p.count, 10) })),
       newUsersThisWeek: parseInt(newUsersWeek[0].count, 10),
     });
   } catch (err) { next(err); }
@@ -32,7 +26,7 @@ async function listUsers(req, res, next) {
     const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
     let query = db('users')
-      .select('users.id', 'users.email', 'users.plan', 'users.is_admin', 'users.created_at', 'users.max_playlists', 'users.max_channels_per_playlist', 'users.email_verified_at', 'users.plan_expires_at')
+      .select('users.id', 'users.email', 'users.is_admin', 'users.created_at', 'users.email_verified_at')
       .leftJoin(db.raw('(SELECT user_id, COUNT(*) as playlist_count FROM playlists GROUP BY user_id) as pc ON pc.user_id = users.id'))
       .select('pc.playlist_count');
 
@@ -60,23 +54,19 @@ async function listUsers(req, res, next) {
 async function updateUser(req, res, next) {
   try {
     const { id } = req.params;
-    const { plan, max_playlists, max_channels_per_playlist, is_admin, plan_expires_at } = req.body;
+    const { is_admin } = req.body;
 
     const user = await db('users').where({ id }).first();
     if (!user) throw createAppError('NOT_FOUND', 'Kullanici bulunamadi');
 
     const updates = {};
-    if (plan !== undefined) updates.plan = plan;
-    if (max_playlists !== undefined) updates.max_playlists = max_playlists;
-    if (max_channels_per_playlist !== undefined) updates.max_channels_per_playlist = max_channels_per_playlist;
     if (is_admin !== undefined) updates.is_admin = is_admin;
-    if (plan_expires_at !== undefined) updates.plan_expires_at = plan_expires_at;
 
     if (Object.keys(updates).length > 0) {
       await db('users').where({ id }).update(updates);
     }
 
-    const updated = await db('users').where({ id }).select('id', 'email', 'plan', 'is_admin', 'max_playlists', 'max_channels_per_playlist', 'plan_expires_at', 'created_at').first();
+    const updated = await db('users').where({ id }).select('id', 'email', 'is_admin', 'created_at').first();
     res.json(updated);
   } catch (err) { next(err); }
 }

@@ -6,7 +6,6 @@ import Editor from './views/Editor.vue'
 import Account from './views/Account.vue'
 import ForgotPassword from './views/ForgotPassword.vue'
 import ResetPassword from './views/ResetPassword.vue'
-import Pricing from './views/Pricing.vue'
 import Terms from './views/Terms.vue'
 import Privacy from './views/Privacy.vue'
 import NotFound from './views/NotFound.vue'
@@ -16,7 +15,6 @@ const routes = [
   { path: '/login', component: Login },
   { path: '/forgot-password', component: ForgotPassword },
   { path: '/reset-password', component: ResetPassword },
-  { path: '/pricing', component: Pricing },
   { path: '/terms', component: Terms },
   { path: '/privacy', component: Privacy },
   { path: '/dashboard', component: Dashboard, meta: { auth: true } },
