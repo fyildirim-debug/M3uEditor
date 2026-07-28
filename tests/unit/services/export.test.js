@@ -211,6 +211,7 @@ describe('ExportService', () => {
       expect(result).toHaveProperty('url');
       expect(result.token).toHaveLength(64); // 32 bytes = 64 hex chars
       expect(result.url).toBe(`/api/shared/${result.token}`);
+      expect(result.xmltvUrl).toBe(`/api/shared/${result.token}/xmltv`);
     });
 
     it('should throw NOT_FOUND when playlist does not belong to user', async () => {
@@ -267,6 +268,8 @@ describe('ExportService', () => {
       expect(result).toContain('Shared Channel');
       expect(result).toContain('http://stream.com/shared');
       expect(result).toContain('group-title="Genel"');
+      const appUrl = String(process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+      expect(result).toContain(`url-tvg="${appUrl}/api/shared/abc123/xmltv"`);
     });
 
     it('should throw NOT_FOUND for invalid share token', async () => {
@@ -285,6 +288,36 @@ describe('ExportService', () => {
       } catch (err) {
         expect(err.code).toBe('NOT_FOUND');
       }
+    });
+
+    it('rejects expired shares in the common resolver used by M3U and XMLTV', async () => {
+      const playlistChain = chainable({
+        first: jest.fn().mockResolvedValue({
+          id: 'pl-1',
+          share_token: 'stored',
+          share_expires_at: new Date(Date.now() - 60_000),
+        }),
+      });
+      mockKnex.mockReturnValue(playlistChain);
+
+      await expect(exportService.resolveSharedPlaylist('expired', null))
+        .rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(exportService.getSharedPlaylist('expired', null))
+        .rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+
+    it('applies the same bcrypt password check through the common resolver', async () => {
+      const bcrypt = require('bcryptjs');
+      const passwordHash = await bcrypt.hash('correct-password', 4);
+      const playlistChain = chainable({
+        first: jest.fn().mockResolvedValue({ id: 'pl-1', share_token: 'stored', share_password: passwordHash }),
+      });
+      mockKnex.mockReturnValue(playlistChain);
+
+      await expect(exportService.resolveSharedPlaylist('protected', 'wrong-password'))
+        .rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+      await expect(exportService.resolveSharedPlaylist('protected', 'correct-password'))
+        .resolves.toMatchObject({ id: 'pl-1' });
     });
   });
 });

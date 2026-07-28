@@ -86,7 +86,7 @@ class ExportService {
    * Generate a unique share token for a playlist and store it.
    * @param {string} userId
    * @param {string} playlistId
-   * @returns {Promise<{ url: string, token: string }>}
+   * @returns {Promise<{ url: string, xmltvUrl: string, token: string }>}
    */
   async generateShareUrl(userId, playlistId, { expiresInDays, password } = {}) {
     await this._verifyPlaylistOwnership(userId, playlistId);
@@ -105,7 +105,46 @@ class ExportService {
     updates.share_password = password ? await bcrypt.hash(String(password), 12) : null;
 
     await db('playlists').where({ id: playlistId }).update(updates);
-    return { url: `/api/shared/${token}`, token };
+    return {
+      url: `/api/shared/${token}`,
+      xmltvUrl: `/api/shared/${token}/xmltv`,
+      token,
+    };
+  }
+
+  _sharedXmltvUrl(shareToken) {
+    const appUrl = String(process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    return `${appUrl}/api/shared/${encodeURIComponent(shareToken)}/xmltv`;
+  }
+
+  /**
+   * Resolve and authorize a public share. Both M3U and XMLTV exports call this
+   * helper so token hashing, legacy migration, expiry and password rules cannot
+   * drift apart.
+   */
+  async resolveSharedPlaylist(shareToken, password) {
+    let playlist = await db('playlists').where({ share_token: hashToken(shareToken) }).first();
+    if (!playlist) playlist = await db('playlists').where({ share_token: shareToken }).first(); // legacy
+
+    if (!playlist) {
+      throw createAppError('NOT_FOUND');
+    }
+
+    if (playlist.share_expires_at && new Date(playlist.share_expires_at) < new Date()) {
+      throw createAppError('FORBIDDEN', 'Paylasim linkinin suresi dolmus');
+    }
+
+    if (playlist.share_password) {
+      const valid = playlist.share_password.startsWith('$2')
+        ? await bcrypt.compare(String(password || ''), playlist.share_password)
+        : playlist.share_password === password;
+      if (!valid) throw createAppError('INVALID_CREDENTIALS', 'Paylaşım şifresi yanlış');
+      if (!playlist.share_password.startsWith('$2')) {
+        await db('playlists').where({ id: playlist.id }).update({ share_password: await bcrypt.hash(String(password), 12) });
+      }
+    }
+
+    return playlist;
   }
 
   /**
@@ -115,31 +154,9 @@ class ExportService {
    * @returns {Promise<string>} M3U formatted content
    */
   async getSharedPlaylist(shareToken, password) {
-    let playlist = await db('playlists').where({ share_token: hashToken(shareToken) }).first();
-    if (!playlist) playlist = await db('playlists').where({ share_token: shareToken }).first(); // legacy
-
-    if (!playlist) {
-      throw createAppError('NOT_FOUND');
-    }
-
-    // Check expiry
-    if (playlist.share_expires_at && new Date(playlist.share_expires_at) < new Date()) {
-      throw createAppError('FORBIDDEN', 'Paylasim linkinin suresi dolmus');
-    }
-
-    // Check password
-    if (playlist.share_password) {
-      const valid = playlist.share_password.startsWith('$2')
-        ? await bcrypt.compare(String(password || ''), playlist.share_password)
-        : playlist.share_password === password;
-      if (!valid) throw createAppError('INVALID_CREDENTIALS', 'Paylaşım şifresi yanlış');
-      if (valid && !playlist.share_password.startsWith('$2')) {
-        await db('playlists').where({ id: playlist.id }).update({ share_password: await bcrypt.hash(String(password), 12) });
-      }
-    }
-
+    const playlist = await this.resolveSharedPlaylist(shareToken, password);
     const channelData = await this._getOrderedChannels(playlist.id);
-    return this.formatter.format(channelData);
+    return this.formatter.format(channelData, { urlTvg: this._sharedXmltvUrl(shareToken) });
   }
 }
 

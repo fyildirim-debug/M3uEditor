@@ -1,4 +1,5 @@
 const exportService = require('../services/ExportService');
+const xmltvExportService = require('../services/XMLTVExportService');
 const { createAppError } = require('../utils/AppError');
 const { validateIdArray } = require('../utils/validation');
 
@@ -39,9 +40,7 @@ async function sharePlaylist(req, res, next) {
 async function getShared(req, res, next) {
   try {
     const { token } = req.params;
-    if (typeof token !== 'string' || token.length > 200) {
-      throw createAppError('VALIDATION_ERROR', 'Geçersiz paylaşım belirteci');
-    }
+    validateShareToken(token);
     const content = await exportService.getSharedPlaylist(token, req.headers['x-share-password'] || null);
     res.setHeader('Content-Type', 'audio/x-mpegurl');
     res.setHeader('Cache-Control', 'private, no-store');
@@ -50,4 +49,52 @@ async function getShared(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { exportPlaylist, sharePlaylist, getShared };
+function validateShareToken(token) {
+  if (typeof token !== 'string' || token.length > 200) {
+    throw createAppError('VALIDATION_ERROR', 'Geçersiz paylaşım belirteci');
+  }
+}
+
+function sendXmlStream(stream, res, next) {
+  stream.once('error', (error) => {
+    if (!res.headersSent) next(error);
+    else res.destroy(error);
+  });
+  res.once('close', () => {
+    if (!res.writableFinished) stream.destroy();
+  });
+  stream.pipe(res);
+}
+
+async function exportXmltv(req, res, next) {
+  try {
+    const stream = await xmltvExportService.createAuthenticatedStream(req.userId, req.params.id, req.query.days);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="playlist.xml"');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    sendXmlStream(stream, res, next);
+  } catch (error) { next(error); }
+}
+
+async function getSharedXmltv(req, res, next) {
+  try {
+    const { token } = req.params;
+    validateShareToken(token);
+    const playlist = await exportService.resolveSharedPlaylist(token, req.headers['x-share-password'] || null);
+    const stream = await xmltvExportService.createSharedStream(playlist, req.query.days);
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="playlist.xml"');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    sendXmlStream(stream, res, next);
+  } catch (error) { next(error); }
+}
+
+async function getEpgCoverage(req, res, next) {
+  try {
+    res.json(await xmltvExportService.getCoverage(req.userId, req.params.id));
+  } catch (error) { next(error); }
+}
+
+module.exports = { exportPlaylist, sharePlaylist, getShared, exportXmltv, getSharedXmltv, getEpgCoverage };

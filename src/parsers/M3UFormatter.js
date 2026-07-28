@@ -10,8 +10,8 @@ class M3UFormatter {
    * @param {Array<object>} channels - Array of ChannelData objects
    * @returns {string} Complete M3U content
    */
-  format(channels) {
-    const lines = ['#EXTM3U'];
+  format(channels, options = {}) {
+    const lines = [this._formatHeader(options)];
 
     for (const channel of channels) {
       lines.push(this._formatChannel(channel));
@@ -26,7 +26,7 @@ class M3UFormatter {
    * @param {AsyncIterable<object>} channels - Async iterable of ChannelData objects
    * @returns {ReadableStream} Readable stream of M3U content
    */
-  formatStream(channels) {
+  formatStream(channels, options = {}) {
     const self = this;
     let headerSent = false;
     const iterator = channels[Symbol.asyncIterator]
@@ -37,7 +37,7 @@ class M3UFormatter {
       async read() {
         try {
           if (!headerSent) {
-            this.push('#EXTM3U\n');
+            this.push(self._formatHeader(options) + '\n');
             headerSent = true;
           }
 
@@ -53,6 +53,12 @@ class M3UFormatter {
         }
       },
     });
+  }
+
+  _formatHeader({ urlTvg } = {}) {
+    return urlTvg
+      ? `#EXTM3U url-tvg="${this._escapeAttribute(urlTvg)}"`
+      : '#EXTM3U';
   }
 
   /**
