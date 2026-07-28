@@ -227,7 +227,17 @@
   },
   "share": {
     "title": "Share Link",
-    "instruction": "You can add this link to your IPTV player."
+    "instruction": "You can add this link to your IPTV player.",
+    "optionsInstruction": "Optionally limit the share duration or protect it with a password.",
+    "expiresInDays": "Duration (days)",
+    "noExpiry": "No expiration",
+    "password": "Password",
+    "passwordPlaceholder": "Leave blank to share without a password",
+    "passwordHint": "Enter 10-128 characters if you use a password.",
+    "m3uUrl": "M3U share URL",
+    "xmltvUrl": "XMLTV share URL",
+    "generating": "Creating link...",
+    "createLink": "Create share link"
   },
   "bulkMove": {
     "title": "Move Channels",
@@ -290,7 +300,8 @@
     "metadataFetched": "Metadata fetched",
     "metadataError": "Could not fetch metadata",
     "metadataNotFound": "Not found on TMDB",
-    "noXtreamSource": "Xtream Codes source not found"
+    "noXtreamSource": "Xtream Codes source not found",
+    "channelCreated": "Channel created"
   },
   "metadata": {
     "title": "Metadata",
@@ -312,6 +323,7 @@
   },
   "bulkRename": {
     "title": "Bulk Rename",
+    "selection": "Create a find and replace rule for {count} selected channels.",
     "find": "Find",
     "replace": "Replace",
     "findPlaceholder": "Text or regex to find",
@@ -319,14 +331,21 @@
     "useRegex": "Use regex",
     "preview": "Preview",
     "apply": "Apply",
-    "result": "{renamed}/{total} channels renamed"
+    "result": "{renamed}/{total} channels renamed",
+    "affected": "{count} channels will be affected",
+    "noChanges": "No channels will change with this rule.",
+    "sampleLimit": "Showing the first {shown} of {affected} changes.",
+    "previewRequired": "You must generate a preview before applying changes."
   },
   "streamTest": {
     "test": "Test",
     "testing": "Testing...",
     "reachable": "Reachable",
     "unreachable": "Unreachable",
-    "status": "Status: {status}"
+    "status": "HTTP status: {status}",
+    "contentType": "Content type: {contentType}",
+    "error": "Error: {error}",
+    "savedUrlHint": "The test uses the saved stream URL."
   },
   "m3uImport": {
     "title": "Import M3U",
@@ -339,10 +358,30 @@
   },
   "addChannel": {
     "title": "Add Channel",
+    "description": "Enter the channel details to add it to the playlist manually.",
     "name": "Channel Name",
     "streamUrl": "Stream URL",
+    "streamUrlPlaceholder": "https://example.com/stream.m3u8",
     "logoUrl": "Logo URL",
-    "streamType": "Content Type"
+    "logoUrlPlaceholder": "https://example.com/logo.png",
+    "streamType": "Content Type",
+    "testConnection": "Test connection",
+    "testSavesFirst": "The test endpoint requires a channel ID, so testing first saves the channel and then checks its stream.",
+    "savedForTesting": "The channel is saved. Review the stream result or run the test again."
+  },
+  "bulkUpdate": {
+    "title": "Bulk Update",
+    "selection": "Choose the fields to change on {count} selected channels.",
+    "setName": "Change name",
+    "setLogoUrl": "Change logo URL",
+    "setStreamUrl": "Change stream URL",
+    "setCategory": "Change category",
+    "namePlaceholder": "New name for all selected channels",
+    "logoPlaceholder": "New logo URL",
+    "streamUrlPlaceholder": "New stream URL",
+    "optionalFieldsHint": "Leaving an enabled logo URL empty clears the logo; a stream URL cannot be empty.",
+    "apply": "Apply changes",
+    "result": "{count} channels updated"
   },
   "admin": {
     "title": "Admin Panel",

@@ -393,22 +393,22 @@ class ChannelService {
   }
 
   /**
-   * Bulk rename channels using find/replace.
-   * @param {string} userId
-   * @param {string[]} channelIds
-   * @param {string} find - text to find
-   * @param {string} replace - replacement text
-   * @param {boolean} useRegex - treat find as regex
-   * @returns {Promise<{ renamed: number, total: number }>}
+   * Validate a bulk rename request, verify ownership, and calculate every
+   * resulting name without mutating the database. Both preview and apply use
+   * this path so their validation cannot drift.
+   * @private
    */
-  async bulkRename(userId, channelIds, find, replace = '', useRegex = false) {
+  async _prepareBulkRename(userId, channelIds, find, replace = '', useRegex = false) {
     if (typeof find !== 'string' || !find.length) throw createAppError('VALIDATION_ERROR', 'Aranacak metin gerekli');
     if (useRegex) validateRegex(find);
+
+    const normalizedReplace = String(replace ?? '');
     // Sinirsiz `find`/`replace` tek istekte 1000 satiri megabaytlarca veriyle
     // sisirebilirdi; hem girdiler hem de uretilen ad sinirlanir.
-    if (Buffer.byteLength(find, 'utf8') > MAX_RENAME_TERM_BYTES || Buffer.byteLength(String(replace ?? ''), 'utf8') > MAX_RENAME_TERM_BYTES) {
+    if (Buffer.byteLength(find, 'utf8') > MAX_RENAME_TERM_BYTES || Buffer.byteLength(normalizedReplace, 'utf8') > MAX_RENAME_TERM_BYTES) {
       throw createAppError('VALIDATION_ERROR', `Arama ve değiştirme metinleri en fazla ${MAX_RENAME_TERM_BYTES} bayt olabilir`);
     }
+
     const owned = await db('channels')
       .join('playlists', 'channels.playlist_id', 'playlists.id')
       .whereIn('channels.id', channelIds)
@@ -419,21 +419,49 @@ class ChannelService {
       throw createAppError('NOT_FOUND');
     }
 
-    let renamed = 0;
+    const ownedById = new Map(owned.map((channel) => [channel.id, channel]));
+    const matcher = useRegex ? new RegExp(find, 'g') : null;
+    const changes = channelIds.map((id) => {
+      const channel = ownedById.get(id);
+      const after = matcher
+        ? channel.name.replace(matcher, normalizedReplace)
+        : channel.name.split(find).join(normalizedReplace);
+      if (Buffer.byteLength(after, 'utf8') > CHANNEL_FIELD_LIMITS.name) {
+        throw createAppError('VALIDATION_ERROR', `Yeniden adlandırma ${CHANNEL_FIELD_LIMITS.name} bayt sınırını aşan bir ad üretiyor`);
+      }
+      return { id: channel.id, before: channel.name, after };
+    }).filter((change) => change.after !== change.before);
+
+    return { changes, total: channelIds.length };
+  }
+
+  /**
+   * Preview bulk rename changes without writing to the database.
+   * @returns {Promise<{ affected: number, samples: Array<{id: string, before: string, after: string}> }>}
+   */
+  async previewBulkRename(userId, channelIds, find, replace = '', useRegex = false) {
+    const { changes } = await this._prepareBulkRename(userId, channelIds, find, replace, useRegex);
+    return { affected: changes.length, samples: changes.slice(0, 20) };
+  }
+
+  /**
+   * Bulk rename channels using find/replace.
+   * @param {string} userId
+   * @param {string[]} channelIds
+   * @param {string} find - text to find
+   * @param {string} replace - replacement text
+   * @param {boolean} useRegex - treat find as regex
+   * @returns {Promise<{ renamed: number, total: number }>}
+   */
+  async bulkRename(userId, channelIds, find, replace = '', useRegex = false) {
+    const { changes, total } = await this._prepareBulkRename(userId, channelIds, find, replace, useRegex);
     await db.transaction(async (trx) => {
-      for (const ch of owned) {
-        const newName = useRegex ? ch.name.replace(new RegExp(find, 'g'), replace) : ch.name.split(find).join(replace);
-        if (Buffer.byteLength(newName, 'utf8') > CHANNEL_FIELD_LIMITS.name) {
-          throw createAppError('VALIDATION_ERROR', `Yeniden adlandırma ${CHANNEL_FIELD_LIMITS.name} bayt sınırını aşan bir ad üretiyor`);
-        }
-        if (newName !== ch.name) {
-          await trx('channels').where('id', ch.id).update({ name: newName, updated_at: trx.fn.now() });
-          renamed += 1;
-        }
+      for (const change of changes) {
+        await trx('channels').where('id', change.id).update({ name: change.after, updated_at: trx.fn.now() });
       }
     });
 
-    return { renamed, total: channelIds.length };
+    return { renamed: changes.length, total };
   }
 
   /**

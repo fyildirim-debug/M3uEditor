@@ -102,6 +102,10 @@
               <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input class="search-input" v-model="search" :aria-label="streamTypeLabel.search" :placeholder="streamTypeLabel.search" @input="debouncedSearch" />
             </div>
+            <button v-if="activeView === 'basic'" class="btn btn-secondary btn-sm add-channel-btn" :aria-label="t('addChannel.title')" @click="showAddChannel = true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span class="add-channel-label">{{ t('addChannel.title') }}</span>
+            </button>
             <button class="btn btn-secondary btn-sm" @click="openXtream">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> {{ t('xtream.importTitle') }}
             </button>
@@ -164,6 +168,8 @@
                   <div v-if="selectedIds.size > 0" class="bulk-bar">
                     <span class="badge badge-accent">{{ selectedIds.size }} {{ t('common.selected') }}</span>
                     <button class="btn btn-secondary btn-xs" @click="showBulkMove = true">{{ t('common.move') }}</button>
+                    <button class="btn btn-secondary btn-xs" @click="showBulkUpdate = true">{{ t('bulkUpdate.title') }}</button>
+                    <button class="btn btn-secondary btn-xs" @click="showBulkRename = true">{{ t('bulkRename.title') }}</button>
                     <button class="btn btn-danger btn-xs" @click="bulkDelete">{{ t('common.delete') }}</button>
                   </div>
                   <div v-if="channelsLoading" class="center-loading"><span class="spinner"></span></div>
@@ -719,6 +725,10 @@
                 </div>
                 <div class="form-group"><label for="channel-logo-url">{{ t('editPanel.logoUrl') }}</label><input id="channel-logo-url" class="input" type="url" v-model="editForm.logo_url" :placeholder="t('editPanel.logoPlaceholder')" /></div>
                 <div class="form-group"><label for="channel-stream-url">{{ t('editPanel.streamUrl') }}</label><input id="channel-stream-url" class="input" type="url" v-model="editForm.stream_url" /></div>
+                <StreamTestControl
+                  :channel-id="editingChannel.id"
+                  :has-unsaved-url="(editForm.stream_url || '') !== (editingChannel.stream_url || '')"
+                />
                 <div class="form-group"><label for="channel-category">{{ t('common.category') }}</label>
                   <select id="channel-category" class="input" v-model="editForm.category_id">
                     <option :value="null">{{ t('common.uncategorized') }}</option>
@@ -821,7 +831,31 @@
       </div>
     </div>
 
-    <!-- Modals -->
+    <!-- Feature modals -->
+    <AddChannelModal
+      v-if="showAddChannel"
+      :playlist-id="playlistId"
+      :categories="categories"
+      :initial-stream-type="activeStreamType"
+      @created="handleChannelCreated"
+      @close="showAddChannel = false"
+    />
+    <BulkRenameModal
+      v-if="showBulkRename"
+      :channel-ids="selectedChannelIds"
+      @applied="handleBulkApplied"
+      @close="showBulkRename = false"
+    />
+    <BulkUpdateModal
+      v-if="showBulkUpdate"
+      :channel-ids="selectedChannelIds"
+      :categories="categories"
+      @applied="handleBulkApplied"
+      @close="showBulkUpdate = false"
+    />
+    <SharePlaylistModal v-if="showShare" :playlist-id="playlistId" @close="showShare = false" />
+
+    <!-- Existing modals -->
     <Teleport to="body">
       <div v-if="showXtreamModal" v-focus-trap class="modal-overlay" @click.self="showXtreamModal = false">
         <div class="modal" style="max-width:500px">
@@ -927,16 +961,6 @@
         </div>
       </div>
     </Teleport>
-    <Teleport to="body">
-      <div v-if="shareUrl" v-focus-trap class="modal-overlay" @click.self="shareUrl = null">
-        <div class="modal">
-          <div class="modal-header"><h3>{{ t('share.title') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="shareUrl = null">✕</button></div>
-          <div class="form-group"><label for="share-url" class="sr-only">{{ t('share.title') }}</label><input id="share-url" class="input" :value="shareUrl" readonly @click="$event.target.select()" /></div>
-          <p style="font-size:12px;color:var(--text-muted)">{{ t('share.instruction') }}</p>
-          <div class="modal-actions"><button class="btn btn-primary" @click="copyShare">{{ t('common.copy') }}</button><button class="btn btn-secondary" @click="shareUrl = null">{{ t('common.close') }}</button></div>
-        </div>
-      </div>
-    </Teleport>
     <!-- EPG Program Detail Modal -->
     <Teleport to="body">
       <div v-if="selectedProgram" v-focus-trap class="modal-overlay" @click.self="selectedProgram = null">
@@ -982,6 +1006,11 @@ import { ref, reactive, onMounted, onUnmounted, inject, watch, computed } from '
 import { useRoute } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
+import AddChannelModal from '../components/AddChannelModal.vue'
+import BulkRenameModal from '../components/BulkRenameModal.vue'
+import BulkUpdateModal from '../components/BulkUpdateModal.vue'
+import SharePlaylistModal from '../components/SharePlaylistModal.vue'
+import StreamTestControl from '../components/StreamTestControl.vue'
 
 const route = useRoute()
 const toast = inject('toast')
@@ -1100,11 +1129,15 @@ const guideDateOptions = computed(() => {
 // Bulk
 const showBulkMove = ref(false)
 const bulkTargetCat = ref(null)
-const shareUrl = ref(null)
+const showAddChannel = ref(false)
+const showBulkRename = ref(false)
+const showBulkUpdate = ref(false)
+const showShare = ref(false)
 
 let searchTimer = null
 
 const allSelected = computed(() => channels.value.length > 0 && channels.value.every(ch => selectedIds.value.has(ch.id)))
+const selectedChannelIds = computed(() => [...selectedIds.value])
 
 const streamTypeLabel = computed(() => {
   switch (activeStreamType.value) {
@@ -1361,6 +1394,24 @@ async function doBulkMove() {
   } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 
+function refreshFeatureData({ clearSelected = false } = {}) {
+  if (clearSelected) selectedIds.value = new Set()
+  for (const catId of Object.keys(accChannels)) delete accChannels[catId]
+  loadChannels()
+  loadCategories()
+  loadTotalCount()
+  loadStreamTypeCounts()
+  for (const catId of openAccordions.value) loadAccChannels(catId)
+}
+
+function handleChannelCreated() {
+  refreshFeatureData()
+}
+
+function handleBulkApplied() {
+  refreshFeatureData({ clearSelected: true })
+}
+
 async function createCategory() {
   if (!newCatName.value.trim()) return
   try { await api.post(`/playlists/${playlistId}/categories`, { name: newCatName.value.trim() }); newCatName.value = ''; showCatCreate.value = false; toast(t('toast.created'), 'success'); loadCategories() }
@@ -1609,11 +1660,9 @@ async function doExport() {
     toast(hiddenCount > 0 ? t('toast.m3uDownloadedExcluded') : t('toast.m3uDownloaded'), 'success')
   } catch { toast(t('toast.downloadError'), 'error') }
 }
-async function doShare() {
-  try { const { data } = await api.post(`/playlists/${playlistId}/share`); shareUrl.value = window.location.origin + '/api/shared/' + data.token }
-  catch (e) { toast(e.response?.data?.error?.message || t('toast.shareError'), 'error') }
+function doShare() {
+  showShare.value = true
 }
-function copyShare() { navigator.clipboard.writeText(shareUrl.value); toast(t('toast.copied'), 'success') }
 // EPG Autocomplete functions
 function onNameInput() {
   clearTimeout(epgAcTimer)
@@ -1840,7 +1889,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .acc-empty { padding: 16px 20px; font-size: 12px; color: var(--text-muted); text-align: center; }
 
 /* Bulk bar */
-.bulk-bar { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
+.bulk-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
 
 /* Channel table */
 .ch-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -2458,6 +2507,8 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
   .top-bar-left, .top-bar-right { gap: 6px; min-width: 0; }
   .playlist-title { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .channel-count-badge, .top-bar-right > .btn { display: none; }
+  .top-bar-right > .add-channel-btn { display: inline-flex; width: 40px; height: 40px; justify-content: center; padding: 0; }
+  .add-channel-label { display: none; }
   .search-input { width: min(34vw, 160px); height: 40px; }
   .cat-sidebar {
     position: fixed; z-index: 704; top: var(--header-height, 52px); bottom: 0; left: 0;

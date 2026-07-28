@@ -227,7 +227,17 @@
   },
   "share": {
     "title": "Paylaşım Linki",
-    "instruction": "Bu linki IPTV oynatıcına ekleyebilirsin."
+    "instruction": "Bu linki IPTV oynatıcına ekleyebilirsin.",
+    "optionsInstruction": "İstersen paylaşımı süreyle sınırla veya şifreyle koru.",
+    "expiresInDays": "Süre (gün)",
+    "noExpiry": "Süresiz",
+    "password": "Şifre",
+    "passwordPlaceholder": "Şifresiz paylaşım için boş bırak",
+    "passwordHint": "Şifre kullanacaksan 10-128 karakter gir.",
+    "m3uUrl": "M3U paylaşım adresi",
+    "xmltvUrl": "XMLTV paylaşım adresi",
+    "generating": "Link oluşturuluyor...",
+    "createLink": "Paylaşım linki oluştur"
   },
   "bulkMove": {
     "title": "Kanalları Taşı",
@@ -290,7 +300,8 @@
     "metadataFetched": "Metadata çekildi",
     "metadataError": "Metadata çekilemedi",
     "metadataNotFound": "TMDB'de bulunamadı",
-    "noXtreamSource": "Xtream Codes kaynağı bulunamadı"
+    "noXtreamSource": "Xtream Codes kaynağı bulunamadı",
+    "channelCreated": "Kanal oluşturuldu"
   },
   "metadata": {
     "title": "Meta Veriler",
@@ -312,6 +323,7 @@
   },
   "bulkRename": {
     "title": "Toplu Yeniden Adlandır",
+    "selection": "{count} seçili kanal için bul ve değiştir kuralı oluştur.",
     "find": "Bul",
     "replace": "Değiştir",
     "findPlaceholder": "Aranacak metin veya regex",
@@ -319,14 +331,21 @@
     "useRegex": "Regex kullan",
     "preview": "Önizle",
     "apply": "Uygula",
-    "result": "{renamed}/{total} kanal yeniden adlandırıldı"
+    "result": "{renamed}/{total} kanal yeniden adlandırıldı",
+    "affected": "{count} kanal etkilenecek",
+    "noChanges": "Bu kuralla değişecek kanal yok.",
+    "sampleLimit": "{affected} değişikliğin ilk {shown} tanesi gösteriliyor.",
+    "previewRequired": "Uygulamadan önce önizleme oluşturmalısın."
   },
   "streamTest": {
     "test": "Test Et",
     "testing": "Test ediliyor...",
     "reachable": "Erişilebilir",
     "unreachable": "Erişilemez",
-    "status": "Durum: {status}"
+    "status": "HTTP durumu: {status}",
+    "contentType": "İçerik tipi: {contentType}",
+    "error": "Hata: {error}",
+    "savedUrlHint": "Test, kaydedilmiş akış adresini kullanır."
   },
   "m3uImport": {
     "title": "M3U İçe Aktar",
@@ -339,10 +358,30 @@
   },
   "addChannel": {
     "title": "Kanal Ekle",
+    "description": "Kanala ait temel bilgileri girerek oynatma listesine manuel olarak ekle.",
     "name": "Kanal Adı",
     "streamUrl": "Stream URL",
+    "streamUrlPlaceholder": "https://ornek.com/stream.m3u8",
     "logoUrl": "Logo URL",
-    "streamType": "İçerik Tipi"
+    "logoUrlPlaceholder": "https://ornek.com/logo.png",
+    "streamType": "İçerik Tipi",
+    "testConnection": "Bağlantıyı test et",
+    "testSavesFirst": "Test uç noktası kanal kimliği gerektirdiği için bağlantı testi kanalı önce kaydeder, ardından akışı sınar.",
+    "savedForTesting": "Kanal kaydedildi. Akış sonucunu inceleyebilir veya testi tekrarlayabilirsin."
+  },
+  "bulkUpdate": {
+    "title": "Toplu Güncelle",
+    "selection": "{count} seçili kanalda değiştirmek istediğin alanları işaretle.",
+    "setName": "Adı değiştir",
+    "setLogoUrl": "Logo URL'sini değiştir",
+    "setStreamUrl": "Akış URL'sini değiştir",
+    "setCategory": "Kategoriyi değiştir",
+    "namePlaceholder": "Tüm seçili kanallar için yeni ad",
+    "logoPlaceholder": "Yeni logo URL'si",
+    "streamUrlPlaceholder": "Yeni akış URL'si",
+    "optionalFieldsHint": "İşaretlenmiş logo URL'sini boş bırakırsan logo alanı temizlenir; akış URL'si boş olamaz.",
+    "apply": "Değişiklikleri uygula",
+    "result": "{count} kanal güncellendi"
   },
   "admin": {
     "title": "Yönetim Paneli",

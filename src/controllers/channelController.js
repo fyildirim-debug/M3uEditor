@@ -169,6 +169,14 @@ async function bulkRename(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function previewBulkRename(req, res, next) {
+  try {
+    const { channelIds, find, replace, useRegex } = req.body;
+    const uniqueIds = validateIdArray(channelIds);
+    res.json(await channelService.previewBulkRename(req.userId, uniqueIds, find, String(replace ?? ''), Boolean(useRegex)));
+  } catch (error) { next(error); }
+}
+
 async function testStream(req, res, next) {
   try {
     const channel = await channelService._verifyChannelOwnership(req.userId, req.params.id);
@@ -224,4 +232,4 @@ async function createChannel(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { listChannels, updateChannel, deleteChannel, updateChannelOrder, bulkAction, resetChannel, uploadLogo, fetchMetadata, bulkRename, testStream, createChannel };
+module.exports = { listChannels, updateChannel, deleteChannel, updateChannelOrder, bulkAction, resetChannel, uploadLogo, fetchMetadata, bulkRename, previewBulkRename, testStream, createChannel };

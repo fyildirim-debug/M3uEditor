@@ -13,6 +13,8 @@ const mockChannelService = {
   updateOrder: jest.fn(),
   bulkUpdate: jest.fn(),
   bulkMove: jest.fn(),
+  bulkRename: jest.fn(),
+  previewBulkRename: jest.fn(),
   search: jest.fn(),
 };
 jest.mock('../../../src/services/ChannelService', () => mockChannelService);
@@ -293,6 +295,50 @@ describe('Channel Controller', () => {
         .send({ action: 'update', channelIds: ['ch-1'] });
 
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('POST /api/channels/bulk-rename/preview', () => {
+    it('returns a non-mutating rename preview for unique channel ids', async () => {
+      mockChannelService.previewBulkRename.mockResolvedValue({
+        affected: 1,
+        samples: [{ id: 'ch-1', before: 'News HD', after: 'News' }],
+      });
+
+      const res = await request(app)
+        .post('/api/channels/bulk-rename/preview')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          channelIds: ['ch-1', 'ch-1'],
+          find: ' HD$',
+          replace: null,
+          useRegex: true,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        affected: 1,
+        samples: [{ id: 'ch-1', before: 'News HD', after: 'News' }],
+      });
+      expect(mockChannelService.previewBulkRename).toHaveBeenCalledWith(
+        USER_ID,
+        ['ch-1'],
+        ' HD$',
+        '',
+        true
+      );
+      expect(mockChannelService.bulkRename).not.toHaveBeenCalled();
+    });
+
+    it('rejects an empty channel selection before calling the service', async () => {
+      const res = await request(app)
+        .post('/api/channels/bulk-rename/preview')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ channelIds: [], find: 'News', replace: 'Live' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(mockChannelService.previewBulkRename).not.toHaveBeenCalled();
     });
   });
 });

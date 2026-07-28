@@ -110,6 +110,77 @@ describe('ChannelService', () => {
       .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
+  describe('bulk rename preview', () => {
+    test('returns at most 20 changed samples and never opens a write transaction', async () => {
+      const channelIds = Array.from({ length: 25 }, (_, index) => `c${index + 1}`);
+      const owned = builder({ rows: channelIds.map((id, index) => ({ id, name: `News ${index + 1}` })) });
+      mockDb.mockReturnValue(owned);
+
+      await expect(channelService.previewBulkRename('user-1', channelIds, 'News', 'Live'))
+        .resolves.toEqual({
+          affected: 25,
+          samples: channelIds.slice(0, 20).map((id, index) => ({
+            id,
+            before: `News ${index + 1}`,
+            after: `Live ${index + 1}`,
+          })),
+        });
+
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+      expect(owned.update).not.toHaveBeenCalled();
+      expect(mockDb.raw).not.toHaveBeenCalled();
+    });
+
+    test('applies ReDoS and rename term byte limits before querying channels', async () => {
+      await expect(channelService.previewBulkRename('user-1', ['c1'], '(a+)+$', 'x', true))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      await expect(channelService.previewBulkRename('user-1', ['c1'], 'a', 'x'.repeat(1001)))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+
+      expect(mockDb).not.toHaveBeenCalled();
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+    });
+
+    test('rejects channels outside the tenant without writing anything', async () => {
+      const owned = builder({ rows: [{ id: 'c1', name: 'News' }] });
+      mockDb.mockReturnValue(owned);
+
+      await expect(channelService.previewBulkRename('user-1', ['c1', 'foreign'], 'News', 'Live'))
+        .rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+      expect(owned.update).not.toHaveBeenCalled();
+    });
+
+    test('rejects a preview that would produce an oversized channel name', async () => {
+      const owned = builder({ rows: [{ id: 'c1', name: 'a'.repeat(400) }] });
+      mockDb.mockReturnValue(owned);
+
+      await expect(channelService.previewBulkRename('user-1', ['c1'], 'a', 'bb'))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+      expect(owned.update).not.toHaveBeenCalled();
+    });
+
+    test('uses the same prepared changes when the rename is applied', async () => {
+      const owned = builder({ rows: [
+        { id: 'c1', name: 'News HD' },
+        { id: 'c2', name: 'Sports' },
+      ] });
+      const trx = Object.assign(jest.fn(() => owned), { fn: { now: jest.fn(() => 'TRX_NOW') } });
+      mockDb.mockReturnValue(owned);
+      mockDb.transaction.mockImplementation((callback) => callback(trx));
+
+      await expect(channelService.bulkRename('user-1', ['c1', 'c2'], ' HD$', '', true))
+        .resolves.toEqual({ renamed: 1, total: 2 });
+
+      expect(mockDb.transaction).toHaveBeenCalledTimes(1);
+      expect(owned.update).toHaveBeenCalledTimes(1);
+      expect(owned.update).toHaveBeenCalledWith({ name: 'News', updated_at: 'TRX_NOW' });
+    });
+  });
+
   test('compacts sort order with a single set-based statement', async () => {
     const owned = builder({ first: { id: 'c1', playlist_id: 'p1' } });
     const raw = jest.fn().mockResolvedValue({ rowCount: 0 });
