@@ -2,25 +2,10 @@
 
 A self-hosted IPTV playlist manager for importing, editing, organizing, exporting, and sharing M3U/Xtream playlists. It includes a responsive Vue interface, XMLTV guide support, multi-user isolation, and a production Docker stack.
 
-## Update notes / Güncelleme notları — 2026-07-28
+## Release notes
 
-### English
-
-- **Large Xtream imports:** Replaced serial category-by-category downloads with one bulk request per content type, two-type parallel downloads, bounded fallback for missing categories, bulk category creation, and 1,000-row PostgreSQL upserts. The default response and Node memory limits now support playlists around 150,000 Live/VOD/Series entries.
-- **Security hardening:** Added rotating `HttpOnly` refresh sessions, encrypted provider credentials, hashed sensitive tokens, tenant ownership checks, SSRF-resistant remote fetching with DNS pinning and redirect validation, safer upload validation, structured error handling, and hardened browser security headers.
-- **Reliability:** Improved Xtream synchronization identity, stale-channel protection, M3U escaping, EPG source isolation, pagination validation, timezone-aware guide queries, and production-safe startup validation.
-- **Frontend and accessibility:** Refined the responsive application shell and editor, session recovery, protected routing, keyboard focus trapping, accessible dialogs, empty/error states, and cache behavior.
-- **Deployment and quality:** Upgraded to Node.js 22, added reproducible lockfiles, non-root read-only containers, private PostgreSQL networking, health checks, automatic migrations, lint/build validation, dependency audits, and GitHub Actions CI.
-- **Verification:** 253 backend tests pass; frontend lint and production build pass; backend and frontend high-severity dependency audits report no vulnerabilities.
-
-### Türkçe
-
-- **Büyük Xtream aktarımları:** Kategori kategori seri indirme kaldırıldı; içerik türü başına tek toplu istek, iki türü paralel indirme, eksik kategoriler için kontrollü geri dönüş, toplu kategori oluşturma ve 1.000 satırlık PostgreSQL upsert paketleri eklendi. Varsayılan yanıt ve Node bellek sınırları yaklaşık 150.000 Canlı TV/VOD/Dizi içeren listeleri destekleyecek şekilde yükseltildi.
-- **Güvenlik sıkılaştırması:** Dönen `HttpOnly` yenileme oturumları, şifreli sağlayıcı bilgileri, hash’lenmiş hassas tokenlar, kullanıcı sahipliği kontrolleri, DNS sabitleme ve yönlendirme doğrulamalı SSRF koruması, güvenli dosya doğrulama, yapılandırılmış hata yönetimi ve tarayıcı güvenlik başlıkları eklendi.
-- **Güvenilirlik:** Xtream senkronizasyon kimliği, eski kanal silme koruması, M3U kaçış kuralları, EPG kaynak izolasyonu, sayfalama doğrulaması, saat dilimine duyarlı rehber sorguları ve production başlangıç kontrolleri iyileştirildi.
-- **Arayüz ve erişilebilirlik:** Responsive uygulama kabuğu ve editör, oturum kurtarma, korumalı rotalar, klavye odak kilidi, erişilebilir diyaloglar, boş/hata durumları ve önbellek davranışı geliştirildi.
-- **Dağıtım ve kalite:** Node.js 22’ye geçildi; tekrarlanabilir lockfile’lar, root olmayan salt-okunur container’lar, dışarı açılmayan PostgreSQL, sağlık kontrolleri, otomatik migration, lint/build doğrulaması, bağımlılık denetimleri ve GitHub Actions CI eklendi.
-- **Doğrulama:** 253 backend testi, frontend lint ve production build başarılıdır; backend ve frontend yüksek önem seviyeli bağımlılık denetimlerinde açık bulunmamıştır.
+Every release is documented in [CHANGELOG.md](CHANGELOG.md), including the audit
+finding each change closes.
 
 ## Highlights
 
@@ -49,11 +34,14 @@ npm ci
 cd ..
 ```
 
-Copy `.env.example` to `.env`, then set the database and application values. In particular, replace these with independently generated secrets of at least 32 characters:
+Copy `.env.example` to `.env`, then set the database and application values.
+`JWT_SECRET` and `CREDENTIAL_ENCRYPTION_KEY` must be two independently generated
+values of at least 32 characters. Production startup rejects the shipped
+placeholders, short values, low-entropy values, and reusing one value for both:
 
-```env
-JWT_SECRET=replace-with-a-long-random-secret
-CREDENTIAL_ENCRYPTION_KEY=replace-with-another-long-random-secret
+```bash
+echo "JWT_SECRET=$(openssl rand -hex 32)"
+echo "CREDENTIAL_ENCRYPTION_KEY=$(openssl rand -hex 32)"
 ```
 
 Create the database and start the application:
