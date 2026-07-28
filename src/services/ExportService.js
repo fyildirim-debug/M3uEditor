@@ -4,6 +4,8 @@ const db = require('../config/database');
 const { createAppError } = require('../utils/AppError');
 const M3UFormatter = require('../parsers/M3UFormatter');
 const { hashToken } = require('../utils/crypto');
+const { toAbsoluteMediaUrl } = require('../utils/urls');
+const config = require('../config');
 
 class ExportService {
   constructor() {
@@ -63,7 +65,8 @@ class ExportService {
 
     return channels.map((ch) => ({
       name: ch.name,
-      logo: ch.logo_url,
+      // Yuklenen logolar goreli saklanir; player mutlak adres bekler.
+      logo: toAbsoluteMediaUrl(ch.logo_url),
       url: ch.stream_url,
       epgId: ch.epg_channel_id,
       group: ch.category_name || null,
@@ -90,7 +93,7 @@ class ExportService {
    */
   async createXtreamPlaylist(playlist, username, password, output = 'ts') {
     if (!playlist?.id) throw createAppError('NOT_FOUND');
-    const baseUrl = String(process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    const baseUrl = config.appUrl;
     const channels = await this._getOrderedChannels(playlist.id);
     const localChannels = channels.map((channel) => {
       const pathType = channel.streamType === 'vod' ? 'movie' : channel.streamType === 'series' ? 'series' : 'live';
@@ -147,8 +150,7 @@ class ExportService {
   }
 
   _sharedXmltvUrl(shareToken) {
-    const appUrl = String(process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
-    return `${appUrl}/api/shared/${encodeURIComponent(shareToken)}/xmltv`;
+    return `${config.appUrl}/api/shared/${encodeURIComponent(shareToken)}/xmltv`;
   }
 
   /**

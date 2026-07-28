@@ -82,4 +82,17 @@ const config = {
   },
 };
 
+/**
+ * Dışarıya verilen her mutlak adresin (paylaşım linki, yüklenen logo, XMLTV
+ * ikonu, Xtream çıkışı) tek kaynağı. Sondaki eğik çizgi normalize edilir.
+ * Okuma anında değerlendirilir, böylece çalışma anında değişen ortam
+ * değişkenini de yansıtır.
+ */
+Object.defineProperty(config, 'appUrl', {
+  enumerable: true,
+  get() {
+    return String(process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+  },
+});
+
 module.exports = config;

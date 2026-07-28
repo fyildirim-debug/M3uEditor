@@ -1,6 +1,7 @@
 const db = require('../config/database');
 const { createAppError } = require('../utils/AppError');
 const XMLTVFormatter = require('../parsers/XMLTVFormatter');
+const { toAbsoluteMediaUrl } = require('../utils/urls');
 
 const DEFAULT_DAYS = 7;
 const MAX_DAYS = 14;
@@ -59,7 +60,7 @@ class XMLTVExportService {
     return result.rows.map((row) => ({
       id: row.channel_id,
       name: row.name,
-      icon: row.icon_url,
+      icon: toAbsoluteMediaUrl(row.icon_url),
       epgChannelUuid: row.epg_channel_uuid,
     }));
   }

@@ -4,6 +4,8 @@ const { hashToken } = require('../utils/crypto');
 const { createAppError } = require('../utils/AppError');
 const exportService = require('./ExportService');
 const xmltvExportService = require('./XMLTVExportService');
+const { toAbsoluteMediaUrl } = require('../utils/urls');
+const config = require('../config');
 
 const USERNAME_BYTES = 12;
 const PASSWORD_BYTES = 24;
@@ -12,7 +14,7 @@ const MAX_EPG_LIMIT = 1000;
 const DUMMY_HASH = hashToken('xtream-output-invalid-credential');
 
 function appUrl() {
-  return String(process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+  return config.appUrl;
 }
 
 function randomCredential(byteLength) {
@@ -287,7 +289,7 @@ class XtreamOutputService {
       name: row.name,
       stream_type: 'live',
       stream_id: numericXtreamId(row.xtream_id),
-      stream_icon: row.logo_url || '',
+      stream_icon: toAbsoluteMediaUrl(row.logo_url) || '',
       epg_channel_id: row.epg_channel_id || '',
       added: unixSeconds(row.created_at),
       category_id: categoryId(row.category_xtream_id),
@@ -307,7 +309,7 @@ class XtreamOutputService {
         name: row.name,
         stream_type: 'movie',
         stream_id: numericXtreamId(row.xtream_id),
-        stream_icon: row.logo_url || extras.poster_url || '',
+        stream_icon: toAbsoluteMediaUrl(row.logo_url || extras.poster_url) || '',
         ...ratingValues(extras),
         added: unixSeconds(row.created_at),
         category_id: categoryId(row.category_xtream_id),
@@ -326,7 +328,7 @@ class XtreamOutputService {
         num: index + 1,
         name: row.name,
         series_id: numericXtreamId(row.xtream_id),
-        cover: row.logo_url || extras.poster_url || '',
+        cover: toAbsoluteMediaUrl(row.logo_url || extras.poster_url) || '',
         plot: extras.plot || extras.overview || '',
         cast: extras.cast || '',
         director: extras.director || '',
@@ -366,7 +368,7 @@ class XtreamOutputService {
     return {
       info: {
         name: extras.title || row.name,
-        movie_image: extras.poster_url || row.logo_url || '',
+        movie_image: toAbsoluteMediaUrl(extras.poster_url || row.logo_url) || '',
         plot: extras.plot || extras.overview || '',
         cast: extras.cast || '',
         director: extras.director || '',
@@ -397,7 +399,7 @@ class XtreamOutputService {
     return {
       info: {
         name: extras.title || row.name,
-        cover: extras.poster_url || row.logo_url || '',
+        cover: toAbsoluteMediaUrl(extras.poster_url || row.logo_url) || '',
         plot: extras.plot || extras.overview || '',
         cast: extras.cast || '',
         director: extras.director || '',
