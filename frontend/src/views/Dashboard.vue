@@ -213,69 +213,11 @@
       </Transition>
     </Teleport>
 
-    <!-- Xtream Import Modal -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="showXtreamModal" v-focus-trap class="modal-overlay" @click.self="showXtreamModal = false">
-          <div class="modal" style="max-width:500px">
-            <div class="modal-header">
-              <h3>{{ t('xtream.importTitle') }}</h3>
-              <button class="btn btn-ghost btn-icon-sm" :aria-label="t('common.close')" @click="showXtreamModal = false">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <div class="form-group">
-              <label for="xtream-autofill-url">{{ t('xtream.autoFillLabel') }} <span style="font-weight:400;color:var(--text-muted)">({{ t('common.optional') }})</span></label>
-              <input id="xtream-autofill-url" class="input" type="url" v-model="m3uUrlInput" @input="parseM3uUrl" :placeholder="t('xtream.autoFillPlaceholder')" autocomplete="off" />
-              <div v-if="m3uUrlParsed" class="parse-success">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                {{ t('xtream.autoFilled') }}
-              </div>
-              <div v-if="m3uUrlInput && !m3uUrlParsed && m3uUrlInput.length > 10" class="parse-error">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                {{ t('xtream.autoFillFailed') }}
-              </div>
-            </div>
-            <div class="url-divider"><span>{{ t('xtream.manualEntry') }}</span></div>
-            <div class="form-group"><label for="xtream-server-url">{{ t('xtream.serverUrl') }}</label><input id="xtream-server-url" class="input" type="url" v-model="xtreamForm.serverUrl" :placeholder="t('xtream.serverPlaceholder')" autocomplete="off" /></div>
-            <div class="form-group"><label for="xtream-username">{{ t('xtream.username') }}</label><input id="xtream-username" class="input" v-model="xtreamForm.username" autocomplete="off" /></div>
-            <div class="form-group"><label for="xtream-password">{{ t('xtream.password') }}</label><input id="xtream-password" class="input" type="password" v-model="xtreamForm.password" autocomplete="new-password" /></div>
-            <div class="form-group">
-              <label>{{ t('xtream.streamTypes') }}</label>
-              <div class="stream-type-group">
-                <label class="stream-type-label"><input type="checkbox" value="live" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeLive') }}</label>
-                <label class="stream-type-label"><input type="checkbox" value="vod" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeVod') }}</label>
-                <label class="stream-type-label"><input type="checkbox" value="series" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeSeries') }}</label>
-              </div>
-            </div>
-            <div v-if="importing" class="import-progress">
-              <div class="progress-stage">
-                <span class="spinner" style="width:14px;height:14px"></span>
-                <span class="progress-stage-text">{{ importStage || t('common.importing') }}</span>
-                <span class="progress-percent">{{ Math.round(importProgress) }}%</span>
-              </div>
-              <div class="progress-track"><div class="progress-fill" :style="{ width: importProgress + '%' }"></div></div>
-              <div class="progress-hint">{{ t('xtream.progressHint') }}</div>
-            </div>
-            <div v-if="importResult" class="result-box success">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-              {{ t('toast.importSuccess', { channels: importResult.totalChannels, categories: importResult.totalCategories, duration: (importResult.duration / 1000).toFixed(1) }) }}
-            </div>
-            <div v-if="importError" class="result-box error">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-              {{ importError }}
-            </div>
-            <div class="modal-actions">
-              <button class="btn btn-secondary" @click="showXtreamModal = false" :disabled="importing">{{ t('common.close') }}</button>
-              <button class="btn btn-primary" @click="doXtreamImport" :disabled="importing || !xtreamForm.serverUrl || !xtreamForm.username || !xtreamForm.password || !xtreamForm.streamTypes.length">
-                <span v-if="importing" class="spinner" style="width:14px;height:14px"></span>
-                {{ importing ? t('common.importing') : t('common.import') }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <XtreamImportWizard
+      v-if="showXtreamModal"
+      @close="showXtreamModal = false"
+      @imported="handleXtreamImported"
+    />
 
     <!-- M3U Import Modal -->
     <Teleport to="body">
@@ -319,6 +261,7 @@ import { ref, computed, onMounted, inject } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
+import XtreamImportWizard from '../components/XtreamImportWizard.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -367,13 +310,6 @@ function getRelativeTime(dateStr) {
 
 // Xtream import state
 const showXtreamModal = ref(false)
-const xtreamForm = ref({ serverUrl: '', username: '', password: '', streamTypes: ['live'] })
-const importing = ref(false)
-const importProgress = ref(0)
-const importStage = ref('')
-let importProgressTimer = null
-const importResult = ref(null)
-const importError = ref('')
 
 onMounted(loadPlaylists)
 
@@ -426,117 +362,17 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-// M3U URL parse state
-const m3uUrlInput = ref('')
-const m3uUrlParsed = ref(false)
-
-function parseM3uUrl() {
-  m3uUrlParsed.value = false
-  const url = m3uUrlInput.value.trim()
-  if (!url) return
-
-  try {
-    const parsed = new URL(url)
-    const params = parsed.searchParams
-    const username = params.get('username')
-    const password = params.get('password')
-
-    if (username && password) {
-      xtreamForm.value.serverUrl = `${parsed.protocol}//${parsed.host}`
-      xtreamForm.value.username = username
-      xtreamForm.value.password = password
-      m3uUrlParsed.value = true
-      return
-    }
-
-    const pathParts = parsed.pathname.split('/').filter(Boolean)
-    if (pathParts.length >= 3) {
-      const startIdx = pathParts[0] === 'live' ? 1 : 0
-      if (pathParts.length > startIdx + 1) {
-        xtreamForm.value.serverUrl = `${parsed.protocol}//${parsed.host}`
-        xtreamForm.value.username = pathParts[startIdx]
-        xtreamForm.value.password = pathParts[startIdx + 1]
-        m3uUrlParsed.value = true
-      }
-    }
-  } catch {}
-}
-
 function openXtream() {
   showXtreamModal.value = true
-  importResult.value = null
-  importError.value = ''
-  importProgress.value = 0
-  importStage.value = ''
-  if (importProgressTimer) { clearInterval(importProgressTimer); importProgressTimer = null }
-  xtreamForm.value = { serverUrl: '', username: '', password: '', streamTypes: ['live'] }
-  m3uUrlInput.value = ''
-  m3uUrlParsed.value = false
 }
 
-function buildXtreamStages(types) {
-  const stages = [
-    { pct: 8,  key: 'xtream.stageConnecting' },
-    { pct: 15, key: 'xtream.stageAuth' },
-    { pct: 25, key: 'xtream.stageCategories' },
-  ]
-  if (types.includes('live'))   stages.push({ pct: 45, key: 'xtream.stageChannels' })
-  if (types.includes('vod'))    stages.push({ pct: 65, key: 'xtream.stageVod' })
-  if (types.includes('series')) stages.push({ pct: 80, key: 'xtream.stageSeries' })
-  stages.push({ pct: 90, key: 'xtream.stageProcessing' })
-  stages.push({ pct: 95, key: 'xtream.stageSaving' })
-  return stages
-}
-
-function startImportProgress(types) {
-  const stages = buildXtreamStages(types)
-  importProgress.value = 0
-  importStage.value = t(stages[0].key)
-  let stageIdx = 0
-  const stepMs = 250
-  if (importProgressTimer) clearInterval(importProgressTimer)
-  importProgressTimer = setInterval(() => {
-    const target = stages[stageIdx].pct
-    const cur = importProgress.value
-    if (cur < target) {
-      const delta = Math.max(0.4, (target - cur) * 0.06)
-      importProgress.value = Math.min(target, cur + delta)
-    } else if (stageIdx < stages.length - 1) {
-      stageIdx++
-      importStage.value = t(stages[stageIdx].key)
-    }
-  }, stepMs)
-}
-
-function stopImportProgress(success) {
-  if (importProgressTimer) { clearInterval(importProgressTimer); importProgressTimer = null }
-  if (success) {
-    importProgress.value = 100
-    importStage.value = t('xtream.stageFinalizing')
-  }
-}
-
-async function doXtreamImport() {
-  importing.value = true; importResult.value = null; importError.value = ''
-  startImportProgress(xtreamForm.value.streamTypes)
-  try {
-    const { data } = await api.post('/import/xtream', xtreamForm.value)
-    stopImportProgress(true)
-    importResult.value = data
-    toast(`${data.totalChannels} ${t('common.channel')} ${t('common.import').toLowerCase()}`, 'success')
-    await loadPlaylists()
-    setTimeout(() => {
-      showXtreamModal.value = false
-      if (data.playlistId) {
-        router.push('/playlist/' + data.playlistId)
-      }
-    }, 2000)
-  } catch (e) {
-    stopImportProgress(false)
-    importError.value = e.response?.data?.error?.message || t('toast.connectionError')
-  } finally {
-    importing.value = false
-  }
+async function handleXtreamImported(data) {
+  toast(t('toast.importSuccess', {
+    channels: data.totalChannels ?? 0,
+    categories: data.totalCategories ?? 0,
+    duration: ((Number(data.duration) || 0) / 1000).toFixed(1)
+  }), 'success')
+  await loadPlaylists()
 }
 
 // M3U Import

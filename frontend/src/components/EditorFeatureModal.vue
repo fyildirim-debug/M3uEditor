@@ -1,10 +1,10 @@
 <template>
   <Teleport to="body">
-    <div v-focus-trap class="feature-overlay" @click.self="$emit('close')" @keydown.esc="$emit('close')">
+    <div v-focus-trap class="feature-overlay" @click.self="requestClose" @keydown.esc="requestClose">
       <section class="feature-modal" :class="{ 'feature-modal-wide': wide }" role="dialog" aria-modal="true" :aria-label="title">
         <header class="feature-header">
           <h3>{{ title }}</h3>
-          <button class="btn btn-ghost btn-icon-sm" type="button" :aria-label="t('common.close')" @click="$emit('close')">✕</button>
+          <button class="btn btn-ghost btn-icon-sm" type="button" :aria-label="t('common.close')" :disabled="closeDisabled" @click="requestClose">✕</button>
         </header>
         <div class="feature-body"><slot /></div>
         <footer v-if="$slots.actions" class="feature-actions"><slot name="actions" /></footer>
@@ -16,13 +16,18 @@
 <script setup>
 import { useI18n } from '../langs/useI18n'
 
-defineProps({
+const props = defineProps({
   title: { type: String, required: true },
-  wide: { type: Boolean, default: false }
+  wide: { type: Boolean, default: false },
+  closeDisabled: { type: Boolean, default: false }
 })
-defineEmits(['close'])
+const emit = defineEmits(['close'])
 
 const { t } = useI18n()
+
+function requestClose() {
+  if (!props.closeDisabled) emit('close')
+}
 </script>
 
 <style scoped>

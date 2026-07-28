@@ -858,39 +858,14 @@
     />
     <SharePlaylistModal v-if="showShare" :playlist-id="playlistId" @close="showShare = false" />
     <XtreamOutputModal v-if="showXtreamOutput" :playlist-id="playlistId" @close="showXtreamOutput = false" />
+    <XtreamImportWizard
+      v-if="showXtreamModal"
+      :playlist-id="playlistId"
+      @close="showXtreamModal = false"
+      @imported="handleXtreamImported"
+    />
 
     <!-- Existing modals -->
-    <Teleport to="body">
-      <div v-if="showXtreamModal" v-focus-trap class="modal-overlay" @click.self="showXtreamModal = false">
-        <div class="modal" style="max-width:500px">
-          <div class="modal-header"><h3>{{ t('xtream.importTitle') }}</h3>
-            <button class="btn btn-ghost btn-icon-sm" @click="showXtreamModal = false">✕</button>
-          </div>
-          <div class="form-group"><label>{{ t('xtream.serverUrl') }}</label><input class="input" v-model="xtreamForm.serverUrl" :placeholder="t('xtream.serverPlaceholder')" /></div>
-          <div class="form-group"><label>{{ t('xtream.username') }}</label><input class="input" v-model="xtreamForm.username" /></div>
-          <div class="form-group"><label>{{ t('xtream.password') }}</label><input class="input" type="password" v-model="xtreamForm.password" /></div>
-          <div class="form-group">
-            <label>{{ t('xtream.streamTypes') }}</label>
-            <div class="stream-type-group">
-              <label class="stream-type-label"><input type="checkbox" value="live" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeLive') }}</label>
-              <label class="stream-type-label"><input type="checkbox" value="vod" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeVod') }}</label>
-              <label class="stream-type-label"><input type="checkbox" value="series" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeSeries') }}</label>
-            </div>
-          </div>
-          <div v-if="importResult" class="result-box success">
-            {{ t('toast.importSuccess', { channels: importResult.totalChannels, categories: importResult.totalCategories, duration: (importResult.duration / 1000).toFixed(1) }) }}
-          </div>
-          <div v-if="importError" class="result-box error">{{ importError }}</div>
-          <div class="modal-actions">
-            <button class="btn btn-secondary" @click="showXtreamModal = false">{{ t('common.close') }}</button>
-            <button class="btn btn-primary" @click="doXtreamImport" :disabled="importing || !xtreamForm.serverUrl || !xtreamForm.username || !xtreamForm.password || !xtreamForm.streamTypes.length">
-              <span v-if="importing" class="spinner" style="width:14px;height:14px"></span>
-              {{ importing ? t('common.importing') : t('common.import') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
     <!-- M3U Import Modal (Editor) -->
     <Teleport to="body">
       <div v-if="showM3uImportInEditor" v-focus-trap class="modal-overlay" @click.self="showM3uImportInEditor = false">
@@ -1015,6 +990,7 @@ import BulkRenameModal from '../components/BulkRenameModal.vue'
 import BulkUpdateModal from '../components/BulkUpdateModal.vue'
 import SharePlaylistModal from '../components/SharePlaylistModal.vue'
 import StreamTestControl from '../components/StreamTestControl.vue'
+import XtreamImportWizard from '../components/XtreamImportWizard.vue'
 import XtreamOutputModal from '../components/XtreamOutputModal.vue'
 
 const route = useRoute()
@@ -1075,10 +1051,6 @@ const inlineEditName = ref('')
 
 // Xtream
 const showXtreamModal = ref(false)
-const xtreamForm = ref({ serverUrl: '', username: '', password: '', streamTypes: ['live'] })
-const importing = ref(false)
-const importResult = ref(null)
-const importError = ref('')
 const savedXtream = ref(null) // { serverUrl, username, lastSynced }
 const savedXtreamTypes = ref(['live'])
 const syncing = ref(false)
@@ -1493,23 +1465,25 @@ async function chanDrop(idx) {
   }
 }
 
-function openXtream() { showXtreamModal.value = true; importResult.value = null; importError.value = '' }
-async function doXtreamImport() {
-  importing.value = true; importResult.value = null; importError.value = ''
+function openXtream() { showXtreamModal.value = true }
+async function handleXtreamImported(data) {
+  toast(t('toast.importSuccess', {
+    channels: data.totalChannels ?? 0,
+    categories: data.totalCategories ?? 0,
+    duration: ((Number(data.duration) || 0) / 1000).toFixed(1)
+  }), 'success')
   try {
-    const { data } = await api.post(`/playlists/${playlistId}/import/xtream`, xtreamForm.value)
-    importResult.value = data; toast(t('toast.importSuccess', { channels: data.totalChannels, categories: data.totalCategories, duration: (data.duration / 1000).toFixed(1) }), 'success')
-    // Refresh saved xtream info
     const plRes = await api.get('/playlists')
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
     if (pl?.xtream_server_url) {
       savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
       savedXtreamTypes.value = pl.xtream_stream_types ? JSON.parse(pl.xtream_stream_types) : ['live']
     }
-    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
-    for (const catId of openAccordions.value) loadAccChannels(catId)
-  } catch (e) { importError.value = e.response?.data?.error?.message || t('toast.connectionError') }
-  finally { importing.value = false }
+  } catch {
+    toast(t('toast.playlistsLoadError'), 'error')
+  }
+  loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
+  for (const catId of openAccordions.value) loadAccChannels(catId)
 }
 async function doSync() {
   syncing.value = true
