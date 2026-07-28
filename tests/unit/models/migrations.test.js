@@ -29,6 +29,7 @@ describe('Database Migrations', () => {
       '20240101000015_alter_epg_strings_to_text.js',
       '20240101000016_drop_plan_columns.js',
       '20240101000017_security_and_sync_hardening.js',
+      '20240101000018_session_token_families.js',
     ]);
   });
 

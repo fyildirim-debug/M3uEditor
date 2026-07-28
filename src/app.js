@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = rateLimit;
 const config = require('./config');
 const db = require('./config/database');
 const logger = require('./config/logger');
@@ -59,7 +60,29 @@ const authLimiter = rateLimit({
   message: { error: { code: 'RATE_LIMITED', message: 'Çok fazla istek. Lütfen 15 dakika sonra tekrar deneyin.' } },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => ['/refresh', '/logout', '/profile'].includes(req.path),
+  skip: (req) => ['/logout', '/profile'].includes(req.path),
+});
+
+// Refresh attempts are limited independently from the other auth operations.
+const refreshLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: { code: 'RATE_LIMITED', message: 'Çok fazla oturum yenileme isteği. Lütfen 15 dakika sonra tekrar deneyin.' } },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Password-protected shares perform an expensive bcrypt comparison on failures.
+const sharedPlaylistLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: { code: 'RATE_LIMITED', message: 'Bu paylaşım bağlantısı için çok fazla istek yapıldı. Lütfen daha sonra tekrar deneyin.' } },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator(req) {
+    const tokenHash = crypto.createHash('sha256').update(String(req.params.token || '')).digest('hex');
+    return `${ipKeyGenerator(req.ip)}:${tokenHash}`;
+  },
 });
 
 // General rate limiting
@@ -71,6 +94,8 @@ const generalLimiter = rateLimit({
 });
 
 app.use(generalLimiter);
+app.use('/api/auth/refresh', refreshLimiter);
+app.use('/api/shared/:token', sharedPlaylistLimiter);
 
 app.use(express.json({ limit: config.limits.jsonBody }));
 

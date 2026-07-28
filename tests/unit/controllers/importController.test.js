@@ -17,9 +17,10 @@ jest.mock('../../../src/services/ImportService', () => {
 
 const app = require('../../../src/app');
 const jwtConfig = require('../../../src/config/jwt');
+const { signTestToken, stubActiveSession } = require('../../helpers/authToken');
 
 function generateToken(userId) {
-  return jwt.sign({ userId }, jwtConfig.secret, { expiresIn: '1h' });
+  return signTestToken(userId);
 }
 
 const USER_ID = 'user-uuid-1';
@@ -34,6 +35,7 @@ describe('Import Controller', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    stubActiveSession();
   });
 
   describe('POST /api/playlists/:id/import/xtream', () => {

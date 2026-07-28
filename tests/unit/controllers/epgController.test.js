@@ -20,6 +20,7 @@ jest.mock('../../../src/services/EPGService', () => jest.fn(() => mockEpgService
 
 const app = require('../../../src/app');
 const jwtConfig = require('../../../src/config/jwt');
+const { signTestToken, stubActiveSession } = require('../../helpers/authToken');
 const { createAppError } = require('../../../src/utils/AppError');
 
 const USER_ID = 'user-uuid-1';
@@ -28,7 +29,7 @@ const CHANNEL_ID = 'channel-uuid-1';
 const SOURCE_ID = 'source-uuid-1';
 
 function token() {
-  return jwt.sign({ userId: USER_ID }, jwtConfig.secret, { expiresIn: '1h' });
+  return signTestToken(USER_ID);
 }
 
 function chain({ first, rows = [], returning = [] } = {}) {
@@ -43,6 +44,7 @@ function chain({ first, rows = [], returning = [] } = {}) {
 describe('EPG Controller', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    stubActiveSession();
     mockEpgService.listSources.mockResolvedValue([]);
   });
 

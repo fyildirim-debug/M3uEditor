@@ -5,14 +5,26 @@ const forbiddenSecrets = new Set([
   'dev-refresh-secret-key',
   'change-this-secret-in-production',
   'change-me',
+  'replace-with-a-long-random-secret',
+  'replace-with-another-long-random-secret',
 ]);
+
+function isLowEntropySecret(value) {
+  const compact = value.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const dictionaryPattern = /^(?:admin|another|change|credential|default|development|encryption|example|jwt|key|long|password|production|random|replace|secret|test|with)+$/;
+  const repeatedPattern = /^(.{1,16})\1+$/;
+
+  return new Set(value).size < 8 || repeatedPattern.test(value) || dictionaryPattern.test(compact);
+}
 
 function requireProductionSecret(name, value, minimumLength = 32) {
   if (!isProduction) return value;
-  if (!value || value.length < minimumLength || forbiddenSecrets.has(value)) {
-    throw new Error(`${name} must be set to a unique secret of at least ${minimumLength} characters in production`);
+  const normalizedValue = String(value || '').trim();
+  const isPlaceholder = /^(?:replace-with-|BURAYI_DEGISTIR_)/i.test(normalizedValue);
+  if (!normalizedValue || normalizedValue.length < minimumLength || forbiddenSecrets.has(normalizedValue) || isPlaceholder || isLowEntropySecret(normalizedValue)) {
+    throw new Error(`${name} production ortamında en az ${minimumLength} karakterli, yüksek entropili ve benzersiz bir secret olmalı. Yeni bir değer üretmek için: openssl rand -hex 32`);
   }
-  return value;
+  return normalizedValue;
 }
 
 function parsePositiveInteger(value, fallback) {
@@ -25,6 +37,9 @@ const encryptionKey = requireProductionSecret(
   'CREDENTIAL_ENCRYPTION_KEY',
   process.env.CREDENTIAL_ENCRYPTION_KEY || (isProduction ? '' : 'development-only-credential-key')
 );
+if (isProduction && jwtSecret === encryptionKey) {
+  throw new Error('JWT_SECRET ile CREDENTIAL_ENCRYPTION_KEY farklı olmalı. İki bağımsız değer üretmek için her biri adına ayrı ayrı: openssl rand -hex 32');
+}
 
 const config = {
   port: parsePositiveInteger(process.env.PORT, 3000),

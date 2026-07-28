@@ -16,7 +16,7 @@ async function authMiddleware(req, _res, next) {
 
   try {
     const { userId, sessionId } = authService.verifyToken(token);
-    if (sessionId) await authService.verifySession(userId, sessionId);
+    await authService.verifySession(userId, sessionId);
     req.userId = userId;
     req.sessionId = sessionId;
     next();

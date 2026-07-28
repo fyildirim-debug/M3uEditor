@@ -133,6 +133,28 @@ describe('errorHandler middleware', () => {
     expect(res.body.error.message).not.toContain('secret');
     expect(res.body.error.code).toBe('INTERNAL_ERROR');
   });
+
+  test('maps malformed JSON body errors to 400 VALIDATION_ERROR', async () => {
+    const parseError = Object.assign(new SyntaxError('Unexpected token'), { type: 'entity.parse.failed', status: 400 });
+    const app = buildApp(parseError);
+    const res = await request(app).get('/error');
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      error: { code: 'VALIDATION_ERROR', message: 'İstek gövdesi geçerli JSON içermiyor' },
+    });
+  });
+
+  test('maps oversized body errors to 413 without exposing internals', async () => {
+    const sizeError = Object.assign(new Error('request entity too large'), { type: 'entity.too.large', status: 413 });
+    const app = buildApp(sizeError);
+    const res = await request(app).get('/error');
+
+    expect(res.status).toBe(413);
+    expect(res.body).toEqual({
+      error: { code: 'VALIDATION_ERROR', message: 'İstek gövdesi izin verilen boyutu aşıyor' },
+    });
+  });
 });
 
 // ─── notFound middleware ─────────────────────────────────────────────────────

@@ -14,7 +14,13 @@ function metadata(req) {
 function parseCookies(req) {
   return String(req.headers.cookie || '').split(';').reduce((cookies, pair) => {
     const separator = pair.indexOf('=');
-    if (separator > -1) cookies[pair.slice(0, separator).trim()] = decodeURIComponent(pair.slice(separator + 1));
+    if (separator > -1) {
+      try {
+        cookies[pair.slice(0, separator).trim()] = decodeURIComponent(pair.slice(separator + 1));
+      } catch (_error) {
+        // Ignore malformed percent-encoding instead of turning a bad cookie into a 500 response.
+      }
+    }
     return cookies;
   }, {});
 }

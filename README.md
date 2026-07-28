@@ -74,15 +74,20 @@ The frontend defaults to `http://localhost:5173`; the API and health endpoint de
 
 ## Docker deployment
 
-Create `.env` from `.env.example` and set at least:
+Create `.env` from `.env.example`. Generate the two secrets independently — do not reuse one value for both, and do not ship the placeholders:
+
+```bash
+echo "JWT_SECRET=$(openssl rand -hex 32)"
+echo "CREDENTIAL_ENCRYPTION_KEY=$(openssl rand -hex 32)"
+```
 
 ```env
 DB_PASSWORD=a-strong-database-password
-JWT_SECRET=a-unique-secret-with-at-least-32-characters
-CREDENTIAL_ENCRYPTION_KEY=a-different-secret-with-at-least-32-characters
+JWT_SECRET=<output of the first command>
+CREDENTIAL_ENCRYPTION_KEY=<output of the second command>
 APP_URL=https://m3u.example.com
 CORS_ORIGIN=https://m3u.example.com
-HTTP_PORT=80
+HTTP_PORT=8080
 ```
 
 Then run:
@@ -91,6 +96,19 @@ Then run:
 docker compose up -d --build
 docker compose ps
 ```
+
+### TLS is required and is not included
+
+**The Compose stack serves plain HTTP only. It has no TLS listener, certificate, or HTTP-to-HTTPS redirect.** Exposing that port directly to a network you do not control lets anyone on the path read login credentials, bearer tokens, and provider stream URLs, or modify responses. Refresh cookies are marked `Secure` in production, so sessions will not survive a direct HTTP deployment either.
+
+Terminate TLS in front of the stack and keep the container port private:
+
+- Bind the published port to loopback (`HTTP_PORT=8080` and a `127.0.0.1:8080:80` mapping), or attach the frontend to an internal Docker network reachable only by your proxy.
+- Put Caddy, Traefik, nginx, or a cloud load balancer in front, terminating HTTPS on 443 and redirecting 80 to 443.
+- Forward `X-Forwarded-For` and `X-Forwarded-Proto` from that proxy, and keep `TRUST_PROXY` set to the number of proxies in front of the API — rate limiting keys on the client IP derived from those headers.
+- Enable HSTS at the proxy only after HTTPS is verified end to end.
+
+A LAN-only deployment behind a firewall is the one case where plain HTTP is defensible, and even then any client on that LAN can read the traffic.
 
 The API container applies pending migrations before startup. PostgreSQL is not exposed to the host. Uploaded logos and database files use named volumes. The API runs as a non-root user with a read-only root filesystem; the frontend is served by Nginx with security and cache headers.
 
@@ -128,14 +146,17 @@ CI additionally starts PostgreSQL, applies every migration, verifies the Compose
 ## Security model
 
 - Passwords use bcrypt with cost factor 12.
-- Access tokens expire after 15 minutes by default and include issuer, audience, and session claims.
-- Refresh tokens are random, hashed at rest, rotated on use, and delivered in `HttpOnly`, `SameSite=Strict` cookies.
-- Saved Xtream passwords and EPG source URLs use AES-256-GCM authenticated encryption.
+- Access tokens expire after 15 minutes by default and are rejected unless they carry a valid issuer, audience, expiry, and session id; every request revalidates the session against the database, so logout and password changes take effect immediately.
+- Refresh tokens are random, hashed at rest, rotated on use, and delivered in `HttpOnly`, `SameSite=Strict` cookies. Replaying an already-rotated token revokes the entire session family, so a stolen token cannot outlive its detection.
+- Login, registration, password reset, session refresh, and password-protected share downloads each have their own rate limit; the share limiter is keyed per token so one link cannot exhaust another's budget.
+- Writable channel fields are length- and type-checked, and control characters are rejected so exported M3U output cannot be injected with extra lines.
+- Saved Xtream passwords and EPG source URLs use AES-256-GCM authenticated encryption. Note that Xtream stream URLs embed the provider username and password by protocol design, so every imported channel row — and every exported or shared M3U — still contains those credentials in clear text. Encrypting the credential column does not protect them from someone who can read the database, a backup, or a shared playlist.
 - Share and password-reset tokens are stored as hashes; protected shares use bcrypt passwords.
 - Remote M3U, XMLTV, metadata, and stream checks resolve DNS before connection, reject private/reserved addresses, revalidate redirects, enforce timeouts, and cap response sizes.
 - Tenant ownership is checked before playlist, category, channel, EPG, upload, export, and admin mutations.
 - Uploaded logos are size-limited and validated by image signatures; SVG uploads are not accepted.
-- Production startup rejects missing, short, or known placeholder secrets.
+- Production startup refuses to boot on missing, short, placeholder, low-entropy, or identical secrets.
+- Transport security is **not** provided by this stack; see [TLS is required and is not included](#tls-is-required-and-is-not-included).
 
 Do not commit `.env`, database dumps, exported playlists, or provider credentials. Rotate both application secrets when an environment may have been exposed; existing encrypted credentials must be re-entered after rotating `CREDENTIAL_ENCRYPTION_KEY`.
 

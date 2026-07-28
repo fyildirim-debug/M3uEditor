@@ -20,6 +20,18 @@ function notFound(req, res, _next) {
  * - Generic errors → INTERNAL_ERROR 500
  */
 function errorHandler(err, req, res, _next) {
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: { code: 'VALIDATION_ERROR', message: 'İstek gövdesi izin verilen boyutu aşıyor' },
+    });
+  }
+
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({
+      error: { code: 'VALIDATION_ERROR', message: 'İstek gövdesi geçerli JSON içermiyor' },
+    });
+  }
+
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       error: { code: err.code, message: err.message },
