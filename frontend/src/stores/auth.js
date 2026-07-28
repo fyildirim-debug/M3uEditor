@@ -35,9 +35,12 @@ export const useAuthStore = defineStore('auth', () => {
     saveSession(data)
   }
 
-  async function refresh() {
+  // Acilista calisir. Genel istemci zaman asimi buyuk import'lar icin 330 sn;
+  // bu cagri o sureyi devralirsa API erisilemezken uygulama dakikalarca bos
+  // ekranda kalir. Acilis yenilemesi kisa tutulur ve basarisizligi engel degildir.
+  async function refresh({ timeout = 8000 } = {}) {
     try {
-      const { data } = await api.post('/auth/refresh', {})
+      const { data } = await api.post('/auth/refresh', {}, { timeout })
       saveSession(data)
       return true
     } catch {

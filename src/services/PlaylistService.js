@@ -9,14 +9,17 @@ class PlaylistService {
    * @returns {Promise<object[]>}
    */
   async list(userId) {
-    const channelCountSub = db('channels')
-      .select('playlist_id')
-      .count('id as channel_count')
-      .groupBy('playlist_id')
-      .as('cc');
-
+    // Gruplanmis alt sorgu, kullanicinin listesini gostermek icin TUM
+    // kullanicilarin kanallarini tarayip topluyordu. LATERAL sayim her playlist
+    // icin (kullanici basina birkac satir) playlist_id indeksini kullanir.
     const playlists = await db('playlists')
-      .leftJoin(channelCountSub, 'cc.playlist_id', 'playlists.id')
+      .joinRaw(`
+        LEFT JOIN LATERAL (
+          SELECT COUNT(*)::int AS channel_count
+            FROM channels
+           WHERE channels.playlist_id = playlists.id
+        ) AS cc ON TRUE
+      `)
       .where('playlists.user_id', userId)
       .select(
         'playlists.id',
@@ -31,7 +34,7 @@ class PlaylistService {
         db.raw('(playlists.xtream_password_enc IS NOT NULL) as has_xtream_source'),
         db.raw('(playlists.share_token IS NOT NULL) as is_shared'),
         'playlists.share_expires_at',
-        db.raw('COALESCE(cc.channel_count, 0)::int as channel_count')
+        db.raw('COALESCE(cc.channel_count, 0) as channel_count')
       )
       .orderBy('playlists.created_at', 'desc');
 

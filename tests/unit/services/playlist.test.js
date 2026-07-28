@@ -7,7 +7,7 @@ const playlistService = require('../../../src/services/PlaylistService');
 
 function builder({ rows = [], first, returning = [], updated = 1 } = {}) {
   const query = {};
-  for (const method of ['select', 'count', 'groupBy', 'as', 'leftJoin', 'where', 'orderBy', 'insert']) query[method] = jest.fn(() => query);
+  for (const method of ['select', 'count', 'groupBy', 'as', 'leftJoin', 'joinRaw', 'where', 'orderBy', 'insert']) query[method] = jest.fn(() => query);
   query.first = jest.fn().mockResolvedValue(first);
   query.returning = jest.fn().mockResolvedValue(returning);
   query.update = jest.fn().mockResolvedValue(updated);
@@ -29,6 +29,13 @@ describe('PlaylistService', () => {
     expect(selectedFields).not.toContain('playlists.xtream_password_enc');
     expect(selectedFields).not.toContain('playlists.share_token');
     expect(playlists.where).toHaveBeenCalledWith('playlists.user_id', 'user-1');
+
+    // Kanal sayimi istegi yapan kullanicinin playlist'lerine bagli olmali;
+    // tum kullanicilari kapsayan bir GROUP BY'a geri donulmemeli.
+    const joinSql = playlists.joinRaw.mock.calls.flat().join(' ');
+    expect(joinSql).toContain('LEFT JOIN LATERAL');
+    expect(joinSql).toContain('channels.playlist_id = playlists.id');
+    expect(playlists.groupBy).not.toHaveBeenCalled();
   });
 
   test('creates a playlist with server-generated ownership', async () => {
