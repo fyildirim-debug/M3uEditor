@@ -1,11 +1,33 @@
 const db = require('../config/database');
 const { createAppError } = require('../utils/AppError');
 
-const { validateRegex } = require('../utils/validation');
+const { validateRegex, validateChannelUpdates, CHANNEL_FIELD_LIMITS } = require('../utils/validation');
 
-const ALLOWED_UPDATE_FIELDS = ['name', 'logo_url', 'category_id', 'stream_url'];
+// Yazilabilir alan listesi ve sinirlari validateChannelUpdates icinde tanimli.
+const MAX_RENAME_TERM_BYTES = 1000;
 
 class ChannelService {
+  /**
+   * Bir oynatma listesindeki sort_order degerlerini 0..n-1 araligina tek bir
+   * SQL ifadesiyle sikistirir. Satir basina UPDATE atmak 150k kanalli bir
+   * listede tek bir silme/tasima islemini dakikalara cikariyordu.
+   * @param {import('knex')} connection - Aktif transaction
+   * @param {string} playlistId
+   */
+  async _compactSortOrder(connection, playlistId) {
+    await connection.raw(
+      `UPDATE channels AS c
+          SET sort_order = ranked.position
+         FROM (
+           SELECT id, (ROW_NUMBER() OVER (ORDER BY sort_order ASC, id ASC) - 1) AS position
+             FROM channels
+            WHERE playlist_id = ?
+         ) AS ranked
+        WHERE c.id = ranked.id
+          AND c.sort_order IS DISTINCT FROM ranked.position`,
+      [playlistId]
+    );
+  }
   /**
    * Verify a channel belongs to the given user via playlists join.
    * Returns the channel row or throws NOT_FOUND.
@@ -103,16 +125,10 @@ class ChannelService {
    * @returns {Promise<object>} Updated channel
    */
   async update(userId, channelId, updates) {
+    const filtered = validateChannelUpdates(updates);
     const ownedChannel = await this._verifyChannelOwnership(userId, channelId);
-    if (updates.category_id !== undefined) {
-      await this._verifyCategoryForPlaylist(userId, ownedChannel.playlist_id, updates.category_id);
-    }
-
-    const filtered = {};
-    for (const key of ALLOWED_UPDATE_FIELDS) {
-      if (updates[key] !== undefined) {
-        filtered[key] = updates[key];
-      }
+    if (filtered.category_id !== undefined) {
+      await this._verifyCategoryForPlaylist(userId, ownedChannel.playlist_id, filtered.category_id);
     }
 
     if (Object.keys(filtered).length > 0) {
@@ -134,29 +150,35 @@ class ChannelService {
     const channel = await this._verifyChannelOwnership(userId, channelId);
     const playlistId = channel.playlist_id;
 
-    await db.transaction(async (trx) => {
-      // Get all channels in the playlist ordered by sort_order
-      const allChannels = await trx('channels')
-        .where('playlist_id', playlistId)
-        .orderBy('sort_order', 'asc')
-        .select('id', 'sort_order');
-
-      // Remove the moving channel from the list
-      const filtered = allChannels.filter((c) => c.id !== channelId);
-
-      // Clamp newPosition
-      const clampedPos = Math.max(0, Math.min(newPosition, filtered.length));
-
-      // Insert at new position
-      filtered.splice(clampedPos, 0, { id: channelId });
-
-      // Bulk update sort_order using a single query with CASE
-      if (filtered.length > 0) {
-        for (let index = 0; index < filtered.length; index += 1) {
-          await trx('channels').where({ id: filtered[index].id }).update({ sort_order: index });
-        }
-      }
-    });
+    // Tasima islemi tek bir SQL ifadesinde yapilir: satirlar uygulamaya
+    // getirilmez ve yalnizca konumu gercekten degisen satirlar guncellenir.
+    await db.raw(
+      `WITH current AS (
+         SELECT id, (ROW_NUMBER() OVER (ORDER BY sort_order ASC, id ASC) - 1) AS idx
+           FROM channels
+          WHERE playlist_id = :playlistId
+       ),
+       moving AS (SELECT idx FROM current WHERE id = :channelId),
+       target AS (
+         SELECT LEAST(GREATEST(:newPosition::int, 0), GREATEST((SELECT COUNT(*) FROM current) - 1, 0)) AS idx
+       ),
+       final AS (
+         SELECT c.id,
+                CASE
+                  WHEN c.id = :channelId THEN (SELECT idx FROM target)
+                  WHEN c.idx < (SELECT idx FROM moving) AND c.idx >= (SELECT idx FROM target) THEN c.idx + 1
+                  WHEN c.idx > (SELECT idx FROM moving) AND c.idx <= (SELECT idx FROM target) THEN c.idx - 1
+                  ELSE c.idx
+                END AS position
+           FROM current c
+       )
+       UPDATE channels AS ch
+          SET sort_order = final.position, updated_at = NOW()
+         FROM final
+        WHERE ch.id = final.id
+          AND ch.sort_order IS DISTINCT FROM final.position`,
+      { playlistId, channelId, newPosition }
+    );
   }
 
   /**
@@ -170,6 +192,7 @@ class ChannelService {
     if (!channelIds || channelIds.length === 0) {
       return { updated: 0 };
     }
+    const filtered = validateChannelUpdates(updates);
 
     // Verify all channels belong to user's playlists
     const ownedChannels = await db('channels')
@@ -183,16 +206,9 @@ class ChannelService {
     }
 
     const playlistIds = [...new Set(ownedChannels.map((channel) => channel.playlist_id))];
-    if (updates.category_id !== undefined) {
+    if (filtered.category_id !== undefined) {
       if (playlistIds.length !== 1) throw createAppError('VALIDATION_ERROR', 'Kategori değişikliği tek bir oynatma listesinde yapılabilir');
-      await this._verifyCategoryForPlaylist(userId, playlistIds[0], updates.category_id);
-    }
-
-    const filtered = {};
-    for (const key of ALLOWED_UPDATE_FIELDS) {
-      if (updates[key] !== undefined) {
-        filtered[key] = updates[key];
-      }
+      await this._verifyCategoryForPlaylist(userId, playlistIds[0], filtered.category_id);
     }
 
     if (Object.keys(filtered).length === 0) {
@@ -254,18 +270,16 @@ class ChannelService {
 
     const startSortOrder = (maxSortOrder?.max ?? -1) + 1;
 
-    // Update channels with new category_id and sort_order (move to end of category)
-    await db.transaction(async (trx) => {
-      for (let i = 0; i < channelIds.length; i++) {
-        await trx('channels')
-          .where('id', channelIds[i])
-          .update({
-            category_id: targetCategoryId,
-            sort_order: startSortOrder + i,
-            updated_at: db.fn.now()
-          });
-      }
-    });
+    // Tek ifadede tasi: gonderilen sira korunur, satir basina UPDATE atilmaz.
+    await db.raw(
+      `UPDATE channels AS c
+          SET category_id = :targetCategoryId,
+              sort_order = :startSortOrder::int + (v.ordinality - 1),
+              updated_at = NOW()
+         FROM unnest(:channelIds::uuid[]) WITH ORDINALITY AS v(id, ordinality)
+        WHERE c.id = v.id`,
+      { targetCategoryId, startSortOrder, channelIds }
+    );
 
     return { moved: channelIds.length };
   }
@@ -281,18 +295,7 @@ class ChannelService {
 
     await db.transaction(async (trx) => {
       await trx('channels').where('id', channelId).del();
-
-      // Recompact sort_order for remaining channels in the same playlist
-      const remaining = await trx('channels')
-        .where('playlist_id', playlistId)
-        .orderBy('sort_order', 'asc')
-        .select('id');
-
-      if (remaining.length > 0) {
-        for (let index = 0; index < remaining.length; index += 1) {
-          await trx('channels').where({ id: remaining[index].id }).update({ sort_order: index });
-        }
-      }
+      await this._compactSortOrder(trx, playlistId);
     });
   }
 
@@ -307,10 +310,7 @@ class ChannelService {
     await db.transaction(async (trx) => {
       await trx('channels').whereIn('id', channelIds).del();
       for (const playlistId of new Set(owned.map((channel) => channel.playlist_id))) {
-        const remaining = await trx('channels').where({ playlist_id: playlistId }).orderBy('sort_order').select('id');
-        for (let index = 0; index < remaining.length; index += 1) {
-          await trx('channels').where({ id: remaining[index].id }).update({ sort_order: index });
-        }
+        await this._compactSortOrder(trx, playlistId);
       }
     });
     return { deleted: channelIds.length };
@@ -344,7 +344,13 @@ class ChannelService {
    * @returns {Promise<{ renamed: number, total: number }>}
    */
   async bulkRename(userId, channelIds, find, replace = '', useRegex = false) {
+    if (typeof find !== 'string' || !find.length) throw createAppError('VALIDATION_ERROR', 'Aranacak metin gerekli');
     if (useRegex) validateRegex(find);
+    // Sinirsiz `find`/`replace` tek istekte 1000 satiri megabaytlarca veriyle
+    // sisirebilirdi; hem girdiler hem de uretilen ad sinirlanir.
+    if (Buffer.byteLength(find, 'utf8') > MAX_RENAME_TERM_BYTES || Buffer.byteLength(String(replace ?? ''), 'utf8') > MAX_RENAME_TERM_BYTES) {
+      throw createAppError('VALIDATION_ERROR', `Arama ve değiştirme metinleri en fazla ${MAX_RENAME_TERM_BYTES} bayt olabilir`);
+    }
     const owned = await db('channels')
       .join('playlists', 'channels.playlist_id', 'playlists.id')
       .whereIn('channels.id', channelIds)
@@ -359,6 +365,9 @@ class ChannelService {
     await db.transaction(async (trx) => {
       for (const ch of owned) {
         const newName = useRegex ? ch.name.replace(new RegExp(find, 'g'), replace) : ch.name.split(find).join(replace);
+        if (Buffer.byteLength(newName, 'utf8') > CHANNEL_FIELD_LIMITS.name) {
+          throw createAppError('VALIDATION_ERROR', `Yeniden adlandırma ${CHANNEL_FIELD_LIMITS.name} bayt sınırını aşan bir ad üretiyor`);
+        }
         if (newName !== ch.name) {
           await trx('channels').where('id', ch.id).update({ name: newName, updated_at: trx.fn.now() });
           renamed += 1;

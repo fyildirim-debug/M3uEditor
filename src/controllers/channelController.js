@@ -156,8 +156,7 @@ async function bulkRename(req, res, next) {
   try {
     const { channelIds, find, replace, useRegex } = req.body;
     const uniqueIds = validateIdArray(channelIds);
-    if (typeof find !== 'string' || !find.length) throw createAppError('VALIDATION_ERROR', 'Aranacak metin gerekli');
-    res.json(await channelService.bulkRename(req.userId, uniqueIds, find, String(replace || ''), Boolean(useRegex)));
+    res.json(await channelService.bulkRename(req.userId, uniqueIds, find, String(replace ?? ''), Boolean(useRegex)));
   } catch (error) { next(error); }
 }
 

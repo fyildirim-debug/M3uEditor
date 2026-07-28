@@ -35,7 +35,11 @@ class ExportService {
       .where('channels.playlist_id', playlistId);
 
     if (excludeCategories.length > 0) {
-      query = query.whereNotIn('channels.category_id', excludeCategories);
+      // NOT IN, category_id NULL olan satirlar icin NULL dondurur; acik NULL
+      // kontrolu olmadan kategorisiz kanallar da disarida kalirdi.
+      query = query.where(function () {
+        this.whereNull('channels.category_id').orWhereNotIn('channels.category_id', excludeCategories);
+      });
     }
 
     if (streamType) {

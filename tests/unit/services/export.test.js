@@ -84,6 +84,28 @@ describe('ExportService', () => {
       expect(result.indexOf('Spor TV')).toBeLessThan(result.indexOf('Haber TV'));
     });
 
+    it('keeps uncategorized channels when other categories are excluded', async () => {
+      const playlistChain = chainable({ first: jest.fn().mockResolvedValue({ id: 'pl-1', user_id: 'user-1' }) });
+      const channelsChain = chainable();
+      channelsChain.orderBy = jest.fn().mockResolvedValue([]);
+      channelsChain.whereNull = jest.fn().mockReturnThis();
+      channelsChain.orWhereNotIn = jest.fn().mockReturnThis();
+      channelsChain.whereNotIn = jest.fn().mockReturnThis();
+
+      mockKnex.mockImplementation((table) => (table === 'playlists' ? playlistChain : channelsChain));
+
+      await exportService.exportAsM3U('user-1', 'pl-1', ['cat-1']);
+
+      // Haric tutma bir grup kosuluyla uygulanmali: tek basina NOT IN,
+      // category_id NULL olan (kategorisiz) satirlari da eler.
+      const grouped = channelsChain.where.mock.calls.find(([arg]) => typeof arg === 'function');
+      expect(grouped).toBeDefined();
+      grouped[0].call(channelsChain);
+      expect(channelsChain.whereNull).toHaveBeenCalledWith('channels.category_id');
+      expect(channelsChain.orWhereNotIn).toHaveBeenCalledWith('channels.category_id', ['cat-1']);
+      expect(channelsChain.whereNotIn).not.toHaveBeenCalled();
+    });
+
     it('should throw NOT_FOUND when playlist does not belong to user', async () => {
       const playlistChain = chainable({
         first: jest.fn().mockResolvedValue(undefined),

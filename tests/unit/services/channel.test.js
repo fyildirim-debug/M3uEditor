@@ -51,4 +51,53 @@ describe('ChannelService', () => {
     mockDb.mockReturnValue(builder({ first: undefined }));
     await expect(channelService.delete('user-1', 'foreign')).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
+
+  test('rejects oversized channel field values before touching the database', async () => {
+    mockDb.mockReturnValue(builder({ first: { id: 'c1', playlist_id: 'p1', name: 'Old' } }));
+    await expect(channelService.update('user-1', 'c1', { name: 'x'.repeat(501) }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(channelService.update('user-1', 'c1', { logo_url: 'x'.repeat(5001) }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(mockDb).not.toHaveBeenCalled();
+  });
+
+  test('rejects oversized values in bulk updates before touching the database', async () => {
+    await expect(channelService.bulkUpdate('user-1', ['c1'], { name: 'x'.repeat(501) }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(mockDb).not.toHaveBeenCalled();
+  });
+
+  test('rejects control characters that would inject extra M3U lines', async () => {
+    mockDb.mockReturnValue(builder({ first: { id: 'c1', playlist_id: 'p1', name: 'Old' } }));
+    await expect(channelService.update('user-1', 'c1', { name: 'Evil\n#EXTINF:-1,Injected' }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  test('rejects bulk rename terms and projected names beyond the field limit', async () => {
+    await expect(channelService.bulkRename('user-1', ['c1'], 'a', 'x'.repeat(1001)))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(channelService.bulkRename('user-1', ['c1'], ''))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+
+    // Girdiler sinir icinde ama uretilen ad sinirin ustunde kaliyor.
+    const owned = builder({ rows: [{ id: 'c1', name: 'a'.repeat(400) }] });
+    mockDb.mockReturnValue(owned);
+    mockDb.transaction.mockImplementation((callback) => callback(owned));
+    await expect(channelService.bulkRename('user-1', ['c1'], 'a', 'bb'))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  test('compacts sort order with a single set-based statement', async () => {
+    const owned = builder({ first: { id: 'c1', playlist_id: 'p1' } });
+    const raw = jest.fn().mockResolvedValue({ rowCount: 0 });
+    mockDb.mockReturnValue(owned);
+    const trx = Object.assign(jest.fn(() => owned), { raw });
+    mockDb.transaction.mockImplementation((callback) => callback(trx));
+
+    await channelService.delete('user-1', 'c1');
+
+    expect(raw).toHaveBeenCalledTimes(1);
+    expect(raw.mock.calls[0][0]).toContain('ROW_NUMBER() OVER');
+    expect(raw.mock.calls[0][1]).toEqual(['p1']);
+  });
 });

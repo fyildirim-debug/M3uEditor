@@ -296,9 +296,9 @@
                       </tbody>
                     </table>
                     <div v-if="totalPages > 1" class="ch-pagination">
-                      <button class="btn btn-secondary btn-sm" :disabled="page <= 1" @click="page--; loadChannels()">←</button>
+                      <button class="btn btn-secondary btn-sm" :disabled="page <= 1" @click="goToPage(page - 1)">←</button>
                       <span class="page-info">{{ page }} / {{ totalPages }}</span>
-                      <button class="btn btn-secondary btn-sm" :disabled="page >= totalPages" @click="page++; loadChannels()">→</button>
+                      <button class="btn btn-secondary btn-sm" :disabled="page >= totalPages" @click="goToPage(page + 1)">→</button>
                     </div>
                   </div>
                 </div>
@@ -1127,6 +1127,7 @@ function toggleStreamSection(type) {
   editingChannel.value = null
   page.value = 1
   search.value = ''
+  selectedIds.value = new Set()
   loadChannels()
   loadTotalCount()
   loadCategories()
@@ -1176,19 +1177,27 @@ watch(activeView, v => {
 // Load EPG data when editing channel changes
 watch(editingChannel, ch => { if (ch) loadEditChannelEpg() })
 
+// Sayfa/tur/arama degistiginde onceki istek hala ucabilir. Yalnizca en son
+// istegin yaniti duruma yazilir; gecikmis yanit guncel gorunumu ezmez.
+let channelsRequestId = 0
+
 async function loadChannels() {
+  const requestId = ++channelsRequestId
   channelsLoading.value = true
   try {
     const params = { page: page.value, limit: 50, streamType: activeStreamType.value }
     if (search.value) params.search = search.value
     if (selectedCatId.value) params.categoryId = selectedCatId.value
     const { data } = await api.get(`/playlists/${playlistId}/channels`, { params })
+    if (requestId !== channelsRequestId) return
     channels.value = data.channels || data
     totalPages.value = data.totalPages || 1
     tableTotal.value = data.total || channels.value.length
     if (!selectedCatId.value && !search.value) totalChannelCount.value = data.total || channels.value.length
-  } catch { toast(t('toast.channelsLoadError'), 'error') }
-  finally { channelsLoading.value = false }
+  } catch {
+    if (requestId === channelsRequestId) toast(t('toast.channelsLoadError'), 'error')
+  }
+  finally { if (requestId === channelsRequestId) channelsLoading.value = false }
 }
 
 async function loadTotalCount() {
@@ -1213,7 +1222,22 @@ function selectCategory(id) {
   selectedCatId.value = id; page.value = 1; selectedIds.value = new Set(); editingChannel.value = null; mobileCategoriesOpen.value = false; loadChannels()
 }
 
-function debouncedSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => { page.value = 1; loadChannels() }, 300) }
+// Secim yalnizca goruntulenen sorgu baglamina aittir. Sayfa/tur/arama
+// degistiginde temizlenmezse gorunmeyen kanallar toplu islemlere dahil olur.
+function clearSelection() { selectedIds.value = new Set() }
+
+function goToPage(target) {
+  const next = Math.max(1, Math.min(target, totalPages.value))
+  if (next === page.value) return
+  page.value = next
+  clearSelection()
+  loadChannels()
+}
+
+function debouncedSearch() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { page.value = 1; clearSelection(); loadChannels() }, 300)
+}
 function toggleSelect(id) { const s = new Set(selectedIds.value); if (s.has(id)) s.delete(id); else s.add(id); selectedIds.value = s }
 function toggleSelectAll() { if (allSelected.value) selectedIds.value = new Set(); else selectedIds.value = new Set(channels.value.map(ch => ch.id)) }
 function shortenUrl(url) { if (!url) return '-'; try { return url.length > 60 ? '...' + url.slice(-50) : url } catch { return url } }

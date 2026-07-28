@@ -101,8 +101,11 @@ async function requestBuffer(input, options = {}, redirectCount = 0) {
         return;
       }
 
+      // HEAD yanitinda govde yoktur; Content-Length yalnizca kaynagin boyutunu
+      // bildirir. Bunu boyut asimi sayarsak canli akis testleri hep basarisiz olur.
+      const isHead = (options.method || 'GET') === 'HEAD';
       const declaredLength = Number(response.headers['content-length']);
-      if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+      if (!isHead && Number.isFinite(declaredLength) && declaredLength > maxBytes) {
         response.destroy();
         clearTimeout(timer);
         reject(createAppError('VALIDATION_ERROR', 'Uzak içerik izin verilen boyutu aşıyor'));
@@ -118,7 +121,7 @@ async function requestBuffer(input, options = {}, redirectCount = 0) {
         return;
       }
 
-      if ((options.method || 'GET') === 'HEAD') {
+      if (isHead) {
         response.resume();
         clearTimeout(timer);
         resolve({ status: response.statusCode, headers: response.headers, buffer: Buffer.alloc(0), url: url.toString() });
