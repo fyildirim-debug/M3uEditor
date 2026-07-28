@@ -51,7 +51,7 @@
     "dashboard": "Dashboard",
     "downloadM3u": "Download M3U",
     "share": "Share",
-    "playerAccess": "Connect Player",
+    "xtreamCredentials": "Xtream Codes credentials",
     "admin": "Admin"
   },
   "status": {
@@ -241,11 +241,11 @@
     "createLink": "Create share link"
   },
   "xtreamOutput": {
-    "title": "Xtream Codes Player Access",
-    "disabledDescription": "Enable Xtream Codes access to add this edited playlist directly to supported IPTV players.",
+    "title": "Xtream Codes credentials",
+    "disabledDescription": "Enable access to add this edited playlist to a player using Xtream Codes credentials.",
     "enable": "Enable",
     "enabling": "Enabling...",
-    "active": "Xtream Codes access is active",
+    "active": "Xtream Codes credentials are active",
     "credentialsDescription": "Use these credentials when your player asks for an Xtream Codes account.",
     "serverUrl": "Server address",
     "username": "Username",

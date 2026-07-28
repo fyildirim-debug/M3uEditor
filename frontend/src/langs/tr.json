@@ -51,7 +51,7 @@
     "dashboard": "Dashboard",
     "downloadM3u": "M3U İndir",
     "share": "Paylaş",
-    "playerAccess": "Player'a Bağla",
+    "xtreamCredentials": "Xtream Codes bilgileri",
     "admin": "Yönetim"
   },
   "status": {
@@ -241,11 +241,11 @@
     "createLink": "Paylaşım linki oluştur"
   },
   "xtreamOutput": {
-    "title": "Xtream Codes Player Erişimi",
-    "disabledDescription": "Düzenlediğiniz playlist'i desteklenen IPTV player'lara doğrudan eklemek için Xtream Codes erişimini etkinleştirin.",
+    "title": "Xtream Codes bilgileri",
+    "disabledDescription": "Düzenlediğiniz playlist'i Xtream Codes bilgileriyle player'a eklemek için erişimi etkinleştirin.",
     "enable": "Etkinleştir",
     "enabling": "Etkinleştiriliyor...",
-    "active": "Xtream Codes erişimi aktif",
+    "active": "Xtream Codes bilgileri aktif",
     "credentialsDescription": "Player'ınız bir Xtream Codes hesabı istediğinde bu bilgileri kullanın.",
     "serverUrl": "Sunucu adresi",
     "username": "Kullanıcı adı",
