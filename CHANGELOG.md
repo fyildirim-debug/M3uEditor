@@ -3,12 +3,33 @@
 All notable changes to this project are documented here. Dates are ISO-8601.
 Versions follow the four-part scheme recorded in `.fy/version.json`.
 
-## [1.7.0.0] — unreleased
+## [1.7.0.0] — 2026-07-28
 
 Hardening release. The focus is data integrity, authentication strength, and
 behaviour at provider scale rather than new surface area. Findings referenced as
 `SPR-*` come from the stability/performance audit and `SEC-*` from the security
 audit.
+
+### Added
+
+- **XMLTV output.** The application already downloaded, parsed, and matched EPG
+  data, but exposed it to no consumer, so the delivery chain stopped at M3U.
+  `GET /api/playlists/:id/xmltv` (authenticated) and `GET /api/shared/:token/xmltv`
+  (reusing the existing share token, expiry, and password rules) now stream a
+  guide, and shared M3U output carries an absolute `url-tvg` so players find it
+  automatically. Channel ids are identical in both formats — otherwise matching
+  breaks silently on the consumer side. `GET /api/playlists/:id/epg-coverage`
+  reports how much of a playlist actually has guide data.
+- **Features that existed only in the API are now in the editor:** adding a
+  channel by hand, testing whether a stream is reachable, regex bulk rename,
+  bulk field updates, and share links with an expiry and password. Bulk rename
+  requires a preview first — `POST /api/channels/bulk-rename/preview` returns the
+  first 20 before/after rows and writes nothing.
+- `npm run make-admin -- <email>` grants (or, with `--revoke`, removes) admin
+  rights. Without it the admin panel was unreachable after a fresh install,
+  because `is_admin` defaults to false and nothing could set it.
+- `node scripts/cleanup-logos.js` reports orphaned logo files (`--delete` removes
+  them).
 
 ### Fixed — data loss
 
@@ -47,6 +68,19 @@ audit.
   so a single request could previously write a multi-megabyte value to up to
   1,000 rows. Length, type, and control-character checks are enforced centrally,
   which also prevents newline injection into exported M3U output.
+- **Remote fetches carry one absolute budget (SEC-02).** Each recursive redirect
+  previously started a fresh timeout *and* a fresh byte allowance, and Xtream
+  retried on top of that — one call could consume roughly five redirects × 120 s
+  × three attempts while downloading a full size limit at every hop. A deadline
+  and a shared byte counter now travel through DNS resolution, the whole redirect
+  chain, retries, and the decompressed body.
+- **Imports are bounded (SEC-02).** One job per user (`409`), a per-playlist lock,
+  a global ceiling (`503`), a TTL, and cancellation when the client disconnects
+  (`499`) — previously a proxy timeout cut the client off while the backend kept
+  working.
+- **Uploaded logos are deleted with their owner (SEC-11).** Files survived channel,
+  playlist, and account deletion and stayed publicly readable at a guessable URL,
+  so data a user believed erased remained available.
 - Malformed request bodies and oversized payloads return `400`/`413` instead of
   `500` (SPR-023); logging out with only an access token now really revokes the
   session (SPR-036).
@@ -79,6 +113,16 @@ audit.
   grouped subquery scanned the whole `channels` table on each request; a lateral
   per-playlist count made a small account's query 6.3 ms → 0.1 ms while a 60,000
   channel neighbour existed, with identical results (SPR-015).
+- **A truncated XMLTV response no longer replaces a working guide (SPR-024).** Only
+  the opening `<tv` tag was required, so a proxy or provider returning an
+  application-level truncated `200` had its partial prefix accepted and written
+  over the existing guide. Document completeness is now validated, and a guide
+  that would become empty or lose more than half its rows is refused unless the
+  caller passes `force`.
+- **EPG ingestion streams instead of buffering.** Peak RSS on a 150,000-programme,
+  39 MB guide dropped from 309,828 KiB to 121,084 KiB (−60.9%), at a 14.5% time
+  cost. Automatic channel matching went from 3,002 SQL statements to one, with
+  identical results.
 
 ### Changed — operability
 

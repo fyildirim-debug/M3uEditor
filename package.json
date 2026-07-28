@@ -1,6 +1,6 @@
 {
   "name": "m3u-playlist-editor",
-  "version": "1.0.0",
+  "version": "1.7.0",
   "description": "M3U Playlist Editor - IPTV playlist management REST API",
   "engines": {
     "node": ">=22"
