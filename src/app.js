@@ -9,6 +9,7 @@ const config = require('./config');
 const db = require('./config/database');
 const logger = require('./config/logger');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
+const { redactUrl } = require('./utils/urls');
 
 const app = express();
 
@@ -48,7 +49,7 @@ app.use((req, res, next) => {
   res.setHeader('x-request-id', req.id);
   const startedAt = Date.now();
   res.on('finish', () => {
-    logger.info({ requestId: req.id, method: req.method, path: req.originalUrl, status: res.statusCode, durationMs: Date.now() - startedAt }, 'Request completed');
+    logger.info({ requestId: req.id, method: req.method, path: redactUrl(req.originalUrl), status: res.statusCode, durationMs: Date.now() - startedAt }, 'Request completed');
   });
   next();
 });

@@ -37,11 +37,24 @@ async function sharePlaylist(req, res, next) {
   } catch (error) { next(error); }
 }
 
+/**
+ * IPTV player'lari ozel HTTP basligi gonderemez; sifreli paylasim linkini
+ * yalnizca `X-Share-Password` basligindan okumak, ozelligi her player'da
+ * kullanilamaz kiliyordu. Sorgu parametresi de kabul edilir.
+ *
+ * Sorgu parametresindeki sifre loglara dusmemelidir: istek gunlugu
+ * `src/app.js` icinde hassas parametreleri maskeler ve nginx bu yolda
+ * erisim gunlugunu kapatir.
+ */
+function sharePasswordFrom(req) {
+  return req.headers['x-share-password'] || req.query.password || req.query.share_password || null;
+}
+
 async function getShared(req, res, next) {
   try {
     const { token } = req.params;
     validateShareToken(token);
-    const content = await exportService.getSharedPlaylist(token, req.headers['x-share-password'] || null);
+    const content = await exportService.getSharedPlaylist(token, sharePasswordFrom(req));
     res.setHeader('Content-Type', 'audio/x-mpegurl');
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -81,7 +94,7 @@ async function getSharedXmltv(req, res, next) {
   try {
     const { token } = req.params;
     validateShareToken(token);
-    const playlist = await exportService.resolveSharedPlaylist(token, req.headers['x-share-password'] || null);
+    const playlist = await exportService.resolveSharedPlaylist(token, sharePasswordFrom(req));
     const stream = await xmltvExportService.createSharedStream(playlist, req.query.days);
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="playlist.xml"');

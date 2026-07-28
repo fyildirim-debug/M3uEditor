@@ -38,4 +38,32 @@ function absoluteAppUrl(path) {
   return new URL(String(path).replace(/^\/+/, ''), `${config.appUrl}/`).toString();
 }
 
-module.exports = { toAbsoluteMediaUrl, absoluteAppUrl };
+
+/**
+ * Paylaşım ve Xtream çıkış adresleri kimlik bilgisini sorgu dizesinde taşır
+ * (player'lar özel HTTP başlığı gönderemez). Bu adresler günlüğe olduğu gibi
+ * yazılırsa şifreler disk üzerinde birikir.
+ */
+const REDACTED_QUERY_KEYS = new Set(['password', 'share_password', 'token', 'username']);
+
+/**
+ * @param {string} originalUrl
+ * @returns {string} Hassas sorgu parametreleri maskelenmiş adres
+ */
+function redactUrl(originalUrl) {
+  const url = String(originalUrl ?? '');
+  const separator = url.indexOf('?');
+  if (separator === -1) return url;
+
+  const params = new URLSearchParams(url.slice(separator + 1));
+  let changed = false;
+  for (const key of params.keys()) {
+    if (REDACTED_QUERY_KEYS.has(key.toLowerCase())) {
+      params.set(key, 'REDACTED');
+      changed = true;
+    }
+  }
+  return changed ? `${url.slice(0, separator)}?${params.toString()}` : url;
+}
+
+module.exports = { toAbsoluteMediaUrl, absoluteAppUrl, redactUrl };

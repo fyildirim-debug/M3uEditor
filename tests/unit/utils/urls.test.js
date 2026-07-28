@@ -40,6 +40,28 @@ describe('toAbsoluteMediaUrl', () => {
     expect(toAbsoluteMediaUrl('logos/a.png')).toBe('https://m3u.example.com/logos/a.png');
   });
 
+  test('redacts credentials that share and player URLs carry in the query string', () => {
+    const { redactUrl } = require('../../../src/utils/urls');
+
+    // Player'lar ozel baslik gonderemedigi icin sifre sorgu dizesinde gelir;
+    // gunluge oldugu gibi yazilirsa diskte birikir.
+    expect(redactUrl('/api/shared/abc?password=gizli123')).toBe('/api/shared/abc?password=REDACTED');
+    expect(redactUrl('/get.php?username=u&password=p&type=m3u_plus'))
+      .toBe('/get.php?username=REDACTED&password=REDACTED&type=m3u_plus');
+    expect(redactUrl('/api/shared/abc?share_password=x')).toBe('/api/shared/abc?share_password=REDACTED');
+    expect(redactUrl('/api/shared/abc?PASSWORD=x')).toBe('/api/shared/abc?PASSWORD=REDACTED');
+  });
+
+  test('leaves URLs without sensitive parameters untouched', () => {
+    const { redactUrl } = require('../../../src/utils/urls');
+
+    expect(redactUrl('/api/playlists')).toBe('/api/playlists');
+    expect(redactUrl('/api/playlists/1/export?streamType=live'))
+      .toBe('/api/playlists/1/export?streamType=live');
+    expect(redactUrl('')).toBe('');
+    expect(redactUrl(undefined)).toBe('');
+  });
+
   test('builds absolute application URLs from a root-relative path', () => {
     expect(absoluteAppUrl('/api/shared/abc')).toBe('https://m3u.example.com/api/shared/abc');
     expect(absoluteAppUrl('api/shared/abc')).toBe('https://m3u.example.com/api/shared/abc');
