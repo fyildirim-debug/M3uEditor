@@ -111,6 +111,7 @@ class ChannelService {
       .leftJoin('categories', 'channels.category_id', 'categories.id')
       .select('channels.*', 'categories.name as category_name')
       .orderBy('channels.sort_order', 'asc')
+      .orderBy('channels.id', 'asc')
       .limit(limit)
       .offset(offset);
 
@@ -141,33 +142,65 @@ class ChannelService {
   }
 
   /**
-   * Move a channel to a new position (0-based) and recompact sort_order.
+   * Move a channel immediately before or after another channel in the same
+   * playlist. Relative positioning remains valid for filtered/paginated lists.
    * @param {string} userId
    * @param {string} channelId
-   * @param {number} newPosition - 0-based target position
+   * @param {{ afterChannelId?: string, beforeChannelId?: string }} relativePosition
    */
-  async updateOrder(userId, channelId, newPosition) {
-    const channel = await this._verifyChannelOwnership(userId, channelId);
-    const playlistId = channel.playlist_id;
+  async updateOrder(userId, channelId, relativePosition = {}) {
+    if (!relativePosition || typeof relativePosition !== 'object' || Array.isArray(relativePosition)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir göreli sıralama konumu gönderin');
+    }
+    const { afterChannelId, beforeChannelId } = relativePosition;
+    const hasAfter = afterChannelId !== undefined;
+    const hasBefore = beforeChannelId !== undefined;
+    if (hasAfter === hasBefore) {
+      throw createAppError('VALIDATION_ERROR', 'afterChannelId veya beforeChannelId alanlarından yalnızca biri gönderilmelidir');
+    }
 
-    // Tasima islemi tek bir SQL ifadesinde yapilir: satirlar uygulamaya
-    // getirilmez ve yalnizca konumu gercekten degisen satirlar guncellenir.
+    const referenceChannelId = hasAfter ? afterChannelId : beforeChannelId;
+    if (typeof referenceChannelId !== 'string' || !referenceChannelId.trim() || referenceChannelId.length > 200) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir referans kanal kimliği gönderin');
+    }
+
+    const channel = await this._verifyChannelOwnership(userId, channelId);
+    if (referenceChannelId === channelId) {
+      throw createAppError('VALIDATION_ERROR', 'Bir kanal kendisine göre sıralanamaz');
+    }
+
+    const referenceChannel = await this._verifyChannelOwnership(userId, referenceChannelId);
+    const playlistId = channel.playlist_id;
+    if (referenceChannel.playlist_id !== playlistId) {
+      throw createAppError('VALIDATION_ERROR', 'Referans kanal aynı oynatma listesine ait olmalıdır');
+    }
+
+    // Tasima tek bir set-tabanli ifadede yapilir. Once deterministik mevcut
+    // sira hesaplanir, sonra tasinan satir cikarilmis listedeki hedef konum
+    // bulunur ve yalnizca yeri degisen satirlar guncellenir.
     await db.raw(
       `WITH current AS (
          SELECT id, (ROW_NUMBER() OVER (ORDER BY sort_order ASC, id ASC) - 1) AS idx
            FROM channels
           WHERE playlist_id = :playlistId
        ),
-       moving AS (SELECT idx FROM current WHERE id = :channelId),
+       positions AS (
+         SELECT (SELECT idx FROM current WHERE id = :channelId) AS moving_idx,
+                (SELECT idx FROM current WHERE id = :referenceChannelId) AS reference_idx
+       ),
        target AS (
-         SELECT LEAST(GREATEST(:newPosition::int, 0), GREATEST((SELECT COUNT(*) FROM current) - 1, 0)) AS idx
+         SELECT CASE
+                  WHEN :placement = 'before' THEN reference_idx - CASE WHEN moving_idx < reference_idx THEN 1 ELSE 0 END
+                  ELSE reference_idx + CASE WHEN moving_idx > reference_idx THEN 1 ELSE 0 END
+                END AS idx
+           FROM positions
        ),
        final AS (
          SELECT c.id,
                 CASE
                   WHEN c.id = :channelId THEN (SELECT idx FROM target)
-                  WHEN c.idx < (SELECT idx FROM moving) AND c.idx >= (SELECT idx FROM target) THEN c.idx + 1
-                  WHEN c.idx > (SELECT idx FROM moving) AND c.idx <= (SELECT idx FROM target) THEN c.idx - 1
+                  WHEN c.idx < (SELECT moving_idx FROM positions) AND c.idx >= (SELECT idx FROM target) THEN c.idx + 1
+                  WHEN c.idx > (SELECT moving_idx FROM positions) AND c.idx <= (SELECT idx FROM target) THEN c.idx - 1
                   ELSE c.idx
                 END AS position
            FROM current c
@@ -177,7 +210,12 @@ class ChannelService {
          FROM final
         WHERE ch.id = final.id
           AND ch.sort_order IS DISTINCT FROM final.position`,
-      { playlistId, channelId, newPosition }
+      {
+        playlistId,
+        channelId,
+        referenceChannelId,
+        placement: hasAfter ? 'after' : 'before',
+      }
     );
   }
 

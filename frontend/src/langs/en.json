@@ -180,7 +180,8 @@
     "instruction": "Select category from left panel → drag channels on the right",
     "selectCategory": "Select a category",
     "selectFromLeft": "Select a category from the left panel",
-    "noChannels": "No channels in this category"
+    "noChannels": "No channels in this category",
+    "truncatedWarning": "Showing the first {limit} channels ({total} total)."
   },
   "epg": {
     "guideTab": "TV Guide",

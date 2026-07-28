@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4, validate: validateUuid } = require('uuid');
 const db = require('../config/database');
 const config = require('../config');
 const channelService = require('../services/ChannelService');
@@ -31,11 +31,24 @@ async function deleteChannel(req, res, next) {
 
 async function updateChannelOrder(req, res, next) {
   try {
-    const { newPosition } = req.body;
-    if (!Number.isInteger(newPosition) || newPosition < 0) {
-      throw createAppError('VALIDATION_ERROR', 'Yeni sıra sıfır veya daha büyük bir tam sayı olmalı');
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir istek gövdesi gönderin');
     }
-    await channelService.updateOrder(req.userId, req.params.id, newPosition);
+    if (!validateUuid(req.params.id)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir kanal kimliği gönderin');
+    }
+    const { afterChannelId, beforeChannelId } = req.body;
+    const hasAfter = afterChannelId !== undefined;
+    const hasBefore = beforeChannelId !== undefined;
+    if (hasAfter === hasBefore) {
+      throw createAppError('VALIDATION_ERROR', 'afterChannelId veya beforeChannelId alanlarından yalnızca biri gönderilmelidir');
+    }
+    const referenceChannelId = hasAfter ? afterChannelId : beforeChannelId;
+    if (typeof referenceChannelId !== 'string' || !validateUuid(referenceChannelId)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir referans kanal kimliği gönderin');
+    }
+    const relativePosition = hasAfter ? { afterChannelId } : { beforeChannelId };
+    await channelService.updateOrder(req.userId, req.params.id, relativePosition);
     res.json({ success: true });
   } catch (error) { next(error); }
 }

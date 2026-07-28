@@ -39,4 +39,59 @@ describe('CategoryService', () => {
     mockDb.mockReturnValue(builder({ first: undefined }));
     await expect(categoryService.update('user-1', 'foreign', 'Name')).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
+
+  describe('relative category ordering', () => {
+    test('rejects missing or conflicting relative positions', async () => {
+      await expect(categoryService.updateOrder('user-1', 'c1', null))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      await expect(categoryService.updateOrder('user-1', 'c1', {}))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      await expect(categoryService.updateOrder('user-1', 'c1', { afterCategoryId: 'c2', beforeCategoryId: 'c3' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      expect(mockDb).not.toHaveBeenCalled();
+    });
+
+    test('rejects cross-playlist and self references', async () => {
+      mockDb
+        .mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }))
+        .mockReturnValueOnce(builder({ first: { id: 'c2', playlist_id: 'p2' } }));
+      await expect(categoryService.updateOrder('user-1', 'c1', { afterCategoryId: 'c2' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+
+      mockDb.mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }));
+      await expect(categoryService.updateOrder('user-1', 'c1', { beforeCategoryId: 'c1' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      expect(mockDb.raw).not.toHaveBeenCalled();
+    });
+
+    test('rejects a reference category outside the authenticated tenant', async () => {
+      mockDb
+        .mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }))
+        .mockReturnValueOnce(builder({ first: undefined }));
+
+      await expect(categoryService.updateOrder('user-1', 'c1', { afterCategoryId: 'foreign' }))
+        .rejects.toMatchObject({ code: 'NOT_FOUND' });
+      expect(mockDb.raw).not.toHaveBeenCalled();
+    });
+
+    test('updates relative order with one deterministic set-based statement', async () => {
+      mockDb
+        .mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }))
+        .mockReturnValueOnce(builder({ first: { id: 'c2', playlist_id: 'p1' } }));
+      mockDb.raw.mockResolvedValueOnce({ rowCount: 2 });
+
+      await categoryService.updateOrder('user-1', 'c1', { beforeCategoryId: 'c2' });
+
+      expect(mockDb.raw).toHaveBeenCalledTimes(1);
+      const [sql, bindings] = mockDb.raw.mock.calls[0];
+      expect(sql).toContain('ROW_NUMBER() OVER (ORDER BY sort_order ASC, id ASC)');
+      expect(sql).toContain('IS DISTINCT FROM');
+      expect(bindings).toEqual({
+        playlistId: 'p1',
+        categoryId: 'c1',
+        referenceCategoryId: 'c2',
+        placement: 'before',
+      });
+    });
+  });
 });

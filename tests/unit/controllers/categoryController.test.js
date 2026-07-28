@@ -19,14 +19,16 @@ jest.mock('../../../src/services/CategoryService', () => mockCategoryService);
 
 const app = require('../../../src/app');
 const jwtConfig = require('../../../src/config/jwt');
+const { signTestToken, stubActiveSession } = require('../../helpers/authToken');
 
 function generateToken(userId) {
-  return jwt.sign({ userId }, jwtConfig.secret, { expiresIn: '1h' });
+  return signTestToken(userId);
 }
 
 const USER_ID = 'user-uuid-1';
 const PLAYLIST_ID = 'playlist-uuid-1';
-const CATEGORY_ID = 'category-uuid-1';
+const CATEGORY_ID = '33333333-3333-4333-8333-333333333333';
+const REFERENCE_CATEGORY_ID = '44444444-4444-4444-8444-444444444444';
 
 describe('Category Controller', () => {
   let token;
@@ -37,6 +39,7 @@ describe('Category Controller', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    stubActiveSession();
   });
 
   describe('GET /api/playlists/:id/categories', () => {
@@ -164,40 +167,62 @@ describe('Category Controller', () => {
   });
 
   describe('PUT /api/categories/:id/order', () => {
-    it('should update category order', async () => {
+    it('should place a category after its reference', async () => {
       mockCategoryService.updateOrder.mockResolvedValue();
 
       const res = await request(app)
         .put(`/api/categories/${CATEGORY_ID}/order`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ newPosition: 2 });
+        .send({ afterCategoryId: REFERENCE_CATEGORY_ID });
 
       expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(mockCategoryService.updateOrder).toHaveBeenCalledWith(USER_ID, CATEGORY_ID, 2);
+      expect(res.body).toEqual({ success: true });
+      expect(mockCategoryService.updateOrder).toHaveBeenCalledWith(
+        USER_ID,
+        CATEGORY_ID,
+        { afterCategoryId: REFERENCE_CATEGORY_ID }
+      );
     });
 
-    it('should return 400 for invalid newPosition', async () => {
+    it('should place a category before its reference', async () => {
+      mockCategoryService.updateOrder.mockResolvedValue();
+
       const res = await request(app)
         .put(`/api/categories/${CATEGORY_ID}/order`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ newPosition: 'abc' });
+        .send({ beforeCategoryId: REFERENCE_CATEGORY_ID });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.status).toBe(200);
+      expect(mockCategoryService.updateOrder).toHaveBeenCalledWith(
+        USER_ID,
+        CATEGORY_ID,
+        { beforeCategoryId: REFERENCE_CATEGORY_ID }
+      );
     });
 
-    it('should return 400 for negative newPosition', async () => {
+    it('should return 400 when both relative positions are sent', async () => {
       const res = await request(app)
         .put(`/api/categories/${CATEGORY_ID}/order`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ newPosition: -1 });
+        .send({ afterCategoryId: REFERENCE_CATEGORY_ID, beforeCategoryId: REFERENCE_CATEGORY_ID });
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(mockCategoryService.updateOrder).not.toHaveBeenCalled();
     });
 
-    it('should return 400 when newPosition is missing', async () => {
+    it('should return 400 for a malformed reference id', async () => {
+      const res = await request(app)
+        .put(`/api/categories/${CATEGORY_ID}/order`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ beforeCategoryId: 'not-a-uuid' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(mockCategoryService.updateOrder).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when the relative position is missing', async () => {
       const res = await request(app)
         .put(`/api/categories/${CATEGORY_ID}/order`)
         .set('Authorization', `Bearer ${token}`)
@@ -210,7 +235,7 @@ describe('Category Controller', () => {
     it('should return 401 without token', async () => {
       const res = await request(app)
         .put(`/api/categories/${CATEGORY_ID}/order`)
-        .send({ newPosition: 0 });
+        .send({ afterCategoryId: REFERENCE_CATEGORY_ID });
 
       expect(res.status).toBe(401);
     });

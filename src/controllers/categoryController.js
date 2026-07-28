@@ -1,5 +1,6 @@
 const categoryService = require('../services/CategoryService');
 const { createAppError } = require('../utils/AppError');
+const { validate: validateUuid } = require('uuid');
 
 /**
  * GET /api/playlists/:id/categories
@@ -72,13 +73,25 @@ async function deleteCategory(req, res, next) {
 async function updateCategoryOrder(req, res, next) {
   try {
     const { id: categoryId } = req.params;
-    const { newPosition } = req.body;
-
-    if (!Number.isInteger(newPosition) || newPosition < 0) {
-      throw createAppError('VALIDATION_ERROR', 'newPosition sayısal ve 0 veya daha büyük olmalıdır');
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir istek gövdesi gönderin');
+    }
+    if (!validateUuid(categoryId)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir kategori kimliği gönderin');
+    }
+    const { afterCategoryId, beforeCategoryId } = req.body;
+    const hasAfter = afterCategoryId !== undefined;
+    const hasBefore = beforeCategoryId !== undefined;
+    if (hasAfter === hasBefore) {
+      throw createAppError('VALIDATION_ERROR', 'afterCategoryId veya beforeCategoryId alanlarından yalnızca biri gönderilmelidir');
+    }
+    const referenceCategoryId = hasAfter ? afterCategoryId : beforeCategoryId;
+    if (typeof referenceCategoryId !== 'string' || !validateUuid(referenceCategoryId)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir referans kategori kimliği gönderin');
     }
 
-    await categoryService.updateOrder(req.userId, categoryId, newPosition);
+    const relativePosition = hasAfter ? { afterCategoryId } : { beforeCategoryId };
+    await categoryService.updateOrder(req.userId, categoryId, relativePosition);
     res.json({ success: true });
   } catch (err) {
     next(err);

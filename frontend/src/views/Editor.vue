@@ -334,6 +334,9 @@
                   <div class="sort-panel-title">
                     {{ sortSelectedCat ? sortSelectedCat.name + ' ' + t('common.channels') : t('sort.selectCategory') }}
                   </div>
+                  <div v-if="sortCatTotal > sortCatChannels.length" class="sort-truncated-warning">
+                    {{ t('sort.truncatedWarning', { limit: SORT_FETCH_LIMIT, total: sortCatTotal }) }}
+                  </div>
                   <div v-if="!sortSelectedCat" class="sort-empty">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
                     <span>{{ t('sort.selectFromLeft') }}</span>
@@ -1018,9 +1021,11 @@ const accChannels = reactive({})
 let sortDragIdx = null
 const sortSelectedCat = ref(null)
 const sortCatChannels = ref([])
+const sortCatTotal = ref(0)
 const sortCatLoading = ref(false)
 let sortChanDragIdx = null
 const SORT_RENDER_LIMIT = 100
+const SORT_FETCH_LIMIT = 500
 const sortRenderCount = ref(SORT_RENDER_LIMIT)
 const sortVisibleChannels = computed(() => sortCatChannels.value.slice(0, sortRenderCount.value))
 
@@ -1382,32 +1387,53 @@ async function doDeleteCat() {
 }
 
 async function catDrop(idx) {
-  if (sortDragIdx === null || sortDragIdx === idx) return
-  const cat = categories.value[sortDragIdx]
-  try { await api.put(`/categories/${cat.id}/order`, { newPosition: idx }); loadCategories() }
-  catch { toast(t('toast.sortingError'), 'error') }
+  if (sortDragIdx === null || sortDragIdx === idx) { sortDragIdx = null; return }
+  const previousOrder = [...categories.value]
+  const moved = categories.value.splice(sortDragIdx, 1)[0]
+  categories.value.splice(idx, 0, moved)
+  const movedIndex = categories.value.findIndex(cat => cat.id === moved.id)
+  const payload = movedIndex === 0
+    ? { beforeCategoryId: categories.value[1]?.id }
+    : { afterCategoryId: categories.value[movedIndex - 1]?.id }
   sortDragIdx = null
+
+  try { await api.put(`/categories/${moved.id}/order`, payload) }
+  catch {
+    categories.value = previousOrder
+    toast(t('toast.sortingError'), 'error')
+  }
 }
 
 async function selectSortCat(cat) {
   sortSelectedCat.value = cat
   sortCatLoading.value = true
+  sortCatChannels.value = []
+  sortCatTotal.value = 0
   sortRenderCount.value = SORT_RENDER_LIMIT
   try {
-    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { categoryId: cat.id, limit: 1000 } })
+    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { categoryId: cat.id, limit: SORT_FETCH_LIMIT } })
     sortCatChannels.value = data.channels || data
+    sortCatTotal.value = data.total ?? sortCatChannels.value.length
   } catch { toast(t('toast.channelsLoadError'), 'error') }
   finally { sortCatLoading.value = false }
 }
 
 async function chanDrop(idx) {
-  if (sortChanDragIdx === null || sortChanDragIdx === idx) return
-  const ch = sortCatChannels.value[sortChanDragIdx]
+  if (sortChanDragIdx === null || sortChanDragIdx === idx) { sortChanDragIdx = null; return }
+  const previousOrder = [...sortCatChannels.value]
   const moved = sortCatChannels.value.splice(sortChanDragIdx, 1)[0]
   sortCatChannels.value.splice(idx, 0, moved)
+  const movedIndex = sortCatChannels.value.findIndex(ch => ch.id === moved.id)
+  const payload = movedIndex === 0
+    ? { beforeChannelId: sortCatChannels.value[1]?.id }
+    : { afterChannelId: sortCatChannels.value[movedIndex - 1]?.id }
   sortChanDragIdx = null
-  try { await api.put(`/channels/${ch.id}/order`, { newPosition: idx }) }
-  catch { toast(t('toast.sortingError'), 'error') }
+
+  try { await api.put(`/channels/${moved.id}/order`, payload) }
+  catch {
+    sortCatChannels.value = previousOrder
+    toast(t('toast.sortingError'), 'error')
+  }
 }
 
 function openXtream() { showXtreamModal.value = true; importResult.value = null; importError.value = '' }
@@ -1858,6 +1884,10 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
   background: var(--bg-secondary); flex-shrink: 0;
 }
 .sort-list { padding: 8px; overflow-y: auto; flex: 1; }
+.sort-truncated-warning {
+  padding: 8px 16px; color: var(--warning); background: var(--warning-soft);
+  border-bottom: 1px solid var(--border); font-size: 12px; flex-shrink: 0;
+}
 .load-more-btn { width: 100%; margin-top: 8px; }
 .sort-item {
   display: flex; align-items: center; gap: 10px; padding: 8px 10px;

@@ -180,7 +180,8 @@
     "instruction": "Sol panelden kategori seç → sağda kanalları sürükle",
     "selectCategory": "Kategori seçin",
     "selectFromLeft": "Sol panelden bir kategori seçin",
-    "noChannels": "Bu kategoride kanal yok"
+    "noChannels": "Bu kategoride kanal yok",
+    "truncatedWarning": "İlk {limit} kanal gösteriliyor (toplam {total})."
   },
   "epg": {
     "guideTab": "TV Rehberi",

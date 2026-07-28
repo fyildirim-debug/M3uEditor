@@ -1,6 +1,7 @@
 const mockDb = jest.fn();
 mockDb.fn = { now: jest.fn(() => 'NOW') };
 mockDb.transaction = jest.fn();
+mockDb.raw = jest.fn();
 jest.mock('../../../src/config/database', () => mockDb);
 
 const channelService = require('../../../src/services/ChannelService');
@@ -99,5 +100,68 @@ describe('ChannelService', () => {
     expect(raw).toHaveBeenCalledTimes(1);
     expect(raw.mock.calls[0][0]).toContain('ROW_NUMBER() OVER');
     expect(raw.mock.calls[0][1]).toEqual(['p1']);
+  });
+
+  describe('relative channel ordering', () => {
+    test('rejects missing, conflicting, and malformed relative positions', async () => {
+      await expect(channelService.updateOrder('user-1', 'c1', null))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      await expect(channelService.updateOrder('user-1', 'c1', {}))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      await expect(channelService.updateOrder('user-1', 'c1', { afterChannelId: 'c2', beforeChannelId: 'c3' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      await expect(channelService.updateOrder('user-1', 'c1', { afterChannelId: '' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      expect(mockDb).not.toHaveBeenCalled();
+    });
+
+    test('rejects a reference channel from another playlist', async () => {
+      mockDb
+        .mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }))
+        .mockReturnValueOnce(builder({ first: { id: 'c2', playlist_id: 'p2' } }));
+
+      await expect(channelService.updateOrder('user-1', 'c1', { afterChannelId: 'c2' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      expect(mockDb.raw).not.toHaveBeenCalled();
+    });
+
+    test('rejects self-references', async () => {
+      mockDb.mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }));
+
+      await expect(channelService.updateOrder('user-1', 'c1', { beforeChannelId: 'c1' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      expect(mockDb).toHaveBeenCalledTimes(1);
+      expect(mockDb.raw).not.toHaveBeenCalled();
+    });
+
+    test('rejects a reference channel outside the authenticated tenant', async () => {
+      mockDb
+        .mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }))
+        .mockReturnValueOnce(builder({ first: undefined }));
+
+      await expect(channelService.updateOrder('user-1', 'c1', { afterChannelId: 'foreign' }))
+        .rejects.toMatchObject({ code: 'NOT_FOUND' });
+      expect(mockDb.raw).not.toHaveBeenCalled();
+    });
+
+    test('updates relative order with one deterministic set-based statement', async () => {
+      mockDb
+        .mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }))
+        .mockReturnValueOnce(builder({ first: { id: 'c2', playlist_id: 'p1' } }));
+      mockDb.raw.mockResolvedValueOnce({ rowCount: 2 });
+
+      await channelService.updateOrder('user-1', 'c1', { afterChannelId: 'c2' });
+
+      expect(mockDb.raw).toHaveBeenCalledTimes(1);
+      const [sql, bindings] = mockDb.raw.mock.calls[0];
+      expect(sql).toContain('ROW_NUMBER() OVER (ORDER BY sort_order ASC, id ASC)');
+      expect(sql).toContain('IS DISTINCT FROM');
+      expect(bindings).toEqual({
+        playlistId: 'p1',
+        channelId: 'c1',
+        referenceChannelId: 'c2',
+        placement: 'after',
+      });
+    });
   });
 });
