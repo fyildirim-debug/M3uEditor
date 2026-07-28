@@ -112,7 +112,9 @@ async function requestBuffer(input, options = {}, redirectCount = 0) {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         response.resume();
         clearTimeout(timer);
-        reject(createAppError('XTREAM_CONNECTION_FAILED', `Uzak sunucu HTTP ${response.statusCode} döndürdü`));
+        const httpError = createAppError('XTREAM_CONNECTION_FAILED', `Uzak sunucu HTTP ${response.statusCode} döndürdü`);
+        httpError.remoteStatus = response.statusCode;
+        reject(httpError);
         return;
       }
 

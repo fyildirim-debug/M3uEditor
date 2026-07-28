@@ -3,8 +3,25 @@ const config = require('../config');
 const { safeFetchJson, parseRemoteUrl } = require('../utils/safeFetch');
 
 const DEFAULT_TIMEOUT = 120000; // 120 saniye - büyük kanal listeleri için
-const MAX_RETRIES = 3; // Retry sayısı (toplam 4 deneme)
+const MAX_RETRIES = 3; // Toplam deneme sayısı (1 ilk deneme + 2 yeniden deneme)
 const BASE_DELAY = 2000; // 2 saniye (exponential backoff başlangıcı)
+
+// Yeniden denemenin sonucu değiştirmeyeceği hatalar: istek/adres kalıcı olarak geçersiz.
+const NON_RETRYABLE_CODES = new Set(['VALIDATION_ERROR', 'FORBIDDEN']);
+
+/**
+ * Aynı istek tekrarlandığında farklı bir sonuç verme ihtimali var mı?
+ * 4xx (429 hariç) kalıcı istemci hatasıdır; tekrar denemek sağlayıcıyı boş yere yorar.
+ * @param {Error & { code?: string, remoteStatus?: number }} error
+ * @returns {boolean}
+ */
+function isRetryable(error) {
+  if (!error) return false;
+  if (NON_RETRYABLE_CODES.has(error.code)) return false;
+  const status = error.remoteStatus;
+  if (typeof status === 'number' && status >= 400 && status < 500 && status !== 429) return false;
+  return true;
+}
 
 async function mapWithConcurrency(items, concurrency, worker) {
   if (!items.length) return [];
@@ -75,6 +92,9 @@ class XtreamClient {
       } catch (err) {
         lastError = err;
 
+        // Kalıcı hatalarda (geçersiz adres, 4xx) tekrar denemek anlamsız
+        if (!isRetryable(err)) break;
+
         // Son denemede retry yapma
         if (attempt < this.maxRetries - 1) {
           const delay = this.baseDelay * Math.pow(2, attempt);
@@ -138,14 +158,15 @@ class XtreamClient {
    * VOD kategorileri getir.
    * @returns {Promise<Array<{ category_id: string, category_name: string }>>}
    */
-  async getVodCategories() {
+  async getVodCategories(suppressErrors = true) {
     const url = this._buildUrl({ action: 'get_vod_categories' });
     try {
       const data = await this._fetchWithRetry(url);
       return Array.isArray(data) ? data : [];
-    } catch {
+    } catch (error) {
       // VOD desteklenmiyorsa boş dön
-      return [];
+      if (suppressErrors) return [];
+      throw error;
     }
   }
 
@@ -174,14 +195,15 @@ class XtreamClient {
    * Dizi kategorileri getir.
    * @returns {Promise<Array<{ category_id: string, category_name: string }>>}
    */
-  async getSeriesCategories() {
+  async getSeriesCategories(suppressErrors = true) {
     const url = this._buildUrl({ action: 'get_series_categories' });
     try {
       const data = await this._fetchWithRetry(url);
       return Array.isArray(data) ? data : [];
-    } catch {
+    } catch (error) {
       // Series desteklenmiyorsa boş dön
-      return [];
+      if (suppressErrors) return [];
+      throw error;
     }
   }
 
@@ -285,8 +307,8 @@ class XtreamClient {
   }
 
   async _getVodPayload() {
-    const categories = await this.getVodCategories();
-    const streams = await this._getStreamsFast(categories, (categoryId) => this.getVodStreams(categoryId, false), (stream) => stream.stream_id, true);
+    const categories = await this.getVodCategories(false);
+    const streams = await this._getStreamsFast(categories, (categoryId) => this.getVodStreams(categoryId, false), (stream) => stream.stream_id);
     return {
       categories: categories.map((category) => ({ category_id: `vod_${category.category_id}`, category_name: `VOD | ${category.category_name}` })),
       channels: streams.map((stream) => ({
@@ -307,8 +329,8 @@ class XtreamClient {
   }
 
   async _getSeriesPayload() {
-    const categories = await this.getSeriesCategories();
-    const streams = await this._getStreamsFast(categories, (categoryId) => this.getSeriesStreams(categoryId, false), (stream) => stream.series_id || stream.stream_id, true);
+    const categories = await this.getSeriesCategories(false);
+    const streams = await this._getStreamsFast(categories, (categoryId) => this.getSeriesStreams(categoryId, false), (stream) => stream.series_id || stream.stream_id);
     return {
       categories: categories.map((category) => ({ category_id: `series_${category.category_id}`, category_name: `Series | ${category.category_name}` })),
       channels: streams.map((stream) => ({
@@ -329,27 +351,68 @@ class XtreamClient {
   }
 
   /**
-   * Tüm kanalları getir. Önce her içerik türünün toplu endpoint'ini kullanır;
-   * sağlayıcı eksik kategori döndürürse yalnızca eksik kategorileri kontrollü
-   * paralellikle tamamlar.
-   * @param {string[]} [streamTypes=['live']] - Çekilecek tipler: 'live', 'vod', 'series'
-   * @returns {Promise<{ categories: Array, channels: Array }>}
+   * Tek bir içerik türünü çeker ve sonucu her zaman açık bir tamamlanma durumuyla
+   * döndürür. Hata yutulmaz: başarısız tür `failed` olarak işaretlenir ki çağıran
+   * taraf o türü "sağlayıcıda artık yok" sanıp mevcut kayıtları silmesin.
+   * @param {'live'|'vod'|'series'} type
+   * @returns {Promise<{ type: string, status: 'complete'|'failed', categories: Array, channels: Array, error: Error|null }>}
    */
-  async getAllChannels(streamTypes = ['live']) {
+  async _getTypePayload(type) {
     const loaders = {
       live: () => this._getLivePayload(),
       vod: () => this._getVodPayload(),
       series: () => this._getSeriesPayload(),
     };
+
+    try {
+      const payload = await loaders[type]();
+      return {
+        type,
+        status: payload?.status || 'complete',
+        categories: payload?.categories || [],
+        channels: payload?.channels || [],
+        error: null,
+      };
+    } catch (error) {
+      return { type, status: 'failed', categories: [], channels: [], error };
+    }
+  }
+
+  /**
+   * Tüm kanalları getir. Önce her içerik türünün toplu endpoint'ini kullanır;
+   * sağlayıcı eksik kategori döndürürse yalnızca eksik kategorileri kontrollü
+   * paralellikle tamamlar.
+   *
+   * Dönen `types` alanı her tür için tamamlanma durumunu taşır. Yalnızca
+   * `complete` türlerin verisi `categories`/`channels` içinde yer alır; böylece
+   * geçici bir tür hatası, çağıranın o türe ait mevcut kayıtları bayat sayıp
+   * silmesine yol açamaz. Seçilen türlerin tamamı başarısızsa hata fırlatılır.
+   *
+   * @param {string[]} [streamTypes=['live']] - Çekilecek tipler: 'live', 'vod', 'series'
+   * @returns {Promise<{ categories: Array, channels: Array, types: Array<{ type: string, status: string, error: string|null }> }>}
+   */
+  async getAllChannels(streamTypes = ['live']) {
     const selectedTypes = ['live', 'vod', 'series'].filter((type) => streamTypes.includes(type));
     const payloads = await mapWithConcurrency(
       selectedTypes,
       config.xtream.typeConcurrency,
-      (type) => loaders[type]()
+      (type) => this._getTypePayload(type)
     );
+
+    const completed = payloads.filter((payload) => payload.status === 'complete');
+    if (selectedTypes.length > 0 && completed.length === 0) {
+      throw payloads.find((payload) => payload.error)?.error
+        || createAppError('XTREAM_CONNECTION_FAILED', 'Seçilen içerik türlerinin hiçbiri alınamadı');
+    }
+
     return {
-      categories: payloads.flatMap((payload) => payload.categories),
-      channels: payloads.flatMap((payload) => payload.channels),
+      categories: completed.flatMap((payload) => payload.categories),
+      channels: completed.flatMap((payload) => payload.channels),
+      types: payloads.map((payload) => ({
+        type: payload.type,
+        status: payload.status,
+        error: payload.error?.message || null,
+      })),
     };
   }
 

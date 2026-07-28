@@ -116,6 +116,83 @@ describe('ImportService', () => {
     expect(captures.deletes).toBe(0);
   });
 
+  test('leaves a transiently failed content type completely untouched', async () => {
+    // live basarili, vod gecici olarak basarisiz: vod kayitlari bayat sayilmamali.
+    jest.spyOn(service, '_fetchXtream').mockResolvedValue({
+      categories: [],
+      channels: [{ stream_id: 1, name: 'Live A', stream_type: 'live', container_extension: 'ts' }],
+      client,
+      streamTypes: ['live', 'vod'],
+      types: [
+        { type: 'live', status: 'complete', error: null },
+        { type: 'vod', status: 'failed', error: 'provider 502' },
+      ],
+    });
+    jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({});
+    jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
+    const { trx, captures } = transactionFixture([
+      { source_id: '1', stream_type: 'live' },
+      { source_id: '900', stream_type: 'vod' },
+      { source_id: '901', stream_type: 'vod' },
+    ]);
+    mockDb.transaction.mockImplementation((callback) => callback(trx));
+
+    const result = await service.importFromXtream('user-1', { username: 'u', password: 'p' });
+
+    expect(result.syncedTypes).toEqual(['live']);
+    expect(result.failedTypes).toEqual(['vod']);
+    expect(result.partial).toBe(true);
+    expect(result.removed).toBe(0);
+    expect(captures.deletes).toBe(0);
+    // Kismi senkronizasyon last_synced_at'i ilerletmemeli.
+    expect(captures.updates.some((item) => item.payload.last_synced_at)).toBe(false);
+  });
+
+  test('applies partial removals but refuses to wipe an entire content type', async () => {
+    jest.spyOn(service, '_fetchXtream').mockResolvedValue({
+      categories: [],
+      channels: [{ stream_id: 1, name: 'Live A', stream_type: 'live', container_extension: 'ts' }],
+      client,
+      streamTypes: ['live', 'vod'],
+      types: [
+        { type: 'live', status: 'complete', error: null },
+        { type: 'vod', status: 'complete', error: null },
+      ],
+    });
+    jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({});
+    jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
+    const { trx, captures } = transactionFixture([
+      { source_id: '1', stream_type: 'live' },
+      { source_id: '2', stream_type: 'live' }, // artik yok -> silinmeli (kismi)
+      { source_id: '900', stream_type: 'vod' }, // vod'un tamami kaybolmus -> korunmali
+    ]);
+    mockDb.transaction.mockImplementation((callback) => callback(trx));
+
+    const result = await service.importFromXtream('user-1', { username: 'u', password: 'p' });
+
+    expect(result.skippedRemovalTypes).toEqual(['vod']);
+    expect(result.removed).toBe(1);
+    expect(captures.deletes).toBe(1);
+    expect(captures.updates.some((item) => item.payload.last_synced_at)).toBe(true);
+  });
+
+  test('plans stale removals per type without cross-type contamination', () => {
+    const existing = [
+      { source_id: '1', stream_type: 'live' },
+      { source_id: '2', stream_type: 'live' },
+      { source_id: '900', stream_type: 'vod' },
+    ];
+    const fetched = new Set(['live:1']);
+
+    // vod tamamlanmadi -> hic degerlendirilmemeli
+    expect(service._planStaleRemovals(existing, fetched, ['live'])).toEqual({
+      stale: [{ source_id: '2', stream_type: 'live' }],
+      skippedTypes: [],
+    });
+  });
+
   test('loads existing categories once and inserts new categories in large batches', async () => {
     const select = jest.fn().mockResolvedValue([{ id: 'existing-id', name: 'Category 0' }]);
     const insertedBatches = [];

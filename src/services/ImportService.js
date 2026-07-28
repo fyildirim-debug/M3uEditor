@@ -53,10 +53,59 @@ class ImportService {
     };
   }
 
+  /**
+   * Sağlayıcıdan tamamen çekilebilmiş türleri döndürür. Bir tür geçici olarak
+   * başarısız olduysa o türe hiç dokunulmaz — aksi halde mevcut kayıtlar
+   * "sağlayıcıda yok" sanılıp silinirdi (veri kaybı).
+   */
+  _completedTypes(types, requestedTypes) {
+    if (!Array.isArray(types) || !types.length) return requestedTypes;
+    return types.filter((entry) => entry.status === 'complete').map((entry) => entry.type);
+  }
+
+  /**
+   * Bayat kayıtları tür bazında planlar.
+   *
+   * Bir türün mevcut kayıtlarının TAMAMINI silecek bir uzlaştırma, sağlayıcının
+   * gerçekten o türü boşaltmasından ayırt edilemez (panel arızası da 200 + boş
+   * dizi döndürebilir). Bu durumda silme atlanır ve tür raporlanır; kısmi
+   * silmeler normal şekilde uygulanır.
+   *
+   * @param {Array<{ stream_type: string, source_id: string }>} existing
+   * @param {Set<string>} fetchedKeys - `${stream_type}:${source_id}` anahtarları
+   * @param {string[]} completedTypes
+   * @returns {{ stale: Array, skippedTypes: string[] }}
+   */
+  _planStaleRemovals(existing, fetchedKeys, completedTypes) {
+    const existingByType = new Map();
+    for (const channel of existing) {
+      if (!existingByType.has(channel.stream_type)) existingByType.set(channel.stream_type, []);
+      existingByType.get(channel.stream_type).push(channel);
+    }
+
+    const stale = [];
+    const skippedTypes = [];
+    for (const type of completedTypes) {
+      const rows = existingByType.get(type);
+      if (!rows?.length) continue;
+
+      const staleRows = rows.filter((channel) => !fetchedKeys.has(`${channel.stream_type}:${channel.source_id}`));
+      if (staleRows.length === rows.length) {
+        skippedTypes.push(type);
+        continue;
+      }
+      stale.push(...staleRows);
+    }
+
+    return { stale, skippedTypes };
+  }
+
   async importFromXtream(userId, credentials, onProgress, playlistId) {
     const startedAt = Date.now();
-    const { categories, channels, client, streamTypes } = await this._fetchXtream(credentials);
+    const { categories, channels, client, streamTypes, types } = await this._fetchXtream(credentials);
     const normalizedServerUrl = client.serverUrl;
+    const completedTypes = this._completedTypes(types, streamTypes);
+    const failedTypes = streamTypes.filter((type) => !completedTypes.includes(type));
 
     const result = await db.transaction(async (trx) => {
       let playlist;
@@ -75,11 +124,15 @@ class ImportService {
         updated_at: trx.fn.now(),
       });
 
-      const existing = await trx('channels')
-        .where({ playlist_id: playlist.id })
-        .whereIn('stream_type', streamTypes)
-        .whereNotNull('source_id')
-        .select('source_id', 'stream_type');
+      // Yalnızca eksiksiz çekilebilen türler uzlaştırılır; başarısız türün
+      // kayıtları karşılaştırmaya hiç girmez.
+      const existing = completedTypes.length
+        ? await trx('channels')
+          .where({ playlist_id: playlist.id })
+          .whereIn('stream_type', completedTypes)
+          .whereNotNull('source_id')
+          .select('source_id', 'stream_type')
+        : [];
       const existingKeys = new Set(existing.map((channel) => `${channel.stream_type}:${channel.source_id}`));
 
       const categoryMap = await this._upsertCategories(playlist.id, categories, trx);
@@ -87,22 +140,39 @@ class ImportService {
       await this._bulkUpsertChannels(playlist.id, records, onProgress, trx);
 
       const fetchedKeys = new Set(records.map((channel) => `${channel.stream_type}:${channel.source_id}`));
+      const { stale, skippedTypes } = this._planStaleRemovals(existing, fetchedKeys, completedTypes);
       let removed = 0;
-      if (records.length > 0) {
-        const stale = existing.filter((channel) => !fetchedKeys.has(`${channel.stream_type}:${channel.source_id}`));
-        for (let index = 0; index < stale.length; index += DELETE_BATCH_SIZE) {
-          const batch = stale.slice(index, index + DELETE_BATCH_SIZE);
-          removed += await trx('channels')
-            .where({ playlist_id: playlist.id })
-            .whereIn(['stream_type', 'source_id'], batch.map((channel) => [channel.stream_type, channel.source_id]))
-            .del();
-        }
+      for (let index = 0; index < stale.length; index += DELETE_BATCH_SIZE) {
+        const batch = stale.slice(index, index + DELETE_BATCH_SIZE);
+        removed += await trx('channels')
+          .where({ playlist_id: playlist.id })
+          .whereIn(['stream_type', 'source_id'], batch.map((channel) => [channel.stream_type, channel.source_id]))
+          .del();
       }
 
-      await trx('playlists').where({ id: playlist.id }).update({ last_synced_at: trx.fn.now(), updated_at: trx.fn.now() });
+      // Kısmi senkronizasyon "son senkronizasyon" sayılmaz.
+      const playlistUpdate = { updated_at: trx.fn.now() };
+      if (!failedTypes.length) playlistUpdate.last_synced_at = trx.fn.now();
+      await trx('playlists').where({ id: playlist.id }).update(playlistUpdate);
+
       const added = records.filter((record) => !existingKeys.has(`${record.stream_type}:${record.source_id}`)).length;
-      return { playlistId: playlist.id, totalChannels: records.length, totalCategories: categories.length, added, updated: records.length - added, removed };
+      return {
+        playlistId: playlist.id,
+        totalChannels: records.length,
+        totalCategories: categories.length,
+        added,
+        updated: records.length - added,
+        removed,
+        syncedTypes: completedTypes,
+        failedTypes,
+        skippedRemovalTypes: skippedTypes,
+        partial: failedTypes.length > 0,
+      };
     });
+
+    if (failedTypes.length) {
+      logger.warn({ userId, playlistId: result.playlistId, failedTypes }, 'Xtream import completed partially; failed types were left untouched');
+    }
 
     this._scheduleEpg(userId, result.playlistId, client.getXmltvUrl());
     return { ...result, duration: Date.now() - startedAt };
@@ -136,29 +206,48 @@ class ImportService {
     if (!typesToAdd.length) throw createAppError('VALIDATION_ERROR', 'Seçilen içerik türleri zaten mevcut');
 
     const password = decrypt(playlist.xtream_password_enc);
-    const { categories, channels, client } = await this._fetchXtream({
+    const { categories, channels, client, types } = await this._fetchXtream({
       serverUrl: playlist.xtream_server_url,
       username: playlist.xtream_username,
       password,
       streamTypes: typesToAdd,
     });
 
+    // Yalnızca eksiksiz çekilebilen türler kalıcı olarak listeye eklenir.
+    const completedTypes = this._completedTypes(types, typesToAdd);
+    const failedTypes = typesToAdd.filter((type) => !completedTypes.includes(type));
+
     const added = await db.transaction(async (trx) => {
       const categoryMap = await this._upsertCategories(playlist.id, categories, trx);
       const maxSort = await trx('channels').where({ playlist_id: playlistId }).max('sort_order as max').first();
       const records = channels.map((channel, index) => this._recordForChannel(playlist.id, channel, categoryMap, client, (maxSort?.max ?? -1) + 1 + index));
-      const existing = await trx('channels').where({ playlist_id: playlistId }).whereIn('stream_type', typesToAdd).whereNotNull('source_id').select('source_id', 'stream_type');
+      const existing = completedTypes.length
+        ? await trx('channels').where({ playlist_id: playlistId }).whereIn('stream_type', completedTypes).whereNotNull('source_id').select('source_id', 'stream_type')
+        : [];
       const keys = new Set(existing.map((channel) => `${channel.stream_type}:${channel.source_id}`));
       await this._bulkUpsertChannels(playlistId, records, null, trx);
       await trx('playlists').where({ id: playlistId }).update({
-        xtream_stream_types: JSON.stringify([...new Set([...existingTypes, ...typesToAdd])]),
+        xtream_stream_types: JSON.stringify([...new Set([...existingTypes, ...completedTypes])]),
         last_synced_at: trx.fn.now(),
         updated_at: trx.fn.now(),
       });
       return records.filter((record) => !keys.has(`${record.stream_type}:${record.source_id}`)).length;
     });
 
-    return { added, totalChannels: channels.length, totalCategories: categories.length, addedTypes: typesToAdd, allTypes: [...new Set([...existingTypes, ...typesToAdd])], duration: Date.now() - startedAt };
+    if (failedTypes.length) {
+      logger.warn({ userId, playlistId, failedTypes }, 'Xtream stream types partially added; failed types were not stored');
+    }
+
+    return {
+      added,
+      totalChannels: channels.length,
+      totalCategories: categories.length,
+      addedTypes: completedTypes,
+      failedTypes,
+      partial: failedTypes.length > 0,
+      allTypes: [...new Set([...existingTypes, ...completedTypes])],
+      duration: Date.now() - startedAt,
+    };
   }
 
   _parseStoredTypes(value) {

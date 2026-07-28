@@ -128,6 +128,66 @@ describe('XtreamClient', () => {
     await expect(client.getAllChannels(['live'])).rejects.toThrow('category unavailable');
   });
 
+  test('does not retry a permanent 4xx response', async () => {
+    const permanent = Object.assign(new Error('Uzak sunucu HTTP 404 döndürdü'), {
+      code: 'XTREAM_CONNECTION_FAILED', remoteStatus: 404,
+    });
+    mockSafeFetchJson.mockRejectedValue(permanent);
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 3, baseDelay: 0 });
+
+    await expect(client.getLiveCategories()).rejects.toMatchObject({ code: 'XTREAM_CONNECTION_FAILED' });
+    expect(mockSafeFetchJson).toHaveBeenCalledTimes(1);
+  });
+
+  test('still retries a 429 throttling response', async () => {
+    const throttled = Object.assign(new Error('Uzak sunucu HTTP 429 döndürdü'), {
+      code: 'XTREAM_CONNECTION_FAILED', remoteStatus: 429,
+    });
+    mockSafeFetchJson
+      .mockRejectedValueOnce(throttled)
+      .mockResolvedValueOnce({ data: [{ category_id: '1', category_name: 'News' }] });
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 2, baseDelay: 0 });
+
+    await expect(client.getLiveCategories()).resolves.toHaveLength(1);
+    expect(mockSafeFetchJson).toHaveBeenCalledTimes(2);
+  });
+
+  test('marks a transiently failing optional type as failed instead of returning it empty', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 1, baseDelay: 0 });
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: '1', category_name: 'Live' }]);
+    jest.spyOn(client, 'getLiveStreams').mockResolvedValue([{ stream_id: 1, name: 'CNN', category_id: '1' }]);
+    jest.spyOn(client, 'getVodCategories').mockRejectedValue(new Error('provider 502'));
+
+    const result = await client.getAllChannels(['live', 'vod']);
+
+    expect(result.types).toEqual([
+      { type: 'live', status: 'complete', error: null },
+      { type: 'vod', status: 'failed', error: 'provider 502' },
+    ]);
+    expect(result.channels.map((channel) => channel.stream_type)).toEqual(['live']);
+  });
+
+  test('throws when every selected content type fails', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 1, baseDelay: 0 });
+    jest.spyOn(client, 'getLiveCategories').mockRejectedValue(new Error('live down'));
+    jest.spyOn(client, 'getVodCategories').mockRejectedValue(new Error('vod down'));
+
+    await expect(client.getAllChannels(['live', 'vod'])).rejects.toThrow('live down');
+  });
+
+  test('reports every selected type as complete on a healthy fetch', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 1, baseDelay: 0 });
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: '1', category_name: 'Live' }]);
+    jest.spyOn(client, 'getLiveStreams').mockResolvedValue([{ stream_id: 1, name: 'CNN', category_id: '1' }]);
+    jest.spyOn(client, 'getVodCategories').mockResolvedValue([{ category_id: '2', category_name: 'Films' }]);
+    jest.spyOn(client, 'getVodStreams').mockResolvedValue([{ stream_id: 20, name: 'Film', category_id: '2' }]);
+
+    const result = await client.getAllChannels(['live', 'vod']);
+
+    expect(result.types.every((entry) => entry.status === 'complete')).toBe(true);
+    expect(result.channels.map((channel) => channel.stream_type)).toEqual(['live', 'vod']);
+  });
+
   test('loads content types with bounded parallelism while preserving result order', async () => {
     const client = new XtreamClient('https://example.com', 'u', 'p');
     let active = 0;
