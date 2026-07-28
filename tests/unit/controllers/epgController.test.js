@@ -61,6 +61,37 @@ describe('EPG Controller', () => {
     expect(response.status).toBe(201);
     expect(response.body).toEqual(expect.objectContaining({ channelCount: 10, programCount: 50 }));
     expect(mockEpgService.addSource).toHaveBeenCalledWith(USER_ID, 'https://epg.example.com/data.xml');
+    expect(mockEpgService.parseAndStore).toHaveBeenCalledWith(SOURCE_ID, { force: false });
+  });
+
+  test('passes an explicit force flag to source imports and refreshes', async () => {
+    const source = { id: SOURCE_ID, url: 'https://epg.example.com/data.xml', status: 'pending' };
+    mockEpgService.addSource.mockResolvedValue(source);
+    mockEpgService.parseAndStore.mockResolvedValue({ channelCount: 0, programCount: 0 });
+    mockEpgService.refreshSource.mockResolvedValue({ channelCount: 0, programCount: 0 });
+    mockEpgService.listSources.mockResolvedValue([{ ...source, status: 'active' }]);
+
+    const addResponse = await request(app).post('/api/epg/sources')
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ url: source.url, force: true });
+    const refreshResponse = await request(app).post(`/api/epg/sources/${SOURCE_ID}/refresh`)
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ force: true });
+
+    expect(addResponse.status).toBe(201);
+    expect(refreshResponse.status).toBe(200);
+    expect(mockEpgService.parseAndStore).toHaveBeenCalledWith(SOURCE_ID, { force: true });
+    expect(mockEpgService.refreshSource).toHaveBeenCalledWith(USER_ID, SOURCE_ID, { force: true });
+  });
+
+  test('rejects non-boolean force values', async () => {
+    const response = await request(app).post(`/api/epg/sources/${SOURCE_ID}/refresh`)
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ force: 'yes' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+    expect(mockEpgService.refreshSource).not.toHaveBeenCalled();
   });
 
   test('passes source validation failures through the error handler', async () => {

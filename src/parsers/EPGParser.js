@@ -59,11 +59,31 @@ class EPGParser {
     if (!/<tv[\s>]/i.test(xmlContent)) {
       throw new Error('Geçersiz XMLTV: <tv> kök elemanı bulunamadı');
     }
+    if (!/<\/tv>\s*$/i.test(xmlContent)) {
+      throw new Error('Geçersiz XMLTV: </tv> kapanış etiketi bulunamadı; içerik kesilmiş olabilir');
+    }
+    const incomplete = this._findUnbalancedElement(xmlContent);
+    if (incomplete) {
+      throw new Error(`Geçersiz XMLTV: <${incomplete}> elemanı tamamlanamadı`);
+    }
 
     const channels = this._parseChannels(xmlContent);
     const programs = this._parsePrograms(xmlContent);
 
     return { channels, programs };
+  }
+
+  _findUnbalancedElement(xml) {
+    for (const tagName of ['channel', 'programme']) {
+      let openings = 0;
+      let closings = 0;
+      const openingPattern = new RegExp(`<${tagName}\\b`, 'gi');
+      const closingPattern = new RegExp(`<\\/${tagName}>`, 'gi');
+      while (openingPattern.exec(xml)) openings += 1;
+      while (closingPattern.exec(xml)) closings += 1;
+      if (openings !== closings) return tagName;
+    }
+    return null;
   }
 
   /**
@@ -72,49 +92,66 @@ class EPGParser {
    * @returns {AsyncIterable<{ type: 'channel'|'program', data: object }>}
    */
   async *parseStream(stream) {
+    const { StringDecoder } = require('string_decoder');
+    const decoder = new StringDecoder('utf8');
     let buffer = '';
     let tvTagFound = false;
+    let documentEnd = '';
+
+    const append = (text) => {
+      if (!text) return;
+      buffer += text;
+      documentEnd = `${documentEnd}${text}`.replace(/\s+$/u, '').slice(-64);
+      if (!tvTagFound && /<tv[\s>]/i.test(buffer)) tvTagFound = true;
+    };
+
+    const extractAvailable = function* (parser) {
+      while (true) {
+        const opening = /<(channel|programme)\b/i.exec(buffer);
+        if (!opening) {
+          // Only a small boundary is needed when no element is open. This keeps
+          // inter-element whitespace from growing with the whole document.
+          buffer = buffer.slice(-64);
+          return;
+        }
+
+        const tagName = opening[1].toLowerCase();
+        const elementStart = opening.index;
+        const closing = new RegExp(`<\\/${tagName}>`, 'i').exec(buffer.slice(elementStart));
+        if (!closing) {
+          buffer = buffer.slice(elementStart);
+          if (buffer.length > 2_000_000) {
+            throw new Error(`Geçersiz XMLTV: <${tagName}> elemanı tamamlanamadı`);
+          }
+          return;
+        }
+
+        const elementEnd = elementStart + closing.index + closing[0].length;
+        const element = buffer.slice(elementStart, elementEnd);
+        buffer = buffer.slice(elementEnd);
+        const data = tagName === 'channel'
+          ? parser._parseChannelElement(element)
+          : parser._parseProgrammeElement(element);
+        if (data) yield { type: tagName === 'channel' ? 'channel' : 'program', data };
+      }
+    };
 
     for await (const chunk of stream) {
-      buffer += chunk.toString();
-
-      if (!tvTagFound) {
-        if (/<tv[\s>]/i.test(buffer)) {
-          tvTagFound = true;
-        }
-      }
-
-      // Extract complete <channel>...</channel> elements
-      yield* this._extractElements(buffer, 'channel', (match) => {
-        const channel = this._parseChannelElement(match);
-        return channel ? { type: 'channel', data: channel } : null;
-      });
-      // Remove processed channel elements from buffer
-      buffer = buffer.replace(/<channel\b[^>]*>[\s\S]*?<\/channel>/gi, '');
-
-      // Extract complete <programme>...</programme> elements
-      yield* this._extractElements(buffer, 'programme', (match) => {
-        const program = this._parseProgrammeElement(match);
-        return program ? { type: 'program', data: program } : null;
-      });
-      // Remove processed programme elements from buffer
-      buffer = buffer.replace(/<programme\b[^>]*>[\s\S]*?<\/programme>/gi, '');
+      append(decoder.write(chunk));
+      yield* extractAvailable(this);
     }
-
-    // Process any remaining complete elements in buffer
-    yield* this._extractElements(buffer, 'channel', (match) => {
-      const channel = this._parseChannelElement(match);
-      return channel ? { type: 'channel', data: channel } : null;
-    });
-    buffer = buffer.replace(/<channel\b[^>]*>[\s\S]*?<\/channel>/gi, '');
-
-    yield* this._extractElements(buffer, 'programme', (match) => {
-      const program = this._parseProgrammeElement(match);
-      return program ? { type: 'program', data: program } : null;
-    });
+    append(decoder.end());
+    yield* extractAvailable(this);
 
     if (!tvTagFound) {
       throw new Error('Geçersiz XMLTV: <tv> kök elemanı bulunamadı');
+    }
+    if (!documentEnd.toLowerCase().endsWith('</tv>')) {
+      throw new Error('Geçersiz XMLTV: </tv> kapanış etiketi bulunamadı; içerik kesilmiş olabilir');
+    }
+    const incomplete = /<(channel|programme)\b/i.exec(buffer);
+    if (incomplete) {
+      throw new Error(`Geçersiz XMLTV: <${incomplete[1].toLowerCase()}> elemanı tamamlanamadı`);
     }
   }
 

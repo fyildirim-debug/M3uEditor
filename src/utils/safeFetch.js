@@ -173,10 +173,114 @@ async function safeFetchJson(input, options) {
   }
 }
 
+/**
+ * Fetch a remote response without buffering its body. Redirects are resolved
+ * recursively so every destination receives the same DNS/IP validation and
+ * pinned lookup as requestBuffer. The returned stream enforces the byte limit
+ * after decompression and keeps the timeout active until the body is consumed.
+ */
+async function requestStream(input, options = {}, redirectCount = 0) {
+  const { Readable } = require('stream');
+  const url = parseRemoteUrl(input);
+  const resolved = await resolvePublicAddress(url.hostname);
+  const maxBytes = options.maxBytes || 10 * 1024 * 1024;
+  const timeoutMs = options.timeoutMs || 30_000;
+
+  return new Promise((resolve, reject) => {
+    const transport = url.protocol === 'https:' ? https : http;
+    const request = transport.request(url, {
+      method: options.method || 'GET',
+      headers: {
+        accept: options.accept || '*/*',
+        'accept-encoding': 'gzip, deflate, br',
+        'user-agent': 'M3UEditor/1.0',
+        ...options.headers,
+      },
+      lookup: createPinnedLookup(resolved),
+    });
+    let bodyStream;
+    let settled = false;
+    const timeoutError = () => createAppError('XTREAM_CONNECTION_FAILED', 'Uzak sunucu zaman aşımına uğradı');
+    const timer = setTimeout(() => {
+      const error = timeoutError();
+      request.destroy(error);
+      if (bodyStream) bodyStream.destroy(error);
+    }, timeoutMs);
+    const fail = (error) => {
+      clearTimeout(timer);
+      if (!settled) {
+        settled = true;
+        reject(error?.statusCode ? error : createAppError('XTREAM_CONNECTION_FAILED', error.message));
+      }
+    };
+
+    request.on('response', (response) => {
+      if (REDIRECT_CODES.has(response.statusCode) && response.headers.location) {
+        response.resume();
+        clearTimeout(timer);
+        if (redirectCount >= MAX_REDIRECTS) {
+          fail(createAppError('VALIDATION_ERROR', 'Çok fazla yönlendirme alındı'));
+          return;
+        }
+        const redirected = new URL(response.headers.location, url).toString();
+        requestStream(redirected, options, redirectCount + 1).then(resolve, reject);
+        settled = true;
+        return;
+      }
+
+      const isHead = (options.method || 'GET') === 'HEAD';
+      const declaredLength = Number(response.headers['content-length']);
+      if (!isHead && Number.isFinite(declaredLength) && declaredLength > maxBytes) {
+        response.destroy();
+        fail(createAppError('VALIDATION_ERROR', 'Uzak içerik izin verilen boyutu aşıyor'));
+        return;
+      }
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        response.resume();
+        const httpError = createAppError('XTREAM_CONNECTION_FAILED', `Uzak sunucu HTTP ${response.statusCode} döndürdü`);
+        httpError.remoteStatus = response.statusCode;
+        fail(httpError);
+        return;
+      }
+      if (isHead) {
+        response.resume();
+        clearTimeout(timer);
+        settled = true;
+        resolve({ status: response.statusCode, headers: response.headers, stream: Readable.from([]), url: url.toString() });
+        return;
+      }
+
+      const decoded = decompressedStream(response);
+      let received = 0;
+      const limiter = Readable.from((async function* limitedBody() {
+        for await (const chunk of decoded) {
+          received += chunk.length;
+          if (received > maxBytes) {
+            throw createAppError('VALIDATION_ERROR', 'Uzak içerik izin verilen boyutu aşıyor');
+          }
+          yield chunk;
+        }
+      }()));
+      bodyStream = limiter;
+      // Preserve the error on the stream for async consumers while preventing
+      // a timeout between response resolution and iteration from becoming an
+      // unhandled EventEmitter error.
+      limiter.on('error', () => {});
+      limiter.on('end', () => clearTimeout(timer));
+      limiter.on('close', () => clearTimeout(timer));
+      settled = true;
+      resolve({ status: response.statusCode, headers: response.headers, stream: limiter, url: url.toString() });
+    });
+    request.on('error', fail);
+    request.end();
+  });
+}
+
 module.exports = {
   requestBuffer,
   safeFetchText,
   safeFetchJson,
+  requestStream,
   parseRemoteUrl,
   isBlockedIp,
   resolvePublicAddress,

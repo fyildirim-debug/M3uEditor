@@ -125,6 +125,16 @@ describe('EPGParser', () => {
       expect(() => parser.parse(xml)).toThrow('<tv> kök elemanı bulunamadı');
     });
 
+    it('should reject a truncated document even when it has a valid prefix', () => {
+      const xml = '<tv><channel id="ch1"><display-name>News</display-name></channel>';
+      expect(() => parser.parse(xml)).toThrow('</tv> kapanış etiketi bulunamadı');
+    });
+
+    it('should reject an unclosed programme before an apparent root close', () => {
+      const xml = '<tv><programme start="20240101120000 +0000" channel="ch1"><title>Cut</title></tv>';
+      expect(() => parser.parse(xml)).toThrow('<programme> elemanı tamamlanamadı');
+    });
+
     it('should skip channels without id attribute', () => {
       const xml = `<tv>
   <channel>
@@ -246,6 +256,37 @@ describe('EPGParser', () => {
           items.push(item);
         }
       }).rejects.toThrow('<tv> kök elemanı bulunamadı');
+    });
+
+    it('should reject a truncated stream after yielding only staged items', async () => {
+      const xml = '<tv><channel id="ch1"><display-name>News</display-name></channel>'
+        + '<programme start="20240101120000 +0000" channel="ch1"><title>cut';
+      const items = [];
+
+      await expect(async () => {
+        for await (const item of parser.parseStream(createStream(xml))) items.push(item);
+      }).rejects.toThrow('</tv> kapanış etiketi bulunamadı');
+      expect(items).toEqual([{ type: 'channel', data: expect.objectContaining({ channelId: 'ch1' }) }]);
+    });
+
+    it('should reject an unclosed streamed element before an apparent root close', async () => {
+      const xml = '<tv><programme start="20240101120000 +0000" channel="ch1"><title>Cut</title></tv>';
+      await expect(async () => {
+        for await (const _item of parser.parseStream(createStream(xml))) { /* staged only */ }
+      }).rejects.toThrow('<programme> elemanı tamamlanamadı');
+    });
+
+    it('should decode UTF-8 characters split across stream chunks', async () => {
+      const prefix = Buffer.from('<tv><channel id="ch1"><display-name>Haber ');
+      const suffix = Buffer.from('İstanbul</display-name></channel></tv>');
+      const splitAt = suffix.indexOf(Buffer.from('İ')) + 1;
+      const items = [];
+
+      for await (const item of parser.parseStream(createChunkedStream([
+        prefix, suffix.subarray(0, splitAt), suffix.subarray(splitAt),
+      ]))) items.push(item);
+
+      expect(items[0].data.displayName).toBe('Haber İstanbul');
     });
 
     it('should yield multiple channels and programs', async () => {
