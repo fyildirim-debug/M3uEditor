@@ -71,7 +71,12 @@ const config = {
     epgBytes: parsePositiveInteger(process.env.MAX_EPG_BYTES, 100 * 1024 * 1024),
     xtreamBytes: parsePositiveInteger(process.env.MAX_XTREAM_BYTES, 256 * 1024 * 1024),
   },
+  imports: {
+    maxConcurrent: Math.min(parsePositiveInteger(process.env.MAX_CONCURRENT_IMPORTS, 4), 64),
+    jobTtlMs: parsePositiveInteger(process.env.IMPORT_JOB_TTL_MS, 10 * 60_000),
+  },
   xtream: {
+    totalTimeoutMs: parsePositiveInteger(process.env.XTREAM_TOTAL_TIMEOUT_MS, 120_000),
     categoryConcurrency: Math.min(parsePositiveInteger(process.env.XTREAM_CATEGORY_CONCURRENCY, 8), 32),
     typeConcurrency: Math.min(parsePositiveInteger(process.env.XTREAM_TYPE_CONCURRENCY, 2), 3),
   },

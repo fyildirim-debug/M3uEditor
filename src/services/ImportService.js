@@ -11,6 +11,13 @@ const CATEGORY_BATCH_SIZE = 1000;
 const DELETE_BATCH_SIZE = 5000;
 const VALID_STREAM_TYPES = new Set(['live', 'vod', 'series']);
 
+function throwIfCancelled(jobContext) {
+  const signal = jobContext?.signal;
+  if (!signal?.aborted) return;
+  if (signal.reason?.statusCode) throw signal.reason;
+  throw createAppError('IMPORT_CANCELLED');
+}
+
 class ImportService {
   _normalizeTypes(types) {
     const normalized = [...new Set((Array.isArray(types) ? types : ['live']).filter((type) => VALID_STREAM_TYPES.has(type)))];
@@ -18,11 +25,16 @@ class ImportService {
     return normalized;
   }
 
-  async _fetchXtream(credentials) {
+  async _fetchXtream(credentials, jobContext) {
+    throwIfCancelled(jobContext);
     const streamTypes = this._normalizeTypes(credentials.streamTypes);
-    const client = new XtreamClient(credentials.serverUrl, credentials.username, credentials.password);
+    const client = new XtreamClient(credentials.serverUrl, credentials.username, credentials.password, {
+      signal: jobContext?.signal,
+    });
     await client.authenticate();
+    throwIfCancelled(jobContext);
     const data = await client.getAllChannels(streamTypes);
+    throwIfCancelled(jobContext);
     return { ...data, client, streamTypes };
   }
 
@@ -100,14 +112,16 @@ class ImportService {
     return { stale, skippedTypes };
   }
 
-  async importFromXtream(userId, credentials, onProgress, playlistId) {
+  async importFromXtream(userId, credentials, onProgress, playlistId, jobContext) {
     const startedAt = Date.now();
-    const { categories, channels, client, streamTypes, types } = await this._fetchXtream(credentials);
+    const { categories, channels, client, streamTypes, types } = await this._fetchXtream(credentials, jobContext);
+    throwIfCancelled(jobContext);
     const normalizedServerUrl = client.serverUrl;
     const completedTypes = this._completedTypes(types, streamTypes);
     const failedTypes = streamTypes.filter((type) => !completedTypes.includes(type));
 
     const result = await db.transaction(async (trx) => {
+      throwIfCancelled(jobContext);
       let playlist;
       if (playlistId) {
         playlist = await trx('playlists').where({ id: playlistId, user_id: userId }).first();
@@ -135,14 +149,16 @@ class ImportService {
         : [];
       const existingKeys = new Set(existing.map((channel) => `${channel.stream_type}:${channel.source_id}`));
 
-      const categoryMap = await this._upsertCategories(playlist.id, categories, trx);
+      throwIfCancelled(jobContext);
+      const categoryMap = await this._upsertCategories(playlist.id, categories, trx, jobContext);
       const records = channels.map((channel, index) => this._recordForChannel(playlist.id, channel, categoryMap, client, index));
-      await this._bulkUpsertChannels(playlist.id, records, onProgress, trx);
+      await this._bulkUpsertChannels(playlist.id, records, onProgress, trx, jobContext);
 
       const fetchedKeys = new Set(records.map((channel) => `${channel.stream_type}:${channel.source_id}`));
       const { stale, skippedTypes } = this._planStaleRemovals(existing, fetchedKeys, completedTypes);
       let removed = 0;
       for (let index = 0; index < stale.length; index += DELETE_BATCH_SIZE) {
+        throwIfCancelled(jobContext);
         const batch = stale.slice(index, index + DELETE_BATCH_SIZE);
         removed += await trx('channels')
           .where({ playlist_id: playlist.id })
@@ -174,12 +190,15 @@ class ImportService {
       logger.warn({ userId, playlistId: result.playlistId, failedTypes }, 'Xtream import completed partially; failed types were left untouched');
     }
 
+    throwIfCancelled(jobContext);
     this._scheduleEpg(userId, result.playlistId, client.getXmltvUrl());
     return { ...result, duration: Date.now() - startedAt };
   }
 
-  async syncFromXtream(userId, playlistId, onProgress) {
+  async syncFromXtream(userId, playlistId, onProgress, jobContext) {
+    throwIfCancelled(jobContext);
     const playlist = await db('playlists').where({ id: playlistId, user_id: userId }).first();
+    throwIfCancelled(jobContext);
     if (!playlist) throw createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı');
     if (!playlist.xtream_server_url || !playlist.xtream_username || !playlist.xtream_password_enc) {
       throw createAppError('VALIDATION_ERROR', 'Bu oynatma listesinde Xtream kaynağı yok');
@@ -190,12 +209,14 @@ class ImportService {
       username: playlist.xtream_username,
       password,
       streamTypes: this._parseStoredTypes(playlist.xtream_stream_types),
-    }, onProgress, playlistId);
+    }, onProgress, playlistId, jobContext);
   }
 
-  async addStreamTypes(userId, playlistId, newTypes) {
+  async addStreamTypes(userId, playlistId, newTypes, jobContext) {
     const startedAt = Date.now();
+    throwIfCancelled(jobContext);
     const playlist = await db('playlists').where({ id: playlistId, user_id: userId }).first();
+    throwIfCancelled(jobContext);
     if (!playlist) throw createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı');
     if (!playlist.xtream_server_url || !playlist.xtream_username || !playlist.xtream_password_enc) {
       throw createAppError('VALIDATION_ERROR', 'Bu oynatma listesinde Xtream kaynağı yok');
@@ -211,21 +232,22 @@ class ImportService {
       username: playlist.xtream_username,
       password,
       streamTypes: typesToAdd,
-    });
+    }, jobContext);
 
     // Yalnızca eksiksiz çekilebilen türler kalıcı olarak listeye eklenir.
     const completedTypes = this._completedTypes(types, typesToAdd);
     const failedTypes = typesToAdd.filter((type) => !completedTypes.includes(type));
 
     const added = await db.transaction(async (trx) => {
-      const categoryMap = await this._upsertCategories(playlist.id, categories, trx);
+      throwIfCancelled(jobContext);
+      const categoryMap = await this._upsertCategories(playlist.id, categories, trx, jobContext);
       const maxSort = await trx('channels').where({ playlist_id: playlistId }).max('sort_order as max').first();
       const records = channels.map((channel, index) => this._recordForChannel(playlist.id, channel, categoryMap, client, (maxSort?.max ?? -1) + 1 + index));
       const existing = completedTypes.length
         ? await trx('channels').where({ playlist_id: playlistId }).whereIn('stream_type', completedTypes).whereNotNull('source_id').select('source_id', 'stream_type')
         : [];
       const keys = new Set(existing.map((channel) => `${channel.stream_type}:${channel.source_id}`));
-      await this._bulkUpsertChannels(playlistId, records, null, trx);
+      await this._bulkUpsertChannels(playlistId, records, null, trx, jobContext);
       await trx('playlists').where({ id: playlistId }).update({
         xtream_stream_types: JSON.stringify([...new Set([...existingTypes, ...completedTypes])]),
         last_synced_at: trx.fn.now(),
@@ -276,7 +298,8 @@ class ImportService {
     return playlist;
   }
 
-  async _upsertCategories(playlistId, categories, connection = db) {
+  async _upsertCategories(playlistId, categories, connection = db, jobContext) {
+    throwIfCancelled(jobContext);
     const categoryMap = {};
     if (!categories.length) return categoryMap;
 
@@ -289,6 +312,7 @@ class ImportService {
     const rowsByName = new Map();
 
     for (let index = 0; index < names.length; index += DELETE_BATCH_SIZE) {
+      throwIfCancelled(jobContext);
       const existingRows = await connection('categories')
         .where({ playlist_id: playlistId })
         .whereIn('name', names.slice(index, index + DELETE_BATCH_SIZE))
@@ -314,6 +338,7 @@ class ImportService {
     }
 
     for (let index = 0; index < rowsToInsert.length; index += CATEGORY_BATCH_SIZE) {
+      throwIfCancelled(jobContext);
       await connection('categories').insert(rowsToInsert.slice(index, index + CATEGORY_BATCH_SIZE));
     }
 
@@ -323,7 +348,8 @@ class ImportService {
     return categoryMap;
   }
 
-  async _bulkUpsertChannels(playlistId, channelRecords, onProgress, connection = db) {
+  async _bulkUpsertChannels(playlistId, channelRecords, onProgress, connection = db, jobContext) {
+    throwIfCancelled(jobContext);
     const uniqueRecords = [...new Map(channelRecords.map((record) => [`${record.stream_type}:${record.source_id || record.stream_url}`, record])).values()];
     const conflictClause = channelRecords.some((record) => record.source_id)
       ? `ON CONFLICT (playlist_id, stream_type, source_id) WHERE source_id IS NOT NULL DO UPDATE SET
@@ -340,6 +366,7 @@ class ImportService {
           logo_url = CASE WHEN channels.logo_url IS NOT DISTINCT FROM channels.original_logo_url THEN EXCLUDED.logo_url ELSE channels.logo_url END`;
 
     for (let index = 0; index < uniqueRecords.length; index += CHANNEL_BATCH_SIZE) {
+      throwIfCancelled(jobContext);
       const batch = uniqueRecords.slice(index, index + CHANNEL_BATCH_SIZE);
       const { sql, bindings } = connection('channels').insert(batch).toSQL();
       await connection.raw(`${sql} ${conflictClause}`, bindings);
@@ -347,20 +374,27 @@ class ImportService {
     }
   }
 
-  async importFromM3U(userId, m3uContent, playlistId, playlistName) {
+  async importFromM3U(userId, m3uContent, playlistId, playlistName, jobContext) {
     const startedAt = Date.now();
+    throwIfCancelled(jobContext);
     const M3UParser = require('../parsers/M3UParser');
     const { channels } = new M3UParser().parse(m3uContent);
     if (!channels.length) throw createAppError('VALIDATION_ERROR', 'M3U içeriğinde kanal bulunamadı');
 
     const result = await db.transaction(async (trx) => {
+      throwIfCancelled(jobContext);
       let playlist;
       if (playlistId) playlist = await trx('playlists').where({ id: playlistId, user_id: userId }).first();
       else [playlist] = await trx('playlists').insert({ id: uuidv4(), user_id: userId, name: String(playlistName || 'M3U İçeri Aktarımı').slice(0, 255) }).returning('*');
       if (!playlist) throw createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı');
 
       const groups = [...new Set(channels.map((channel) => channel.group).filter(Boolean))];
-      const categoryMap = await this._upsertCategories(playlist.id, groups.map((name, index) => ({ category_id: String(index), category_name: name })), trx);
+      const categoryMap = await this._upsertCategories(
+        playlist.id,
+        groups.map((name, index) => ({ category_id: String(index), category_name: name })),
+        trx,
+        jobContext
+      );
       const groupIds = Object.fromEntries(groups.map((name, index) => [name, categoryMap[String(index)]]));
       const records = channels.map((channel, index) => ({
         id: uuidv4(), playlist_id: playlist.id, source_id: null,
@@ -369,7 +403,7 @@ class ImportService {
         epg_channel_id: channel.epgId || null, category_id: channel.group ? groupIds[channel.group] || null : null,
         sort_order: index, stream_type: 'live', extras: JSON.stringify(channel.extras || {}),
       }));
-      await this._bulkUpsertChannels(playlist.id, records, null, trx);
+      await this._bulkUpsertChannels(playlist.id, records, null, trx, jobContext);
       return { playlistId: playlist.id, totalChannels: records.length, totalCategories: groups.length };
     });
     return { ...result, duration: Date.now() - startedAt };

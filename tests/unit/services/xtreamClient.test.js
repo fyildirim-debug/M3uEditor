@@ -152,6 +152,64 @@ describe('XtreamClient', () => {
     expect(mockSafeFetchJson).toHaveBeenCalledTimes(2);
   });
 
+  test('shares one deadline and byte budget across authentication and category requests', async () => {
+    mockSafeFetchJson
+      .mockResolvedValueOnce({ data: { user_info: { auth: 1 }, server_info: {} } })
+      .mockResolvedValueOnce({ data: [{ category_id: '1', category_name: 'News' }] });
+    const client = new XtreamClient('https://example.com', 'u', 'p', {
+      timeout: 5000,
+      maxBytes: 2048,
+      maxRetries: 1,
+    });
+
+    await client.authenticate();
+    await client.getLiveCategories();
+
+    const firstOptions = mockSafeFetchJson.mock.calls[0][1];
+    const secondOptions = mockSafeFetchJson.mock.calls[1][1];
+    expect(secondOptions.deadline).toBe(firstOptions.deadline);
+    expect(secondOptions.byteBudget).toBe(firstOptions.byteBudget);
+    expect(firstOptions.byteBudget).toEqual({ remaining: 2048 });
+  });
+
+  test('does not retry after the shared absolute budget is exhausted', async () => {
+    const exhausted = Object.assign(new Error('budget exhausted'), {
+      code: 'XTREAM_CONNECTION_FAILED',
+      budgetExhausted: true,
+      budgetType: 'deadline',
+    });
+    mockSafeFetchJson.mockRejectedValue(exhausted);
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 3, baseDelay: 0 });
+
+    await expect(client.getLiveCategories()).rejects.toBe(exhausted);
+    expect(mockSafeFetchJson).toHaveBeenCalledTimes(1);
+  });
+
+  test('retries a remote 408 because it is not a deterministic client failure', async () => {
+    const timedOut = Object.assign(new Error('remote timeout'), {
+      code: 'XTREAM_CONNECTION_FAILED', remoteStatus: 408,
+    });
+    mockSafeFetchJson
+      .mockRejectedValueOnce(timedOut)
+      .mockResolvedValueOnce({ data: [] });
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 2, baseDelay: 0 });
+
+    await expect(client.getLiveCategories()).resolves.toEqual([]);
+    expect(mockSafeFetchJson).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not start another remote request after cancellation', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const client = new XtreamClient('https://example.com', 'u', 'p', {
+      signal: controller.signal,
+      maxRetries: 3,
+    });
+
+    await expect(client.getLiveCategories()).rejects.toMatchObject({ code: 'IMPORT_CANCELLED' });
+    expect(mockSafeFetchJson).not.toHaveBeenCalled();
+  });
+
   test('marks a transiently failing optional type as failed instead of returning it empty', async () => {
     const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 1, baseDelay: 0 });
     jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: '1', category_name: 'Live' }]);

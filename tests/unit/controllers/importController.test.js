@@ -63,7 +63,13 @@ describe('Import Controller', () => {
         totalCategories: 25,
         duration: 3200,
       });
-      expect(mockImportFromXtream).toHaveBeenCalledWith(USER_ID, validBody, undefined, PLAYLIST_ID);
+      expect(mockImportFromXtream).toHaveBeenCalledWith(
+        USER_ID,
+        validBody,
+        undefined,
+        PLAYLIST_ID,
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
     });
 
     it('should return 400 when serverUrl is missing', async () => {
@@ -125,7 +131,12 @@ describe('Import Controller', () => {
         removed: 10,
         duration: 4500,
       });
-      expect(mockSyncFromXtream).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID);
+      expect(mockSyncFromXtream).toHaveBeenCalledWith(
+        USER_ID,
+        PLAYLIST_ID,
+        undefined,
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
     });
 
     it('should return 401 without token', async () => {

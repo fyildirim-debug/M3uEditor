@@ -73,9 +73,18 @@ describe('ERROR_CODES', () => {
       'VALIDATION_ERROR', 'INVALID_CREDENTIALS', 'TOKEN_EXPIRED',
       'FORBIDDEN', 'NOT_FOUND', 'XTREAM_CONNECTION_FAILED',
       'XTREAM_AUTH_FAILED', 'EPG_FETCH_FAILED', 'IMPORT_FAILED',
+      'IMPORT_IN_PROGRESS', 'IMPORT_CANCELLED', 'IMPORT_CAPACITY_REACHED',
       'INTERNAL_ERROR',
     ];
     expect(Object.keys(ERROR_CODES).sort()).toEqual(expectedCodes.sort());
+  });
+
+  test.each([
+    ['IMPORT_IN_PROGRESS', 409],
+    ['IMPORT_CANCELLED', 499],
+    ['IMPORT_CAPACITY_REACHED', 503],
+  ])('maps %s to HTTP %i', (code, statusCode) => {
+    expect(ERROR_CODES[code].statusCode).toBe(statusCode);
   });
 
   test.each([

@@ -2,28 +2,50 @@ const { createAppError } = require('../utils/AppError');
 const config = require('../config');
 const { safeFetchJson, parseRemoteUrl } = require('../utils/safeFetch');
 
-const DEFAULT_TIMEOUT = 120000; // 120 saniye - büyük kanal listeleri için
+const DEFAULT_TIMEOUT = 120000; // Geriye dönük yapılandırma yedeği
 const MAX_RETRIES = 3; // Toplam deneme sayısı (1 ilk deneme + 2 yeniden deneme)
 const BASE_DELAY = 2000; // 2 saniye (exponential backoff başlangıcı)
 
 // Yeniden denemenin sonucu değiştirmeyeceği hatalar: istek/adres kalıcı olarak geçersiz.
-const NON_RETRYABLE_CODES = new Set(['VALIDATION_ERROR', 'FORBIDDEN']);
+const NON_RETRYABLE_CODES = new Set([
+  'VALIDATION_ERROR',
+  'FORBIDDEN',
+  'IMPORT_CANCELLED',
+  'IMPORT_IN_PROGRESS',
+]);
+const RETRYABLE_REMOTE_STATUSES = new Set([408, 425, 429]);
+
+function cancellationError(signal) {
+  if (signal?.reason?.statusCode) return signal.reason;
+  const error = createAppError('IMPORT_CANCELLED');
+  error.name = 'AbortError';
+  return error;
+}
+
+function isCancellation(error) {
+  return error?.code === 'IMPORT_CANCELLED' || error?.name === 'AbortError';
+}
+
+function isTerminalBudgetError(error) {
+  return isCancellation(error) || error?.budgetExhausted === true;
+}
 
 /**
  * Aynı istek tekrarlandığında farklı bir sonuç verme ihtimali var mı?
- * 4xx (429 hariç) kalıcı istemci hatasıdır; tekrar denemek sağlayıcıyı boş yere yorar.
+ * 4xx yanıtlarının yalnızca geçici kabul edilen 408/425/429 türleri yeniden denenir.
  * @param {Error & { code?: string, remoteStatus?: number }} error
  * @returns {boolean}
  */
 function isRetryable(error) {
   if (!error) return false;
+  if (isTerminalBudgetError(error)) return false;
   if (NON_RETRYABLE_CODES.has(error.code)) return false;
   const status = error.remoteStatus;
-  if (typeof status === 'number' && status >= 400 && status < 500 && status !== 429) return false;
+  if (typeof status === 'number' && status >= 400 && status < 500 && !RETRYABLE_REMOTE_STATUSES.has(status)) return false;
   return true;
 }
 
-async function mapWithConcurrency(items, concurrency, worker) {
+async function mapWithConcurrency(items, concurrency, worker, signal) {
   if (!items.length) return [];
   const results = new Array(items.length);
   let nextIndex = 0;
@@ -31,6 +53,7 @@ async function mapWithConcurrency(items, concurrency, worker) {
 
   await Promise.all(Array.from({ length: workerCount }, async () => {
     while (nextIndex < items.length) {
+      if (signal?.aborted) throw cancellationError(signal);
       const index = nextIndex;
       nextIndex += 1;
       results[index] = await worker(items[index], index);
@@ -50,17 +73,57 @@ class XtreamClient {
    * @param {string} username - API kullanıcı adı
    * @param {string} password - API şifresi
    * @param {object} [options] - Opsiyonel yapılandırma
-   * @param {number} [options.timeout] - İstek timeout ms (varsayılan: 60000)
-   * @param {number} [options.maxRetries] - Maksimum retry sayısı (varsayılan: 2)
-   * @param {number} [options.baseDelay] - Exponential backoff başlangıç gecikmesi ms (varsayılan: 1000)
+   * @param {number} [options.timeout] - Tüm istemci çağrıları için toplam süre bütçesi (varsayılan: 120000)
+   * @param {number} [options.maxRetries] - Toplam deneme sayısı (varsayılan: 3)
+   * @param {number} [options.baseDelay] - Exponential backoff başlangıç gecikmesi ms (varsayılan: 2000)
+   * @param {{ remaining: number }} [options.byteBudget] - Tüm çağrıların paylaştığı bayt sayacı
+   * @param {AbortSignal} [options.signal] - İşi ve etkin uzak istekleri iptal eder
    */
   constructor(serverUrl, username, password, options = {}) {
     this.serverUrl = parseRemoteUrl(serverUrl).toString().replace(/\/+$/, '');
     this.username = username;
     this.password = password;
-    this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
+    this.timeout = options.timeout ?? config.xtream.totalTimeoutMs ?? DEFAULT_TIMEOUT;
     this.maxRetries = options.maxRetries ?? MAX_RETRIES;
     this.baseDelay = options.baseDelay ?? BASE_DELAY;
+    this.maxBytes = options.maxBytes ?? config.limits.xtreamBytes;
+    this.deadline = options.deadline ?? Date.now() + this.timeout;
+    this.byteBudget = typeof options.byteBudget === 'number'
+      ? { remaining: options.byteBudget }
+      : options.byteBudget ?? { remaining: this.maxBytes };
+    this.signal = options.signal;
+  }
+
+  _budgetError() {
+    const error = createAppError('XTREAM_CONNECTION_FAILED', 'Xtream API toplam istek bütçesi tükendi');
+    error.budgetExhausted = true;
+    error.budgetType = this.byteBudget.remaining <= 0 ? 'bytes' : 'deadline';
+    return error;
+  }
+
+  _assertActive() {
+    if (this.signal?.aborted) throw cancellationError(this.signal);
+    if (Date.now() >= this.deadline || this.byteBudget.remaining <= 0) throw this._budgetError();
+  }
+
+  async _waitBeforeRetry(delay) {
+    this._assertActive();
+    if (delay <= 0) return;
+    const remaining = this.deadline - Date.now();
+    if (delay >= remaining) throw this._budgetError();
+
+    await new Promise((resolve, reject) => {
+      const onAbort = () => {
+        clearTimeout(timer);
+        this.signal?.removeEventListener('abort', onAbort);
+        reject(cancellationError(this.signal));
+      };
+      const timer = setTimeout(() => {
+        this.signal?.removeEventListener('abort', onAbort);
+        resolve();
+      }, delay);
+      this.signal?.addEventListener('abort', onAbort, { once: true });
+    });
   }
 
   /**
@@ -87,10 +150,19 @@ class XtreamClient {
 
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       try {
-        const response = await safeFetchJson(url, { timeoutMs: this.timeout, maxBytes: config.limits.xtreamBytes });
+        this._assertActive();
+        const response = await safeFetchJson(url, {
+          timeoutMs: this.timeout,
+          maxBytes: this.maxBytes,
+          deadline: this.deadline,
+          byteBudget: this.byteBudget,
+          signal: this.signal,
+        });
         return response.data;
       } catch (err) {
         lastError = err;
+
+        if (isTerminalBudgetError(err)) throw err;
 
         // Kalıcı hatalarda (geçersiz adres, 4xx) tekrar denemek anlamsız
         if (!isRetryable(err)) break;
@@ -98,15 +170,13 @@ class XtreamClient {
         // Son denemede retry yapma
         if (attempt < this.maxRetries - 1) {
           const delay = this.baseDelay * Math.pow(2, attempt);
-          await new Promise((resolve) => setTimeout(resolve, delay));
+          await this._waitBeforeRetry(delay);
         }
       }
     }
 
     // Tüm denemeler tükendi
-    if (lastError && lastError.name === 'AbortError') {
-      throw createAppError('XTREAM_CONNECTION_FAILED', 'Xtream API bağlantı zaman aşımına uğradı');
-    }
+    if (isTerminalBudgetError(lastError)) throw lastError;
     throw createAppError('XTREAM_CONNECTION_FAILED', lastError?.message || 'Xtream API bağlantı hatası');
   }
 
@@ -164,6 +234,7 @@ class XtreamClient {
       const data = await this._fetchWithRetry(url);
       return Array.isArray(data) ? data : [];
     } catch (error) {
+      if (isTerminalBudgetError(error)) throw error;
       // VOD desteklenmiyorsa boş dön
       if (suppressErrors) return [];
       throw error;
@@ -185,6 +256,7 @@ class XtreamClient {
       const data = await this._fetchWithRetry(url);
       return Array.isArray(data) ? data : [];
     } catch (error) {
+      if (isTerminalBudgetError(error)) throw error;
       // VOD desteklenmiyorsa boş dön
       if (suppressErrors) return [];
       throw error;
@@ -201,6 +273,7 @@ class XtreamClient {
       const data = await this._fetchWithRetry(url);
       return Array.isArray(data) ? data : [];
     } catch (error) {
+      if (isTerminalBudgetError(error)) throw error;
       // Series desteklenmiyorsa boş dön
       if (suppressErrors) return [];
       throw error;
@@ -222,6 +295,7 @@ class XtreamClient {
       const data = await this._fetchWithRetry(url);
       return Array.isArray(data) ? data : [];
     } catch (error) {
+      if (isTerminalBudgetError(error)) throw error;
       // Series desteklenmiyorsa boş dön
       if (suppressErrors) return [];
       throw error;
@@ -236,6 +310,7 @@ class XtreamClient {
       const result = await getStreams();
       bulkStreams = Array.isArray(result) ? result : [];
     } catch (error) {
+      if (isTerminalBudgetError(error)) throw error;
       bulkError = error;
     }
 
@@ -269,9 +344,11 @@ class XtreamClient {
             : [];
           return { streams, error: null };
         } catch (error) {
+          if (isTerminalBudgetError(error)) throw error;
           return { streams: [], error };
         }
-      }
+      },
+      this.signal
     );
     const fallbackError = outcomes.find((outcome) => outcome.error)?.error;
     if (fallbackError) throw fallbackError;
@@ -374,6 +451,7 @@ class XtreamClient {
         error: null,
       };
     } catch (error) {
+      if (isTerminalBudgetError(error)) throw error;
       return { type, status: 'failed', categories: [], channels: [], error };
     }
   }
@@ -396,7 +474,8 @@ class XtreamClient {
     const payloads = await mapWithConcurrency(
       selectedTypes,
       config.xtream.typeConcurrency,
-      (type) => this._getTypePayload(type)
+      (type) => this._getTypePayload(type),
+      this.signal
     );
 
     const completed = payloads.filter((payload) => payload.status === 'complete');
@@ -437,7 +516,10 @@ class XtreamClient {
   async getVodInfo(vodId) {
     try {
       return await this._fetchWithRetry(this._buildUrl({ action: 'get_vod_info', vod_id: vodId }));
-    } catch { return null; }
+    } catch (error) {
+      if (isTerminalBudgetError(error)) throw error;
+      return null;
+    }
   }
 
   /**
@@ -448,7 +530,10 @@ class XtreamClient {
   async getSeriesInfo(seriesId) {
     try {
       return await this._fetchWithRetry(this._buildUrl({ action: 'get_series_info', series_id: seriesId }));
-    } catch { return null; }
+    } catch (error) {
+      if (isTerminalBudgetError(error)) throw error;
+      return null;
+    }
   }
 }
 

@@ -1,4 +1,5 @@
 const http = require('http');
+const { Duplex, PassThrough } = require('stream');
 const { requestBuffer } = require('../../../src/utils/safeFetch');
 
 /**
@@ -10,6 +11,28 @@ const config = require('../../../src/config');
 let server;
 let baseUrl;
 let previousAllowPrivate;
+let originalRequest;
+let inMemoryAgent;
+
+function decorateSocket(socket) {
+  socket.setTimeout = (_timeout, callback) => {
+    if (callback) socket.once('timeout', callback);
+    return socket;
+  };
+  socket.setNoDelay = () => socket;
+  socket.setKeepAlive = () => socket;
+  socket.address = () => ({ address: '127.0.0.1', family: 'IPv4', port: 80 });
+  return socket;
+}
+
+function connectInMemory(targetServer) {
+  const clientToServer = new PassThrough();
+  const serverToClient = new PassThrough();
+  const clientSocket = decorateSocket(Duplex.from({ readable: serverToClient, writable: clientToServer }));
+  const serverSocket = decorateSocket(Duplex.from({ readable: clientToServer, writable: serverToClient }));
+  process.nextTick(() => targetServer.emit('connection', serverSocket));
+  return clientSocket;
+}
 
 beforeAll(async () => {
   previousAllowPrivate = config.allowPrivateNetworkUrls;
@@ -31,13 +54,24 @@ beforeAll(async () => {
     res.writeHead(404).end();
   });
 
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  baseUrl = `http://127.0.0.1:${server.address().port}`;
+  originalRequest = http.request;
+  inMemoryAgent = new http.Agent({ keepAlive: false });
+  inMemoryAgent.createConnection = () => connectInMemory(server);
+  http.request = (url, options = {}) => originalRequest({
+    host: '127.0.0.1',
+    port: 80,
+    path: `${url.pathname}${url.search}`,
+    method: options.method || 'GET',
+    headers: options.headers,
+    agent: inMemoryAgent,
+  });
+  baseUrl = 'http://127.0.0.1';
 });
 
-afterAll(async () => {
+afterAll(() => {
   config.allowPrivateNetworkUrls = previousAllowPrivate;
-  await new Promise((resolve) => server.close(resolve));
+  http.request = originalRequest;
+  inMemoryAgent.destroy();
 });
 
 describe('requestBuffer', () => {
