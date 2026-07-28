@@ -7,11 +7,32 @@ const ImportService = require('../../../src/services/ImportService');
 const { decrypt } = require('../../../src/utils/crypto');
 
 function transactionFixture(existingChannels = []) {
-  const captures = { updates: [], deletes: 0 };
+  const captures = { updates: [], deletes: 0, whereIns: [], deletedKeys: [] };
   const trx = jest.fn((table) => {
     const query = {};
-    for (const method of ['where', 'whereIn', 'whereNotNull']) query[method] = jest.fn(() => query);
-    query.select = jest.fn().mockResolvedValue(table === 'channels' ? existingChannels : []);
+    const exactFilters = {};
+    const inFilters = [];
+    query.where = jest.fn((column, value) => {
+      if (typeof column === 'object') Object.assign(exactFilters, column);
+      else exactFilters[column] = value;
+      return query;
+    });
+    query.whereIn = jest.fn((column, values) => {
+      captures.whereIns.push({ table, column, values });
+      inFilters.push({ column, values });
+      if (Array.isArray(column)) captures.deletedKeys.push(...values);
+      return query;
+    });
+    query.whereNotNull = jest.fn(() => query);
+    query.select = jest.fn().mockImplementation(async () => {
+      if (table !== 'channels') return [];
+      return existingChannels.filter((channel) => {
+        if (Object.entries(exactFilters).some(([key, value]) => channel[key] !== undefined && channel[key] !== value)) return false;
+        return inFilters.every(({ column, values }) => (
+          Array.isArray(column) || values.includes(channel[column])
+        ));
+      });
+    });
     query.update = jest.fn(async (payload) => { captures.updates.push({ table, payload }); return 1; });
     query.del = jest.fn(async () => { captures.deletes += 1; return 1; });
     return query;
@@ -147,6 +168,42 @@ describe('ImportService', () => {
     expect(captures.deletes).toBe(0);
     // Kismi senkronizasyon last_synced_at'i ilerletmemeli.
     expect(captures.updates.some((item) => item.payload.last_synced_at)).toBe(false);
+  });
+
+  test('reconciles only selected categories and leaves other and uncategorized channels untouched', async () => {
+    jest.spyOn(service, '_fetchXtream').mockResolvedValue({
+      categories: [{ category_id: '1', category_name: 'Category A' }],
+      channels: [{ stream_id: 2, name: 'A Current', stream_type: 'live', container_extension: 'ts', category_id: '1' }],
+      client,
+      streamTypes: ['live'],
+      scopedCategories: { live: ['1'] },
+      types: [{ type: 'live', status: 'complete', error: null }],
+    });
+    jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({ 1: 'category-a' });
+    jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
+    const { trx, captures } = transactionFixture([
+      { source_id: '1', stream_type: 'live', category_id: 'category-a' },
+      { source_id: '2', stream_type: 'live', category_id: 'category-a' },
+      { source_id: '3', stream_type: 'live', category_id: 'category-b' },
+      { source_id: '4', stream_type: 'live', category_id: null },
+    ]);
+    mockDb.transaction.mockImplementation((callback) => callback(trx));
+
+    const result = await service.importFromXtream('user-1', {
+      username: 'u', password: 'p', categories: { live: ['1'] },
+    });
+
+    expect(result).toEqual(expect.objectContaining({
+      added: 0,
+      updated: 1,
+      removed: 1,
+      scopedCategories: { live: ['1'] },
+    }));
+    expect(captures.whereIns).toContainEqual({ table: 'channels', column: 'category_id', values: ['category-a'] });
+    expect(captures.deletedKeys).toEqual([['live', '1']]);
+    expect(captures.deletedKeys).not.toContainEqual(['live', '3']);
+    expect(captures.deletedKeys).not.toContainEqual(['live', '4']);
   });
 
   test('applies partial removals but refuses to wipe an entire content type', async () => {

@@ -33,7 +33,7 @@ class ImportService {
     });
     await client.authenticate();
     throwIfCancelled(jobContext);
-    const data = await client.getAllChannels(streamTypes);
+    const data = await client.getAllChannels(streamTypes, credentials.categories);
     throwIfCancelled(jobContext);
     return { ...data, client, streamTypes };
   }
@@ -112,9 +112,55 @@ class ImportService {
     return { stale, skippedTypes };
   }
 
+  _categoryKey(type, categoryId) {
+    if (type === 'vod') return `vod_${categoryId}`;
+    if (type === 'series') return `series_${categoryId}`;
+    return String(categoryId);
+  }
+
+  /**
+   * Filtrelenmemiş türlerde bütün mevcut kaynak kayıtlarını, filtrelenmiş
+   * türlerde ise yalnızca seçilen yerel kategorilerdeki kayıtları yükler.
+   * Kategorisiz kayıtlar filtreli sorguya dahil edilmez.
+   */
+  async _loadExistingChannels(playlistId, completedTypes, scopedCategories, categoryMap, connection) {
+    const existing = [];
+    const scopedTypes = completedTypes.filter((type) => Object.prototype.hasOwnProperty.call(scopedCategories, type));
+    const unscopedTypes = completedTypes.filter((type) => !scopedTypes.includes(type));
+
+    if (unscopedTypes.length) {
+      existing.push(...await connection('channels')
+        .where({ playlist_id: playlistId })
+        .whereIn('stream_type', unscopedTypes)
+        .whereNotNull('source_id')
+        .select('source_id', 'stream_type'));
+    }
+
+    for (const type of scopedTypes) {
+      const localCategoryIds = [...new Set(scopedCategories[type]
+        .map((categoryId) => categoryMap[this._categoryKey(type, categoryId)])
+        .filter(Boolean))];
+      if (!localCategoryIds.length) continue;
+      existing.push(...await connection('channels')
+        .where({ playlist_id: playlistId, stream_type: type })
+        .whereIn('category_id', localCategoryIds)
+        .whereNotNull('source_id')
+        .select('source_id', 'stream_type'));
+    }
+
+    return existing;
+  }
+
   async importFromXtream(userId, credentials, onProgress, playlistId, jobContext) {
     const startedAt = Date.now();
-    const { categories, channels, client, streamTypes, types } = await this._fetchXtream(credentials, jobContext);
+    const {
+      categories,
+      channels,
+      client,
+      streamTypes,
+      types,
+      scopedCategories = {},
+    } = await this._fetchXtream(credentials, jobContext);
     throwIfCancelled(jobContext);
     const normalizedServerUrl = client.serverUrl;
     const completedTypes = this._completedTypes(types, streamTypes);
@@ -138,19 +184,15 @@ class ImportService {
         updated_at: trx.fn.now(),
       });
 
-      // Yalnızca eksiksiz çekilebilen türler uzlaştırılır; başarısız türün
-      // kayıtları karşılaştırmaya hiç girmez.
+      throwIfCancelled(jobContext);
+      const categoryMap = await this._upsertCategories(playlist.id, categories, trx, jobContext);
+      // Yalnızca eksiksiz çekilebilen türler uzlaştırılır. Kategori filtresi
+      // varsa seçilmeyen ve kategorisiz kayıtlar karşılaştırmaya hiç girmez.
       const existing = completedTypes.length
-        ? await trx('channels')
-          .where({ playlist_id: playlist.id })
-          .whereIn('stream_type', completedTypes)
-          .whereNotNull('source_id')
-          .select('source_id', 'stream_type')
+        ? await this._loadExistingChannels(playlist.id, completedTypes, scopedCategories, categoryMap, trx)
         : [];
       const existingKeys = new Set(existing.map((channel) => `${channel.stream_type}:${channel.source_id}`));
 
-      throwIfCancelled(jobContext);
-      const categoryMap = await this._upsertCategories(playlist.id, categories, trx, jobContext);
       const records = channels.map((channel, index) => this._recordForChannel(playlist.id, channel, categoryMap, client, index));
       await this._bulkUpsertChannels(playlist.id, records, onProgress, trx, jobContext);
 
@@ -181,6 +223,7 @@ class ImportService {
         removed,
         syncedTypes: completedTypes,
         failedTypes,
+        scopedCategories,
         skippedRemovalTypes: skippedTypes,
         partial: failedTypes.length > 0,
       };

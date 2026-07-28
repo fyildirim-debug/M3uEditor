@@ -36,6 +36,46 @@ describe('XtreamClient', () => {
     await expect(client.authenticate()).rejects.toMatchObject({ code });
   });
 
+  test('previews authentication and all category types without downloading streams', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'authenticate').mockResolvedValue({ serverInfo: { timezone: 'Europe/Istanbul' } });
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: 1, category_name: 'News' }]);
+    jest.spyOn(client, 'getVodCategories').mockResolvedValue([{ category_id: '20', category_name: 'Action' }]);
+    jest.spyOn(client, 'getSeriesCategories').mockResolvedValue([{ category_id: '40', category_name: 'Shows' }]);
+    const liveStreams = jest.spyOn(client, 'getLiveStreams');
+    const vodStreams = jest.spyOn(client, 'getVodStreams');
+    const seriesStreams = jest.spyOn(client, 'getSeriesStreams');
+
+    await expect(client.preview()).resolves.toEqual({
+      server: { url: 'https://example.com', timezone: 'Europe/Istanbul' },
+      types: {
+        live: { available: true, categories: [{ id: '1', name: 'News' }] },
+        vod: { available: true, categories: [{ id: '20', name: 'Action' }] },
+        series: { available: true, categories: [{ id: '40', name: 'Shows' }] },
+      },
+    });
+    expect(client.authenticate).toHaveBeenCalledTimes(1);
+    expect(client.getVodCategories).toHaveBeenCalledWith(false);
+    expect(client.getSeriesCategories).toHaveBeenCalledWith(false);
+    expect(liveStreams).not.toHaveBeenCalled();
+    expect(vodStreams).not.toHaveBeenCalled();
+    expect(seriesStreams).not.toHaveBeenCalled();
+  });
+
+  test('marks only the failing preview type unavailable', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'authenticate').mockResolvedValue({ serverInfo: {} });
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([]);
+    jest.spyOn(client, 'getVodCategories').mockRejectedValue(new Error('VOD unsupported'));
+    jest.spyOn(client, 'getSeriesCategories').mockResolvedValue([]);
+
+    const result = await client.preview();
+
+    expect(result.types.live).toEqual({ available: true, categories: [] });
+    expect(result.types.vod).toEqual({ available: false, categories: [], error: 'VOD unsupported' });
+    expect(result.types.series).toEqual({ available: true, categories: [] });
+  });
+
   test('retries transient failures and then succeeds', async () => {
     mockSafeFetchJson
       .mockRejectedValueOnce(new Error('reset'))
@@ -111,6 +151,69 @@ describe('XtreamClient', () => {
     expect(result.channels).toHaveLength(3);
     expect(getStreams.mock.calls.map(([categoryId]) => categoryId)).toEqual([undefined, '2', '3']);
     expect(maxActive).toBe(2);
+  });
+
+  test('fetches only explicitly selected categories and never calls the bulk stream endpoint', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([
+      { category_id: '1', category_name: 'One' },
+      { category_id: '2', category_name: 'Two' },
+      { category_id: '3', category_name: 'Three' },
+    ]);
+    const getStreams = jest.spyOn(client, 'getLiveStreams').mockImplementation(async (categoryId) => ([
+      { stream_id: Number(categoryId), name: categoryId, category_id: categoryId },
+      { stream_id: 200 + Number(categoryId), name: 'Provider ignored filter', category_id: '2' },
+    ]));
+
+    const result = await client.getAllChannels(['live'], { live: ['1', '3'] });
+
+    expect(getStreams.mock.calls.map(([categoryId]) => categoryId)).toEqual(['1', '3']);
+    expect(result.categories.map((category) => category.category_id)).toEqual(['1', '3']);
+    expect(result.channels.map((channel) => channel.stream_id)).toEqual([1, 3]);
+    expect(result.scopedCategories).toEqual({ live: ['1', '3'] });
+  });
+
+  test('keeps the bulk path when an explicit selection covers every category', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([
+      { category_id: '1', category_name: 'One' },
+      { category_id: '2', category_name: 'Two' },
+    ]);
+    const getStreams = jest.spyOn(client, 'getLiveStreams').mockResolvedValue([
+      { stream_id: 1, name: 'One', category_id: '1' },
+      { stream_id: 2, name: 'Two', category_id: '2' },
+      { stream_id: 3, name: 'Uncategorized', category_id: null },
+    ]);
+
+    const result = await client.getAllChannels(['live'], { live: ['1', '2'] });
+
+    expect(getStreams).toHaveBeenCalledTimes(1);
+    expect(getStreams).toHaveBeenCalledWith(undefined);
+    expect(result.channels.map((channel) => channel.stream_id)).toEqual([1, 2]);
+    expect(result.scopedCategories).toEqual({ live: ['1', '2'] });
+  });
+
+  test('rejects unknown selected category identifiers before downloading streams', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: '1', category_name: 'One' }]);
+    const getStreams = jest.spyOn(client, 'getLiveStreams');
+
+    await expect(client.getAllChannels(['live'], { live: ['999'] }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(getStreams).not.toHaveBeenCalled();
+  });
+
+  test('does not fetch content types omitted from streamTypes', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: '1', category_name: 'One' }]);
+    jest.spyOn(client, 'getLiveStreams').mockResolvedValue([{ stream_id: 1, name: 'One', category_id: '1' }]);
+    const vodCategories = jest.spyOn(client, 'getVodCategories');
+    const seriesCategories = jest.spyOn(client, 'getSeriesCategories');
+
+    await client.getAllChannels(['live'], { vod: ['20'], series: ['40'] });
+
+    expect(vodCategories).not.toHaveBeenCalled();
+    expect(seriesCategories).not.toHaveBeenCalled();
   });
 
   test('rejects an incomplete category fallback instead of deleting unseen provider data', async () => {

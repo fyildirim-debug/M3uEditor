@@ -8,11 +8,15 @@ jest.mock('../../../src/config/database', () => mockKnex);
 // Mock ImportService as a class
 const mockImportFromXtream = jest.fn();
 const mockSyncFromXtream = jest.fn();
+const mockPreviewXtream = jest.fn();
 jest.mock('../../../src/services/ImportService', () => {
   return jest.fn().mockImplementation(() => ({
     importFromXtream: mockImportFromXtream,
     syncFromXtream: mockSyncFromXtream,
   }));
+});
+jest.mock('../../../src/services/XtreamClient', () => {
+  return jest.fn().mockImplementation(() => ({ preview: mockPreviewXtream }));
 });
 
 const app = require('../../../src/app');
@@ -108,6 +112,89 @@ describe('Import Controller', () => {
         .send(validBody);
 
       expect(res.status).toBe(401);
+    });
+
+    it('forwards stream type and category selections to the import service', async () => {
+      mockImportFromXtream.mockResolvedValue({ totalChannels: 3, scopedCategories: { live: ['1'] } });
+      const body = {
+        ...validBody,
+        streamTypes: ['live', 'vod'],
+        categories: { live: ['1'], vod: [] },
+      };
+
+      const res = await request(app)
+        .post(`/api/playlists/${PLAYLIST_ID}/import/xtream`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(body);
+
+      expect(res.status).toBe(200);
+      expect(mockImportFromXtream).toHaveBeenCalledWith(
+        USER_ID,
+        body,
+        undefined,
+        PLAYLIST_ID,
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    });
+
+    it('rejects malformed category selections', async () => {
+      const res = await request(app)
+        .post(`/api/playlists/${PLAYLIST_ID}/import/xtream`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ ...validBody, categories: { live: '1' } });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(mockImportFromXtream).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/import/xtream/preview', () => {
+    const validBody = {
+      serverUrl: 'http://xtream.example.com',
+      username: 'testuser',
+      password: 'testpass',
+    };
+
+    it('returns category discovery without acquiring an import job', async () => {
+      mockPreviewXtream.mockResolvedValue({
+        server: { url: validBody.serverUrl, timezone: 'Europe/Istanbul' },
+        types: {
+          live: { available: true, categories: [{ id: '1', name: 'News' }] },
+          vod: { available: true, categories: [] },
+          series: { available: false, categories: [], error: 'unsupported' },
+        },
+      });
+
+      const res = await request(app)
+        .post('/api/import/xtream/preview')
+        .set('Authorization', `Bearer ${token}`)
+        .send(validBody);
+
+      expect(res.status).toBe(200);
+      expect(res.body.types.live.categories).toEqual([{ id: '1', name: 'News' }]);
+      expect(mockPreviewXtream).toHaveBeenCalledTimes(1);
+      expect(mockImportFromXtream).not.toHaveBeenCalled();
+    });
+
+    it('returns XTREAM_AUTH_FAILED for rejected provider credentials', async () => {
+      const { createAppError } = require('../../../src/utils/AppError');
+      mockPreviewXtream.mockRejectedValue(createAppError('XTREAM_AUTH_FAILED'));
+
+      const res = await request(app)
+        .post('/api/import/xtream/preview')
+        .set('Authorization', `Bearer ${token}`)
+        .send(validBody);
+
+      expect(res.status).toBe(502);
+      expect(res.body.error.code).toBe('XTREAM_AUTH_FAILED');
+    });
+
+    it('requires application authentication', async () => {
+      const res = await request(app).post('/api/import/xtream/preview').send(validBody);
+
+      expect(res.status).toBe(401);
+      expect(mockPreviewXtream).not.toHaveBeenCalled();
     });
   });
 

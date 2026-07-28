@@ -200,6 +200,47 @@ class XtreamClient {
   }
 
   /**
+   * Kimlik doğrulama ve kategori keşfi yapar. Stream listelerine dokunmaz;
+   * kategori uçlarından biri başarısız olsa bile diğer türler döndürülür.
+   * @returns {Promise<object>}
+   */
+  async preview() {
+    const { serverInfo } = await this.authenticate();
+    const definitions = [
+      ['live', () => this.getLiveCategories()],
+      ['vod', () => this.getVodCategories(false)],
+      ['series', () => this.getSeriesCategories(false)],
+    ];
+
+    const outcomes = await Promise.all(definitions.map(async ([type, loader]) => {
+      try {
+        const categories = await loader();
+        return [type, {
+          available: true,
+          categories: categories.map((category) => ({
+            id: String(category.category_id),
+            name: String(category.category_name || ''),
+          })),
+        }];
+      } catch (error) {
+        return [type, {
+          available: false,
+          categories: [],
+          error: error?.message || 'Sağlayıcı bu türü desteklemiyor',
+        }];
+      }
+    }));
+
+    return {
+      server: {
+        url: this.serverUrl,
+        timezone: serverInfo?.timezone || null,
+      },
+      types: Object.fromEntries(outcomes),
+    };
+  }
+
+  /**
    * Canlı TV kategorileri getir.
    * @returns {Promise<Array<{ category_id: string, category_name: string }>>}
    */
@@ -302,7 +343,44 @@ class XtreamClient {
     }
   }
 
-  async _getStreamsFast(categories, getStreams, getStreamId, optional = false) {
+  async _getStreamsFast(categories, getStreams, getStreamId, optional = false, selectedCategoryIds = null) {
+    const selectedIds = selectedCategoryIds ? new Set(selectedCategoryIds) : null;
+    const scopedCategories = selectedIds
+      ? categories.filter((category) => selectedIds.has(String(category.category_id)))
+      : categories;
+    const allCategoryIds = new Set(categories.map((category) => String(category.category_id)));
+    const coversAllCategories = !selectedIds
+      || (selectedIds.size === allCategoryIds.size && [...selectedIds].every((id) => allCategoryIds.has(id)));
+
+    // Alt küme seçildiyse bulk uç çağrılmaz; yalnızca istenen kategoriler
+    // kontrollü paralellikle çekilir.
+    if (!coversAllCategories) {
+      const outcomes = await mapWithConcurrency(
+        scopedCategories,
+        config.xtream.categoryConcurrency,
+        async (category) => {
+          try {
+            const result = await getStreams(category.category_id);
+            const streams = Array.isArray(result)
+              ? result.map((stream) => (
+                stream.category_id === undefined || stream.category_id === null
+                  ? { ...stream, category_id: category.category_id }
+                  : stream
+              )).filter((stream) => String(stream.category_id) === String(category.category_id))
+              : [];
+            return { streams, error: null };
+          } catch (error) {
+            if (isTerminalBudgetError(error)) throw error;
+            return { streams: [], error };
+          }
+        },
+        this.signal
+      );
+      const categoryError = outcomes.find((outcome) => outcome.error)?.error;
+      if (categoryError) throw categoryError;
+      return this._uniqueStreams(outcomes.flatMap((outcome) => outcome.streams), getStreamId);
+    }
+
     let bulkStreams = [];
     let bulkError = null;
 
@@ -321,12 +399,14 @@ class XtreamClient {
         .map(String)
     );
     const fallbackCategories = bulkStreams.length
-      ? categories.filter((category) => !coveredCategoryIds.has(String(category.category_id)))
-      : categories;
+      ? scopedCategories.filter((category) => !coveredCategoryIds.has(String(category.category_id)))
+      : scopedCategories;
 
     if (!fallbackCategories.length) {
       if (bulkError && !optional) throw bulkError;
-      return bulkStreams;
+      return selectedIds
+        ? bulkStreams.filter((stream) => selectedIds.has(String(stream.category_id)))
+        : bulkStreams;
     }
 
     const outcomes = await mapWithConcurrency(
@@ -353,24 +433,51 @@ class XtreamClient {
     const fallbackError = outcomes.find((outcome) => outcome.error)?.error;
     if (fallbackError) throw fallbackError;
 
+    const streams = [...bulkStreams, ...outcomes.flatMap((outcome) => outcome.streams)];
+    const filteredStreams = selectedIds
+      ? streams.filter((stream) => selectedIds.has(String(stream.category_id)))
+      : streams;
+    const uniqueStreams = this._uniqueStreams(filteredStreams, getStreamId);
+
+    if (!uniqueStreams.length && bulkError && !optional) throw bulkError;
+    return uniqueStreams;
+  }
+
+  _uniqueStreams(streams, getStreamId) {
     const uniqueStreams = new Map();
-    for (const stream of [...bulkStreams, ...outcomes.flatMap((outcome) => outcome.streams)]) {
+    for (const stream of streams) {
       const streamId = getStreamId(stream);
       const key = streamId === undefined || streamId === null
         ? `${stream.category_id || ''}:${stream.name || ''}:${uniqueStreams.size}`
         : String(streamId);
       if (!uniqueStreams.has(key)) uniqueStreams.set(key, stream);
     }
-
-    if (!uniqueStreams.size && bulkError && !optional) throw bulkError;
     return [...uniqueStreams.values()];
   }
 
-  async _getLivePayload() {
+  _selectCategories(type, categories, requestedCategoryIds) {
+    if (!requestedCategoryIds) return categories;
+    const availableIds = new Set(categories.map((category) => String(category.category_id)));
+    const unknownIds = requestedCategoryIds.filter((id) => !availableIds.has(id));
+    if (unknownIds.length) {
+      throw createAppError('VALIDATION_ERROR', `${type} için bilinmeyen kategori kimliği: ${unknownIds.join(', ')}`);
+    }
+    const selectedIds = new Set(requestedCategoryIds);
+    return categories.filter((category) => selectedIds.has(String(category.category_id)));
+  }
+
+  async _getLivePayload(requestedCategoryIds) {
     const categories = await this.getLiveCategories();
-    const streams = await this._getStreamsFast(categories, (categoryId) => this.getLiveStreams(categoryId), (stream) => stream.stream_id);
+    const selectedCategories = this._selectCategories('live', categories, requestedCategoryIds);
+    const streams = await this._getStreamsFast(
+      categories,
+      (categoryId) => this.getLiveStreams(categoryId),
+      (stream) => stream.stream_id,
+      false,
+      requestedCategoryIds
+    );
     return {
-      categories: categories.map((category) => ({ category_id: category.category_id, category_name: category.category_name })),
+      categories: selectedCategories.map((category) => ({ category_id: category.category_id, category_name: category.category_name })),
       channels: streams.map((stream) => ({
         stream_id: stream.stream_id,
         name: stream.name,
@@ -383,11 +490,18 @@ class XtreamClient {
     };
   }
 
-  async _getVodPayload() {
+  async _getVodPayload(requestedCategoryIds) {
     const categories = await this.getVodCategories(false);
-    const streams = await this._getStreamsFast(categories, (categoryId) => this.getVodStreams(categoryId, false), (stream) => stream.stream_id);
+    const selectedCategories = this._selectCategories('vod', categories, requestedCategoryIds);
+    const streams = await this._getStreamsFast(
+      categories,
+      (categoryId) => this.getVodStreams(categoryId, false),
+      (stream) => stream.stream_id,
+      false,
+      requestedCategoryIds
+    );
     return {
-      categories: categories.map((category) => ({ category_id: `vod_${category.category_id}`, category_name: `VOD | ${category.category_name}` })),
+      categories: selectedCategories.map((category) => ({ category_id: `vod_${category.category_id}`, category_name: `VOD | ${category.category_name}` })),
       channels: streams.map((stream) => ({
         stream_id: stream.stream_id,
         name: stream.name,
@@ -405,11 +519,18 @@ class XtreamClient {
     };
   }
 
-  async _getSeriesPayload() {
+  async _getSeriesPayload(requestedCategoryIds) {
     const categories = await this.getSeriesCategories(false);
-    const streams = await this._getStreamsFast(categories, (categoryId) => this.getSeriesStreams(categoryId, false), (stream) => stream.series_id || stream.stream_id);
+    const selectedCategories = this._selectCategories('series', categories, requestedCategoryIds);
+    const streams = await this._getStreamsFast(
+      categories,
+      (categoryId) => this.getSeriesStreams(categoryId, false),
+      (stream) => stream.series_id || stream.stream_id,
+      false,
+      requestedCategoryIds
+    );
     return {
-      categories: categories.map((category) => ({ category_id: `series_${category.category_id}`, category_name: `Series | ${category.category_name}` })),
+      categories: selectedCategories.map((category) => ({ category_id: `series_${category.category_id}`, category_name: `Series | ${category.category_name}` })),
       channels: streams.map((stream) => ({
         stream_id: stream.series_id || stream.stream_id,
         name: stream.name,
@@ -434,11 +555,11 @@ class XtreamClient {
    * @param {'live'|'vod'|'series'} type
    * @returns {Promise<{ type: string, status: 'complete'|'failed', categories: Array, channels: Array, error: Error|null }>}
    */
-  async _getTypePayload(type) {
+  async _getTypePayload(type, requestedCategoryIds) {
     const loaders = {
-      live: () => this._getLivePayload(),
-      vod: () => this._getVodPayload(),
-      series: () => this._getSeriesPayload(),
+      live: () => this._getLivePayload(requestedCategoryIds),
+      vod: () => this._getVodPayload(requestedCategoryIds),
+      series: () => this._getSeriesPayload(requestedCategoryIds),
     };
 
     try {
@@ -448,10 +569,12 @@ class XtreamClient {
         status: payload?.status || 'complete',
         categories: payload?.categories || [],
         channels: payload?.channels || [],
+        scopedCategoryIds: requestedCategoryIds,
         error: null,
       };
     } catch (error) {
       if (isTerminalBudgetError(error)) throw error;
+      if (error?.code === 'VALIDATION_ERROR') throw error;
       return { type, status: 'failed', categories: [], channels: [], error };
     }
   }
@@ -469,12 +592,23 @@ class XtreamClient {
    * @param {string[]} [streamTypes=['live']] - Çekilecek tipler: 'live', 'vod', 'series'
    * @returns {Promise<{ categories: Array, channels: Array, types: Array<{ type: string, status: string, error: string|null }> }>}
    */
-  async getAllChannels(streamTypes = ['live']) {
+  async getAllChannels(streamTypes = ['live'], categoryFilters = {}) {
     const selectedTypes = ['live', 'vod', 'series'].filter((type) => streamTypes.includes(type));
+    if (!categoryFilters || typeof categoryFilters !== 'object' || Array.isArray(categoryFilters)) {
+      throw createAppError('VALIDATION_ERROR', 'Kategori seçimleri bir nesne olmalı');
+    }
+    const requestedCategories = Object.fromEntries(selectedTypes.map((type) => {
+      const value = categoryFilters[type];
+      if (value === undefined || (Array.isArray(value) && value.length === 0)) return [type, null];
+      if (!Array.isArray(value)) throw createAppError('VALIDATION_ERROR', `${type} kategori seçimi bir dizi olmalı`);
+      const normalized = [...new Set(value.map((id) => String(id).trim()))];
+      if (normalized.some((id) => !id)) throw createAppError('VALIDATION_ERROR', `${type} kategori kimliği boş olamaz`);
+      return [type, normalized];
+    }));
     const payloads = await mapWithConcurrency(
       selectedTypes,
       config.xtream.typeConcurrency,
-      (type) => this._getTypePayload(type),
+      (type) => this._getTypePayload(type, requestedCategories[type]),
       this.signal
     );
 
@@ -487,6 +621,9 @@ class XtreamClient {
     return {
       categories: completed.flatMap((payload) => payload.categories),
       channels: completed.flatMap((payload) => payload.channels),
+      scopedCategories: Object.fromEntries(completed
+        .filter((payload) => payload.scopedCategoryIds)
+        .map((payload) => [payload.type, payload.scopedCategoryIds])),
       types: payloads.map((payload) => ({
         type: payload.type,
         status: payload.status,

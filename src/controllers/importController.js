@@ -1,4 +1,5 @@
 const ImportService = require('../services/ImportService');
+const XtreamClient = require('../services/XtreamClient');
 const config = require('../config');
 const { safeFetchText } = require('../utils/safeFetch');
 const { createAppError } = require('../utils/AppError');
@@ -100,14 +101,35 @@ async function runImportJob(req, res, playlistId, worker) {
 }
 
 function xtreamCredentials(body) {
-  const { serverUrl, username, password, streamTypes, playlistName } = body || {};
+  const { serverUrl, username, password, streamTypes, categories, playlistName } = body || {};
   if (![serverUrl, username, password].every((value) => typeof value === 'string' && value.trim())) {
     throw createAppError('VALIDATION_ERROR', 'Sunucu adresi, kullanıcı adı ve şifre gerekli');
   }
   if (serverUrl.length > 2048 || username.length > 500 || password.length > 500) {
     throw createAppError('VALIDATION_ERROR', 'Xtream bağlantı bilgileri çok uzun');
   }
-  return { serverUrl: serverUrl.trim(), username: username.trim(), password, streamTypes, playlistName };
+  if (categories !== undefined) {
+    if (!categories || typeof categories !== 'object' || Array.isArray(categories)) {
+      throw createAppError('VALIDATION_ERROR', 'Kategori seçimleri bir nesne olmalı');
+    }
+    for (const [type, ids] of Object.entries(categories)) {
+      if (!['live', 'vod', 'series'].includes(type) || !Array.isArray(ids)) {
+        throw createAppError('VALIDATION_ERROR', 'Kategori seçimleri live, vod veya series dizileri olmalı');
+      }
+      if (ids.some((id) => !['string', 'number'].includes(typeof id) || !String(id).trim())) {
+        throw createAppError('VALIDATION_ERROR', 'Kategori kimlikleri boş olmayan metin veya sayı olmalı');
+      }
+    }
+  }
+  return { serverUrl: serverUrl.trim(), username: username.trim(), password, streamTypes, categories, playlistName };
+}
+
+async function previewXtream(req, res, next) {
+  try {
+    const credentials = xtreamCredentials(req.body);
+    const client = new XtreamClient(credentials.serverUrl, credentials.username, credentials.password);
+    res.json(await client.preview());
+  } catch (error) { next(error); }
 }
 
 async function loadM3u(body, jobContext) {
@@ -193,6 +215,7 @@ async function addStreamTypes(req, res, next) {
 }
 
 module.exports = {
+  previewXtream,
   importFromXtream,
   importFromXtreamNew,
   syncPlaylist,
