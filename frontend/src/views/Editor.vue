@@ -79,6 +79,9 @@
           <div class="nav-item" role="button" tabindex="0" @click="doShare" @keydown.enter.space.prevent="doShare">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> {{ t('nav.share') }}
           </div>
+          <div class="nav-item" role="button" tabindex="0" @click="showXtreamOutput = true" @keydown.enter.space.prevent="showXtreamOutput = true">
+            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m8 12 2.5 2.5L16 9"/></svg> {{ t('nav.playerAccess') }}
+          </div>
         </div>
       </nav>
       <button v-if="mobileNavOpen" class="mobile-scrim" :aria-label="t('accessibility.closeMenu')" @click="mobileNavOpen = false"></button>
@@ -854,6 +857,7 @@
       @close="showBulkUpdate = false"
     />
     <SharePlaylistModal v-if="showShare" :playlist-id="playlistId" @close="showShare = false" />
+    <XtreamOutputModal v-if="showXtreamOutput" :playlist-id="playlistId" @close="showXtreamOutput = false" />
 
     <!-- Existing modals -->
     <Teleport to="body">
@@ -1011,6 +1015,7 @@ import BulkRenameModal from '../components/BulkRenameModal.vue'
 import BulkUpdateModal from '../components/BulkUpdateModal.vue'
 import SharePlaylistModal from '../components/SharePlaylistModal.vue'
 import StreamTestControl from '../components/StreamTestControl.vue'
+import XtreamOutputModal from '../components/XtreamOutputModal.vue'
 
 const route = useRoute()
 const toast = inject('toast')
@@ -1133,6 +1138,7 @@ const showAddChannel = ref(false)
 const showBulkRename = ref(false)
 const showBulkUpdate = ref(false)
 const showShare = ref(false)
+const showXtreamOutput = ref(false)
 
 let searchTimer = null
 
