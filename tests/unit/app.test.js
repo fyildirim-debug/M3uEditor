@@ -1,11 +1,14 @@
 const request = require('supertest');
+const mockDb = { raw: jest.fn().mockResolvedValue({ rows: [{ '?column?': 1 }] }) };
+jest.mock('../../src/config/database', () => mockDb);
 const app = require('../../src/app');
 
 describe('Express App', () => {
   test('GET /health returns ok status', async () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    expect(res.body).toEqual(expect.objectContaining({ status: 'ok', database: 'ok' }));
+    expect(res.body.timestamp).toBeDefined();
   });
 
   test('JSON body parsing works', async () => {
@@ -17,8 +20,8 @@ describe('Express App', () => {
   });
 
   test('CORS headers are present', async () => {
-    const res = await request(app).get('/health');
-    expect(res.headers['access-control-allow-origin']).toBeDefined();
+    const res = await request(app).get('/health').set('Origin', 'http://localhost:5173');
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5173');
   });
 
   test('Unknown routes return 404', async () => {

@@ -14,10 +14,6 @@ Thumbs.db
 *.swp
 *.swo
 
-# Lock files
-package-lock.json
-frontend/package-lock.json
-
 # Runtime
 .node-localstorage
 .node-localstorage-shm

@@ -1,4 +1,5 @@
 const { AppError, ERROR_CODES } = require('../utils/AppError');
+const logger = require('../config/logger');
 
 /**
  * Middleware for unknown routes — returns 404 NOT_FOUND.
@@ -18,7 +19,7 @@ function notFound(req, res, _next) {
  * - AppError instances → use their code & statusCode
  * - Generic errors → INTERNAL_ERROR 500
  */
-function errorHandler(err, _req, res, _next) {
+function errorHandler(err, req, res, _next) {
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       error: { code: err.code, message: err.message },
@@ -26,7 +27,7 @@ function errorHandler(err, _req, res, _next) {
   }
 
   // Generic / unexpected error
-  console.error('Unhandled error:', err);
+  logger.error({ err, requestId: req.id, method: req.method, path: req.originalUrl }, 'Unhandled request error');
   const statusCode = 500;
   const code = 'INTERNAL_ERROR';
   const message = ERROR_CODES.INTERNAL_ERROR.defaultMessage;

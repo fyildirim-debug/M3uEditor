@@ -1,7 +1,9 @@
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const db = require('../config/database');
 const { createAppError } = require('../utils/AppError');
 const M3UFormatter = require('../parsers/M3UFormatter');
+const { hashToken } = require('../utils/crypto');
 
 class ExportService {
   constructor() {
@@ -86,7 +88,7 @@ class ExportService {
     await this._verifyPlaylistOwnership(userId, playlistId);
 
     const token = crypto.randomBytes(32).toString('hex');
-    const updates = { share_token: token, updated_at: db.fn.now() };
+    const updates = { share_token: hashToken(token), updated_at: db.fn.now() };
 
     if (expiresInDays) {
       const expiresAt = new Date();
@@ -96,7 +98,7 @@ class ExportService {
       updates.share_expires_at = null;
     }
 
-    updates.share_password = password || null;
+    updates.share_password = password ? await bcrypt.hash(String(password), 12) : null;
 
     await db('playlists').where({ id: playlistId }).update(updates);
     return { url: `/api/shared/${token}`, token };
@@ -109,9 +111,8 @@ class ExportService {
    * @returns {Promise<string>} M3U formatted content
    */
   async getSharedPlaylist(shareToken, password) {
-    const playlist = await db('playlists')
-      .where({ share_token: shareToken })
-      .first();
+    let playlist = await db('playlists').where({ share_token: hashToken(shareToken) }).first();
+    if (!playlist) playlist = await db('playlists').where({ share_token: shareToken }).first(); // legacy
 
     if (!playlist) {
       throw createAppError('NOT_FOUND');
@@ -123,8 +124,14 @@ class ExportService {
     }
 
     // Check password
-    if (playlist.share_password && playlist.share_password !== password) {
-      throw createAppError('INVALID_CREDENTIALS', 'Paylasim sifresi yanlis');
+    if (playlist.share_password) {
+      const valid = playlist.share_password.startsWith('$2')
+        ? await bcrypt.compare(String(password || ''), playlist.share_password)
+        : playlist.share_password === password;
+      if (!valid) throw createAppError('INVALID_CREDENTIALS', 'Paylaşım şifresi yanlış');
+      if (valid && !playlist.share_password.startsWith('$2')) {
+        await db('playlists').where({ id: playlist.id }).update({ share_password: await bcrypt.hash(String(password), 12) });
+      }
     }
 
     const channelData = await this._getOrderedChannels(playlist.id);

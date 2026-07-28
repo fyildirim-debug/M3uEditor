@@ -99,7 +99,7 @@
 
     <!-- Playlist Grid -->
     <div v-else class="playlist-grid">
-      <div v-for="pl in playlists" :key="pl.id" class="pl-card" @click="$router.push('/playlist/' + pl.id)">
+      <div v-for="pl in playlists" :key="pl.id" class="pl-card" role="link" tabindex="0" @click="$router.push('/playlist/' + pl.id)" @keydown.enter.space.self.prevent="$router.push('/playlist/' + pl.id)">
         <div class="pl-card-top">
           <div class="pl-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
@@ -144,17 +144,17 @@
     <!-- Create Modal -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="showCreate" class="modal-overlay" @click.self="showCreate = false">
+        <div v-if="showCreate" v-focus-trap class="modal-overlay" @click.self="showCreate = false">
           <div class="modal">
             <div class="modal-header">
               <h3>{{ t('playlist.createTitle') }}</h3>
-              <button class="btn btn-ghost btn-icon-sm" @click="showCreate = false">
+              <button class="btn btn-ghost btn-icon-sm" :aria-label="t('common.close')" @click="showCreate = false">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div class="form-group">
-              <label>{{ t('playlist.nameLabel') }}</label>
-              <input class="input" v-model="newName" placeholder="Orn: Ana Liste, Spor Kanallari..." @keyup.enter="createPlaylist" autofocus />
+              <label for="new-playlist-name">{{ t('playlist.nameLabel') }}</label>
+              <input id="new-playlist-name" class="input" v-model="newName" placeholder="Örn: Ana Liste, Spor Kanalları..." maxlength="255" @keyup.enter="createPlaylist" autofocus />
             </div>
             <div class="modal-actions">
               <button class="btn btn-secondary" @click="showCreate = false">{{ t('common.cancel') }}</button>
@@ -168,17 +168,17 @@
     <!-- Edit Modal -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="editingPl" class="modal-overlay" @click.self="editingPl = null">
+        <div v-if="editingPl" v-focus-trap class="modal-overlay" @click.self="editingPl = null">
           <div class="modal">
             <div class="modal-header">
               <h3>{{ t('playlist.editTitle') }}</h3>
-              <button class="btn btn-ghost btn-icon-sm" @click="editingPl = null">
+              <button class="btn btn-ghost btn-icon-sm" :aria-label="t('common.close')" @click="editingPl = null">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div class="form-group">
-              <label>{{ t('playlist.nameLabel') }}</label>
-              <input class="input" v-model="editName" @keyup.enter="updatePlaylist" />
+              <label for="edit-playlist-name">{{ t('playlist.nameLabel') }}</label>
+              <input id="edit-playlist-name" class="input" v-model="editName" maxlength="255" @keyup.enter="updatePlaylist" />
             </div>
             <div class="modal-actions">
               <button class="btn btn-secondary" @click="editingPl = null">{{ t('common.cancel') }}</button>
@@ -192,11 +192,11 @@
     <!-- Delete Confirm -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="deletingPl" class="modal-overlay" @click.self="deletingPl = null">
+        <div v-if="deletingPl" v-focus-trap class="modal-overlay" @click.self="deletingPl = null">
           <div class="modal">
             <div class="modal-header">
               <h3>{{ t('playlist.deleteTitle') }}</h3>
-              <button class="btn btn-ghost btn-icon-sm" @click="deletingPl = null">
+              <button class="btn btn-ghost btn-icon-sm" :aria-label="t('common.close')" @click="deletingPl = null">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
@@ -216,17 +216,17 @@
     <!-- Xtream Import Modal -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="showXtreamModal" class="modal-overlay" @click.self="showXtreamModal = false">
+        <div v-if="showXtreamModal" v-focus-trap class="modal-overlay" @click.self="showXtreamModal = false">
           <div class="modal" style="max-width:500px">
             <div class="modal-header">
               <h3>{{ t('xtream.importTitle') }}</h3>
-              <button class="btn btn-ghost btn-icon-sm" @click="showXtreamModal = false">
+              <button class="btn btn-ghost btn-icon-sm" :aria-label="t('common.close')" @click="showXtreamModal = false">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             <div class="form-group">
-              <label>{{ t('xtream.autoFillLabel') }} <span style="font-weight:400;color:var(--text-muted)">({{ t('common.optional') }})</span></label>
-              <input class="input" v-model="m3uUrlInput" @input="parseM3uUrl" placeholder="http://example.com:8080/get.php?username=xxx&password=yyy&type=m3u_plus" />
+              <label for="xtream-autofill-url">{{ t('xtream.autoFillLabel') }} <span style="font-weight:400;color:var(--text-muted)">({{ t('common.optional') }})</span></label>
+              <input id="xtream-autofill-url" class="input" type="url" v-model="m3uUrlInput" @input="parseM3uUrl" placeholder="http://example.com:8080/get.php?username=xxx&password=yyy&type=m3u_plus" autocomplete="off" />
               <div v-if="m3uUrlParsed" class="parse-success">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 {{ t('xtream.autoFilled') }}
@@ -237,9 +237,9 @@
               </div>
             </div>
             <div class="url-divider"><span>{{ t('xtream.manualEntry') }}</span></div>
-            <div class="form-group"><label>{{ t('xtream.serverUrl') }}</label><input class="input" v-model="xtreamForm.serverUrl" placeholder="http://example.com:8080" /></div>
-            <div class="form-group"><label>{{ t('xtream.username') }}</label><input class="input" v-model="xtreamForm.username" /></div>
-            <div class="form-group"><label>{{ t('xtream.password') }}</label><input class="input" v-model="xtreamForm.password" /></div>
+            <div class="form-group"><label for="xtream-server-url">{{ t('xtream.serverUrl') }}</label><input id="xtream-server-url" class="input" type="url" v-model="xtreamForm.serverUrl" placeholder="http://example.com:8080" autocomplete="off" /></div>
+            <div class="form-group"><label for="xtream-username">{{ t('xtream.username') }}</label><input id="xtream-username" class="input" v-model="xtreamForm.username" autocomplete="off" /></div>
+            <div class="form-group"><label for="xtream-password">{{ t('xtream.password') }}</label><input id="xtream-password" class="input" type="password" v-model="xtreamForm.password" autocomplete="new-password" /></div>
             <div class="form-group">
               <label>{{ t('xtream.streamTypes') }}</label>
               <div class="stream-type-group">
@@ -280,21 +280,21 @@
     <!-- M3U Import Modal -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="showM3uImport" class="modal-overlay" @click.self="showM3uImport = false">
+        <div v-if="showM3uImport" v-focus-trap class="modal-overlay" @click.self="showM3uImport = false">
           <div class="modal-content">
             <h3 class="modal-title">{{ t('m3uImport.title') }}</h3>
             <div class="form-group">
-              <label>{{ t('m3uImport.fromUrl') }}</label>
-              <input class="input" v-model="m3uImportForm.url" :placeholder="t('m3uImport.urlPlaceholder')" />
+              <label for="m3u-import-url">{{ t('m3uImport.fromUrl') }}</label>
+              <input id="m3u-import-url" class="input" type="url" v-model="m3uImportForm.url" :placeholder="t('m3uImport.urlPlaceholder')" />
             </div>
             <div class="url-divider"><span>{{ t('common.or') }}</span></div>
             <div class="form-group">
-              <label>{{ t('m3uImport.fromFile') }}</label>
-              <input type="file" accept=".m3u,.m3u8,.txt" @change="onM3uFileSelect" class="input" />
+              <label for="m3u-import-file">{{ t('m3uImport.fromFile') }}</label>
+              <input id="m3u-import-file" type="file" accept=".m3u,.m3u8,.txt" @change="onM3uFileSelect" class="input" />
             </div>
             <div class="form-group">
-              <label>{{ t('m3uImport.playlistName') }}</label>
-              <input class="input" v-model="m3uImportForm.name" :placeholder="t('m3uImport.namePlaceholder')" />
+              <label for="m3u-playlist-name">{{ t('m3uImport.playlistName') }}</label>
+              <input id="m3u-playlist-name" class="input" v-model="m3uImportForm.name" maxlength="255" :placeholder="t('m3uImport.namePlaceholder')" />
             </div>
             <div v-if="m3uImportResult" class="result-box success">
               {{ t('toast.importSuccess', { channels: m3uImportResult.totalChannels, categories: m3uImportResult.totalCategories, duration: (m3uImportResult.duration / 1000).toFixed(1) }) }}
@@ -879,7 +879,7 @@ async function doM3uImport() {
 .progress-track { height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; }
 .progress-fill {
   height: 100%; background: linear-gradient(90deg, var(--accent), #6366f1);
-  border-radius: 999px; transition: width 0.25s ease-out;
+  border-radius: 999px;
   box-shadow: 0 0 8px rgba(99,102,241,0.4);
 }
 .progress-hint { margin-top: 8px; font-size: 11px; color: var(--text-muted); }

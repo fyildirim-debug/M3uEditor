@@ -5,7 +5,7 @@ const { createAppError } = require('../utils/AppError');
  * Auth middleware — extracts Bearer token from Authorization header,
  * verifies it, and sets req.userId.
  */
-function authMiddleware(req, _res, next) {
+async function authMiddleware(req, _res, next) {
   const header = req.headers.authorization;
 
   if (!header || !header.startsWith('Bearer ')) {
@@ -15,8 +15,10 @@ function authMiddleware(req, _res, next) {
   const token = header.slice(7);
 
   try {
-    const { userId } = authService.verifyToken(token);
+    const { userId, sessionId } = authService.verifyToken(token);
+    if (sessionId) await authService.verifySession(userId, sessionId);
     req.userId = userId;
+    req.sessionId = sessionId;
     next();
   } catch (err) {
     next(err);

@@ -1,57 +1,53 @@
 const exportService = require('../services/ExportService');
+const { createAppError } = require('../utils/AppError');
+const { validateIdArray } = require('../utils/validation');
 
-/**
- * GET /api/playlists/:id/export
- * Export playlist as M3U file download.
- */
 async function exportPlaylist(req, res, next) {
   try {
     const { id: playlistId } = req.params;
     const excludeCategories = req.query.excludeCategories
-      ? req.query.excludeCategories.split(',').filter(Boolean)
+      ? validateIdArray(req.query.excludeCategories.split(',').filter(Boolean))
       : [];
     const streamType = req.query.streamType || null;
+    if (streamType && !['live', 'vod', 'series'].includes(streamType)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçersiz içerik türü');
+    }
 
-    const m3uContent = await exportService.exportAsM3U(req.userId, playlistId, excludeCategories, streamType);
-
+    const content = await exportService.exportAsM3U(req.userId, playlistId, excludeCategories, streamType);
     res.setHeader('Content-Type', 'audio/x-mpegurl');
     res.setHeader('Content-Disposition', 'attachment; filename="playlist.m3u"');
-    res.send(m3uContent);
-  } catch (err) {
-    next(err);
-  }
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(content);
+  } catch (error) { next(error); }
 }
 
-/**
- * POST /api/playlists/:id/share
- * Generate a share URL for a playlist.
- */
 async function sharePlaylist(req, res, next) {
   try {
     const { id: playlistId } = req.params;
     const { expiresInDays, password } = req.body || {};
-    const result = await exportService.generateShareUrl(req.userId, playlistId, { expiresInDays, password });
-    res.status(201).json(result);
-  } catch (err) {
-    next(err);
-  }
+    if (expiresInDays !== undefined && (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 365)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerlilik süresi 1-365 gün arasında olmalı');
+    }
+    if (password && (typeof password !== 'string' || password.length < 10 || password.length > 128)) {
+      throw createAppError('VALIDATION_ERROR', 'Paylaşım şifresi 10-128 karakter arasında olmalı');
+    }
+    res.status(201).json(await exportService.generateShareUrl(req.userId, playlistId, { expiresInDays, password }));
+  } catch (error) { next(error); }
 }
 
-/**
- * GET /api/shared/:token
- * Serve a shared playlist as M3U content. No auth required.
- */
 async function getShared(req, res, next) {
   try {
     const { token } = req.params;
-    const password = req.query.password || req.headers['x-share-password'] || null;
-    const m3uContent = await exportService.getSharedPlaylist(token, password);
-
+    if (typeof token !== 'string' || token.length > 200) {
+      throw createAppError('VALIDATION_ERROR', 'Geçersiz paylaşım belirteci');
+    }
+    const content = await exportService.getSharedPlaylist(token, req.headers['x-share-password'] || null);
     res.setHeader('Content-Type', 'audio/x-mpegurl');
-    res.send(m3uContent);
-  } catch (err) {
-    next(err);
-  }
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.send(content);
+  } catch (error) { next(error); }
 }
 
 module.exports = { exportPlaylist, sharePlaylist, getShared };

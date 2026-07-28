@@ -1,9 +1,10 @@
 node_modules
 frontend/node_modules
 frontend/dist
-tests
 .git
 .env
-.vscode
-.kiro
-*.md
+data
+coverage
+test-result.txt
+build-check.txt
+screenshot

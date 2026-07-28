@@ -1,23 +1,56 @@
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const config = require('./config');
+const db = require('./config/database');
+const logger = require('./config/logger');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 
 const app = express();
 
 // Security headers
+app.set('trust proxy', process.env.TRUST_PROXY || 1);
+app.disable('x-powered-by');
+
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:', 'http:', 'https:'],
+      connectSrc: ["'self'", 'http:', 'https:'],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      frameAncestors: ["'none'"],
+    },
+  },
   crossOriginEmbedderPolicy: false,
 }));
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin(origin, callback) {
+    if (!origin || (!config.isProduction && config.corsOrigins.length === 0) || config.corsOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
   credentials: true,
 }));
+
+app.use((req, res, next) => {
+  req.id = req.get('x-request-id') || crypto.randomUUID();
+  res.setHeader('x-request-id', req.id);
+  const startedAt = Date.now();
+  res.on('finish', () => {
+    logger.info({ requestId: req.id, method: req.method, path: req.originalUrl, status: res.statusCode, durationMs: Date.now() - startedAt }, 'Request completed');
+  });
+  next();
+});
 
 // Rate limiting for auth endpoints
 const authLimiter = rateLimit({
@@ -26,6 +59,7 @@ const authLimiter = rateLimit({
   message: { error: { code: 'RATE_LIMITED', message: 'Çok fazla istek. Lütfen 15 dakika sonra tekrar deneyin.' } },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => ['/refresh', '/logout', '/profile'].includes(req.path),
 });
 
 // General rate limiting
@@ -38,14 +72,30 @@ const generalLimiter = rateLimit({
 
 app.use(generalLimiter);
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: config.limits.jsonBody }));
 
+app.use('/logos', express.static(config.uploadDir, {
+  dotfiles: 'deny',
+  fallthrough: false,
+  immutable: true,
+  maxAge: '30d',
+  setHeaders(res) {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Disposition', 'inline');
+  },
+}));
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+  try {
+    await db.raw('SELECT 1');
+    res.json({ status: 'ok', database: 'ok', uptime: process.uptime(), timestamp: new Date().toISOString() });
+  } catch (error) {
+    logger.error({ err: error, requestId: req.id }, 'Health check failed');
+    res.status(503).json({ status: 'degraded', database: 'unavailable', timestamp: new Date().toISOString() });
+  }
 });
 
 // Routes
@@ -59,11 +109,6 @@ app.use('/api', require('./routes/playlists'));
 app.use('/api/admin', require('./routes/admin'));
 
 // Client-side routing: serve index.html for non-API routes
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
-});
-
 // 404 handler for unknown API routes
 app.use(notFound);
 

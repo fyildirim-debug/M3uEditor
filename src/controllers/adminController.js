@@ -1,5 +1,6 @@
 const db = require('../config/database');
 const { createAppError } = require('../utils/AppError');
+const { parsePagination } = require('../utils/validation');
 
 async function getStats(req, res, next) {
   try {
@@ -22,8 +23,9 @@ async function getStats(req, res, next) {
 
 async function listUsers(req, res, next) {
   try {
-    const { page = 1, limit = 20, search } = req.query;
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const { search } = req.query;
+    const { page, limit } = parsePagination(req.query.page, req.query.limit, 100);
+    const offset = (page - 1) * limit;
 
     let query = db('users')
       .select('users.id', 'users.email', 'users.is_admin', 'users.created_at', 'users.email_verified_at')
@@ -39,14 +41,14 @@ async function listUsers(req, res, next) {
 
     const users = await query
       .orderBy('users.created_at', 'desc')
-      .limit(parseInt(limit, 10))
+      .limit(limit)
       .offset(offset);
 
     res.json({
       users: users.map(u => ({ ...u, playlist_count: parseInt(u.playlist_count || 0, 10) })),
       total: parseInt(count, 10),
-      page: parseInt(page, 10),
-      totalPages: Math.ceil(parseInt(count, 10) / parseInt(limit, 10)),
+      page,
+      totalPages: Math.ceil(parseInt(count, 10) / limit),
     });
   } catch (err) { next(err); }
 }
@@ -60,6 +62,12 @@ async function updateUser(req, res, next) {
     if (!user) throw createAppError('NOT_FOUND', 'Kullanici bulunamadi');
 
     const updates = {};
+    if (is_admin !== undefined && typeof is_admin !== 'boolean') {
+      throw createAppError('VALIDATION_ERROR', 'is_admin true veya false olmalı');
+    }
+    if (id === req.userId && is_admin === false) {
+      throw createAppError('VALIDATION_ERROR', 'Kendi yönetici yetkinizi kaldıramazsınız');
+    }
     if (is_admin !== undefined) updates.is_admin = is_admin;
 
     if (Object.keys(updates).length > 0) {
@@ -76,7 +84,7 @@ async function deleteUser(req, res, next) {
     const { id } = req.params;
     const user = await db('users').where({ id }).first();
     if (!user) throw createAppError('NOT_FOUND', 'Kullanici bulunamadi');
-    if (user.is_admin) throw createAppError('FORBIDDEN', 'Admin kullanici silinemez');
+    if (id === req.userId || user.is_admin) throw createAppError('FORBIDDEN', 'Yönetici hesabı silinemez');
 
     await db('users').where({ id }).del();
     res.json({ success: true });

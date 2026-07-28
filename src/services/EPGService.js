@@ -1,464 +1,290 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
+const config = require('../config');
+const logger = require('../config/logger');
 const EPGParser = require('../parsers/EPGParser');
+const { encrypt, decrypt, hashToken } = require('../utils/crypto');
+const { safeFetchText, parseRemoteUrl } = require('../utils/safeFetch');
+const { buildDateRange } = require('../utils/validation');
 const { createAppError } = require('../utils/AppError');
 
-const FETCH_TIMEOUT = 300000; // 300 seconds (5 dakika) for EPG fetch — Xtream XMLTV dosyaları çok büyük olabiliyor
+const BATCH_SIZE = 500;
+const activeJobs = new Map();
 
 class EPGService {
-  /**
-   * Add a new EPG source for a user.
-   * Validates URL format and inserts with 'pending' status.
-   * @param {string} userId
-   * @param {string} url - EPG source URL
-   * @returns {Promise<object>} Created EPG source record
-   */
   async addSource(userId, url) {
-    if (!url || typeof url !== 'string') {
-      throw createAppError('VALIDATION_ERROR', 'EPG kaynağı URL\'si gereklidir');
+    if (typeof url !== 'string' || !url.trim() || url.length > 5000) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir EPG adresi gerekli');
     }
-
-    try {
-      new URL(url);
-    } catch {
-      throw createAppError('VALIDATION_ERROR', 'Geçersiz URL formatı');
-    }
-
-    // Aynı kullanıcı için aynı URL zaten varsa mevcut kaynağı döndür
-    const existing = await db('epg_sources')
-      .where({ user_id: userId, url })
-      .first();
-
-    if (existing) {
-      return existing;
-    }
-
-    const [source] = await db('epg_sources')
-      .insert({
-        id: uuidv4(),
-        user_id: userId,
-        url,
-        status: 'pending',
-      })
-      .returning('*');
-
-    return source;
-  }
-
-  /**
-   * Fetch EPG XML from source URL, parse it, and store channels/programs.
-   * On error: updates source status to 'error' but keeps existing data (req 5.5).
-   * @param {string} sourceId
-   * @returns {Promise<{ channelCount: number, programCount: number }>}
-   */
-  async parseAndStore(sourceId) {
-    const source = await db('epg_sources').where({ id: sourceId }).first();
+    const normalized = parseRemoteUrl(url.trim()).toString();
+    const urlHash = hashToken(normalized);
+    let source = await db('epg_sources').where({ user_id: userId, url_hash: urlHash }).first();
     if (!source) {
-      throw createAppError('NOT_FOUND', 'EPG kaynağı bulunamadı');
+      // Compatibility with sources created before URL hashing.
+      const legacySources = await db('epg_sources').where({ user_id: userId }).whereNull('url_hash');
+      source = legacySources.find((candidate) => decrypt(candidate.url) === normalized);
+      if (source) await db('epg_sources').where({ id: source.id }).update({ url: encrypt(normalized), url_hash: urlHash });
     }
+    if (source) return this._publicSource({ ...source, url: encrypt(normalized), url_hash: urlHash });
 
-    let xmlContent;
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
-
-      const response = await fetch(source.url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      xmlContent = await response.text();
-    } catch (err) {
-      // Update status to 'error' but keep existing data (requirement 5.5)
-      await db('epg_sources')
-        .where({ id: sourceId })
-        .update({ status: 'error' });
-
-      throw createAppError('EPG_FETCH_FAILED', `EPG kaynağı alınamadı: ${err.message}`);
-    }
-
-    let parsed;
-    try {
-      const parser = new EPGParser();
-      parsed = parser.parse(xmlContent);
-    } catch (err) {
-      await db('epg_sources')
-        .where({ id: sourceId })
-        .update({ status: 'error' });
-
-      throw createAppError('EPG_FETCH_FAILED', `EPG verisi ayrıştırılamadı: ${err.message}`);
-    }
-
-    // Delete existing channels and programs for this source, then insert new ones
-    await db('epg_channels').where({ source_id: sourceId }).del();
-
-    let channelCount = 0;
-    let programCount = 0;
-
-    // Build a map of channelId → DB UUID for program insertion
-    const channelIdMap = {};
-
-    // Batch insert channels (100 at a time)
-    const BATCH_SIZE = 100;
-    const channelBatch = [];
-    for (const ch of parsed.channels) {
-      const channelUuid = uuidv4();
-      channelIdMap[ch.channelId] = channelUuid;
-      channelBatch.push({
-        id: channelUuid,
-        source_id: sourceId,
-        channel_id: ch.channelId,
-        display_name: ch.displayName || null,
-        icon_url: ch.iconUrl || null,
-      });
-      channelCount++;
-    }
-
-    for (let i = 0; i < channelBatch.length; i += BATCH_SIZE) {
-      await db('epg_channels').insert(channelBatch.slice(i, i + BATCH_SIZE));
-    }
-
-    // Batch insert programs (100 at a time)
-    const programBatch = [];
-    for (const prog of parsed.programs) {
-      const epgChannelUuid = channelIdMap[prog.channelId];
-      if (!epgChannelUuid) continue;
-
-      programBatch.push({
-        id: uuidv4(),
-        epg_channel_id: epgChannelUuid,
-        start_time: prog.startTime,
-        end_time: prog.endTime || null,
-        title: prog.title || '',
-        description: prog.description || null,
-      });
-      programCount++;
-    }
-
-    for (let i = 0; i < programBatch.length; i += BATCH_SIZE) {
-      await db('epg_programs').insert(programBatch.slice(i, i + BATCH_SIZE));
-    }
-
-    // Update source status to 'active' and last_fetched_at
-    await db('epg_sources')
-      .where({ id: sourceId })
-      .update({ status: 'active', last_fetched_at: new Date() });
-
-    return { channelCount, programCount };
+    [source] = await db('epg_sources').insert({
+      id: uuidv4(), user_id: userId, url: encrypt(normalized), url_hash: urlHash, status: 'pending',
+    }).returning('*');
+    return this._publicSource(source);
   }
 
-  /**
-   * Auto-match playlist channels with EPG channels based on name similarity.
-   * Applies matches with confidence >= 0.5 by updating channels.epg_channel_id.
-   * Matching strategy (from design):
-   *   - Exact match (case-insensitive): confidence = 1.0
-   *   - One name contains the other: confidence = 0.7
-   *   - Partial word overlap: confidence = 0.5
-   *   - No match: skip
-   * Returns matches sorted by confidence descending (requirement 5.6).
-   * @param {string} userId
-   * @param {string} playlistId
-   * @returns {Promise<{ matched: number, total: number, matches: Array<{ channelId: string, epgChannelId: string, confidence: number }> }>}
-   */
+  async listSources(userId) {
+    const sources = await db('epg_sources')
+      .where({ user_id: userId })
+      .select('id', 'user_id', 'url', 'status', 'last_fetched_at', 'last_error', 'created_at')
+      .orderBy('created_at', 'desc');
+    return sources.map((source) => this._publicSource(source));
+  }
+
+  _publicSource(source) {
+    let displayUrl = 'Gizli EPG kaynağı';
+    try {
+      const parsed = new URL(decrypt(source.url));
+      displayUrl = `${parsed.origin}${parsed.pathname}`;
+    } catch {}
+    const { url, url_hash, ...safe } = source;
+    return { ...safe, url: displayUrl };
+  }
+
+  async enqueueSource(userId, url, playlistId) {
+    const source = await this.addSource(userId, url);
+    const key = source.id;
+    if (activeJobs.has(key)) return activeJobs.get(key);
+    const job = this.parseAndStore(source.id)
+      .then(async (result) => {
+        if (playlistId) await this.autoMatch(userId, playlistId);
+        return result;
+      })
+      .finally(() => activeJobs.delete(key));
+    activeJobs.set(key, job);
+    return job;
+  }
+
+  async parseAndStore(sourceId) {
+    if (activeJobs.has(`parse:${sourceId}`)) return activeJobs.get(`parse:${sourceId}`);
+    const job = this._parseAndStore(sourceId).finally(() => activeJobs.delete(`parse:${sourceId}`));
+    activeJobs.set(`parse:${sourceId}`, job);
+    return job;
+  }
+
+  async _parseAndStore(sourceId) {
+    const source = await db('epg_sources').where({ id: sourceId }).first();
+    if (!source) throw createAppError('NOT_FOUND', 'EPG kaynağı bulunamadı');
+
+    const leaseCutoff = new Date(Date.now() - 15 * 60 * 1000);
+    const leased = await db('epg_sources')
+      .where({ id: sourceId })
+      .andWhere((query) => query.whereNot({ status: 'processing' }).orWhere('processing_started_at', '<', leaseCutoff).orWhereNull('processing_started_at'))
+      .update({ status: 'processing', processing_started_at: db.fn.now(), last_error: null });
+    if (!leased) throw createAppError('VALIDATION_ERROR', 'Bu EPG kaynağı zaten işleniyor');
+
+    try {
+      const url = decrypt(source.url);
+      if (!String(source.url).startsWith('enc:v1:')) {
+        await db('epg_sources').where({ id: sourceId }).update({ url: encrypt(url), url_hash: hashToken(url) });
+      }
+      const response = await safeFetchText(url, { timeoutMs: 5 * 60_000, maxBytes: config.limits.epgBytes, accept: 'application/xml,text/xml,text/plain' });
+      const parsed = new EPGParser().parse(response.text);
+
+      const result = await db.transaction(async (trx) => {
+        await trx.raw('SELECT pg_advisory_xact_lock(hashtext(?))', [`epg:${sourceId}`]);
+        await trx('epg_channels').where({ source_id: sourceId }).del();
+
+        const channelIds = new Map();
+        const channelRows = [];
+        for (const channel of parsed.channels) {
+          if (!channel.channelId || channelIds.has(channel.channelId)) continue;
+          const id = uuidv4();
+          channelIds.set(channel.channelId, id);
+          channelRows.push({
+            id, source_id: sourceId, channel_id: String(channel.channelId).slice(0, 2000),
+            display_name: channel.displayName ? String(channel.displayName).slice(0, 2000) : null,
+            icon_url: channel.iconUrl ? String(channel.iconUrl).slice(0, 5000) : null,
+          });
+        }
+        await this._insertBatches(trx, 'epg_channels', channelRows);
+
+        const programRows = [];
+        for (const program of parsed.programs) {
+          const epgChannelId = channelIds.get(program.channelId);
+          if (!epgChannelId) continue;
+          programRows.push({
+            id: uuidv4(), epg_channel_id: epgChannelId, start_time: program.startTime,
+            end_time: program.endTime || null, title: String(program.title || '').slice(0, 2000),
+            description: program.description ? String(program.description).slice(0, 50_000) : null,
+          });
+        }
+        await this._insertBatches(trx, 'epg_programs', programRows);
+        await trx('epg_sources').where({ id: sourceId }).update({
+          status: 'active', last_fetched_at: trx.fn.now(), processing_started_at: null, last_error: null,
+        });
+        return { channelCount: channelRows.length, programCount: programRows.length };
+      });
+      return result;
+    } catch (error) {
+      await db('epg_sources').where({ id: sourceId }).update({
+        status: 'error', processing_started_at: null, last_error: String(error.message || error).slice(0, 1000),
+      });
+      logger.warn({ err: error, sourceId }, 'EPG source processing failed');
+      if (error.statusCode) throw error;
+      throw createAppError('EPG_FETCH_FAILED', `EPG işlenemedi: ${error.message}`);
+    }
+  }
+
+  async _insertBatches(connection, table, rows) {
+    for (let index = 0; index < rows.length; index += BATCH_SIZE) {
+      await connection(table).insert(rows.slice(index, index + BATCH_SIZE));
+    }
+  }
+
+  _normalizeName(name) {
+    return String(name || '').toLocaleLowerCase('tr-TR').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  }
+
   async autoMatch(userId, playlistId) {
-    // Get all channels in the playlist
     const channels = await db('channels')
       .join('playlists', 'channels.playlist_id', 'playlists.id')
       .where({ 'playlists.id': playlistId, 'playlists.user_id': userId })
       .select('channels.id', 'channels.name');
+    if (!channels.length) return { matched: 0, total: 0, matches: [] };
 
-    if (channels.length === 0) return { matched: 0, total: 0, matches: [] };
-
-    // Get all EPG channels from user's sources
     const epgChannels = await db('epg_channels')
       .join('epg_sources', 'epg_channels.source_id', 'epg_sources.id')
       .where({ 'epg_sources.user_id': userId })
-      .select('epg_channels.id', 'epg_channels.channel_id', 'epg_channels.display_name');
+      .select('epg_channels.channel_id', 'epg_channels.source_id', 'epg_channels.display_name');
+    if (!epgChannels.length) return { matched: 0, total: channels.length, matches: [] };
 
-    if (epgChannels.length === 0) return { matched: 0, total: channels.length, matches: [] };
+    const exact = new Map();
+    const tokenIndex = new Map();
+    for (const epgChannel of epgChannels) {
+      const normalized = this._normalizeName(epgChannel.display_name);
+      epgChannel.normalized = normalized;
+      if (normalized && !exact.has(normalized)) exact.set(normalized, epgChannel);
+      for (const token of normalized.split(' ').filter((part) => part.length > 1)) {
+        if (!tokenIndex.has(token)) tokenIndex.set(token, new Set());
+        tokenIndex.get(token).add(epgChannel);
+      }
+    }
 
     const matches = [];
-
     for (const channel of channels) {
-      let bestMatch = null;
-      let bestConfidence = 0;
-
-      const channelNameLower = (channel.name || '').toLowerCase().trim();
-      if (!channelNameLower) continue;
-
-      for (const epgChannel of epgChannels) {
-        const epgNameLower = (epgChannel.display_name || '').toLowerCase().trim();
-        if (!epgNameLower) continue;
-
-        const confidence = this._calculateSimilarity(channelNameLower, epgNameLower);
-
-        if (confidence > bestConfidence) {
-          bestConfidence = confidence;
-          bestMatch = epgChannel;
+      const normalized = this._normalizeName(channel.name);
+      if (!normalized) continue;
+      let best = exact.get(normalized);
+      let confidence = best ? 1 : 0;
+      if (!best) {
+        const candidates = new Set();
+        for (const token of normalized.split(' ')) for (const candidate of tokenIndex.get(token) || []) candidates.add(candidate);
+        for (const candidate of candidates) {
+          const score = this._calculateSimilarity(normalized, candidate.normalized);
+          if (score > confidence) { best = candidate; confidence = score; }
         }
       }
-
-      if (bestMatch && bestConfidence > 0) {
-        matches.push({
-          channelId: channel.id,
-          epgChannelId: bestMatch.channel_id,
-          confidence: bestConfidence,
-        });
+      if (best && confidence >= 0.5) {
+        matches.push({ channelId: channel.id, epgChannelId: best.channel_id, epgSourceId: best.source_id, confidence });
       }
     }
-
-    // Sort by confidence descending (exact matches first)
     matches.sort((a, b) => b.confidence - a.confidence);
-
-    // Apply matches with confidence >= 0.5 by updating channels.epg_channel_id
-    const applicableMatches = matches.filter(m => m.confidence >= 0.5);
-
-    for (const match of applicableMatches) {
-      await db('channels')
-        .where({ id: match.channelId })
-        .update({ epg_channel_id: match.epgChannelId, updated_at: new Date() });
-    }
-
-    return {
-      matched: applicableMatches.length,
-      total: channels.length,
-      matches,
-    };
+    await db.transaction(async (trx) => {
+      for (const match of matches) {
+        await trx('channels').where({ id: match.channelId }).update({
+          epg_channel_id: match.epgChannelId, epg_source_id: match.epgSourceId, updated_at: trx.fn.now(),
+        });
+      }
+    });
+    return { matched: matches.length, total: channels.length, matches };
   }
 
-  /**
-   * Get EPG preview (program schedule) for a channel.
-   * @param {string} channelId - The channel's UUID
-   * @param {string} [date] - Optional date string (YYYY-MM-DD). Defaults to today.
-   * @returns {Promise<Array<object>>} Programs ordered by start_time
-   */
-  async getPreview(channelId, date) {
-    // Get the channel's epg_channel_id
-    const channel = await db('channels').where({ id: channelId }).first();
-    if (!channel) {
-      throw createAppError('NOT_FOUND', 'Kanal bulunamadı');
-    }
-
-    if (!channel.epg_channel_id) {
-      return [];
-    }
-
-    // Find the EPG channel record by channel_id string
-    const epgChannel = await db('epg_channels')
-      .where({ channel_id: channel.epg_channel_id })
+  async getPreview(userId, channelId, date, timezoneOffset) {
+    const channel = await db('channels')
+      .join('playlists', 'channels.playlist_id', 'playlists.id')
+      .where({ 'channels.id': channelId, 'playlists.user_id': userId })
+      .select('channels.*')
       .first();
+    if (!channel) throw createAppError('NOT_FOUND', 'Kanal bulunamadı');
+    if (!channel.epg_channel_id) return [];
 
-    if (!epgChannel) {
-      return [];
-    }
+    const epgQuery = db('epg_channels')
+      .join('epg_sources', 'epg_channels.source_id', 'epg_sources.id')
+      .where({ 'epg_channels.channel_id': channel.epg_channel_id, 'epg_sources.user_id': userId });
+    if (channel.epg_source_id) epgQuery.andWhere('epg_channels.source_id', channel.epg_source_id);
+    const epgChannel = await epgQuery.select('epg_channels.id').first();
+    if (!epgChannel) return [];
 
-    // Build date range filter
-    let startOfDay, endOfDay;
-    if (date) {
-      startOfDay = new Date(`${date}T00:00:00.000Z`);
-      endOfDay = new Date(`${date}T23:59:59.999Z`);
-    } else {
-      const today = new Date();
-      const yyyy = today.getUTCFullYear();
-      const mm = String(today.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(today.getUTCDate()).padStart(2, '0');
-      startOfDay = new Date(`${yyyy}-${mm}-${dd}T00:00:00.000Z`);
-      endOfDay = new Date(`${yyyy}-${mm}-${dd}T23:59:59.999Z`);
-    }
-
-    const programs = await db('epg_programs')
-      .where({ epg_channel_id: epgChannel.id })
-      .where('start_time', '>=', startOfDay)
-      .where('start_time', '<=', endOfDay)
+    const { start, end } = buildDateRange(date, timezoneOffset);
+    return db('epg_programs').where({ epg_channel_id: epgChannel.id })
+      .where('start_time', '<', end)
+      .andWhere((query) => query.whereNull('end_time').orWhere('end_time', '>=', start))
       .orderBy('start_time', 'asc');
-
-    return programs;
   }
 
-  /**
-   * Delete an EPG source belonging to the user.
-   * Cascade will handle removing associated epg_channels and epg_programs.
-   * @param {string} userId
-   * @param {string} sourceId
-   * @returns {Promise<void>}
-   */
   async deleteSource(userId, sourceId) {
-    const source = await db('epg_sources')
-      .where({ id: sourceId, user_id: userId })
-      .first();
-
-    if (!source) {
-      throw createAppError('NOT_FOUND', 'EPG kaynağı bulunamadı');
-    }
-
-    await db('epg_sources').where({ id: sourceId }).del();
+    const deleted = await db('epg_sources').where({ id: sourceId, user_id: userId }).del();
+    if (!deleted) throw createAppError('NOT_FOUND', 'EPG kaynağı bulunamadı');
   }
 
-  /**
-   * Refresh an EPG source by re-fetching and re-parsing its XML data.
-   * @param {string} userId
-   * @param {string} sourceId
-   * @returns {Promise<{ channelCount: number, programCount: number }>}
-   */
   async refreshSource(userId, sourceId) {
-    const source = await db('epg_sources')
-      .where({ id: sourceId, user_id: userId })
-      .first();
-
-    if (!source) {
-      throw createAppError('NOT_FOUND', 'EPG kaynağı bulunamadı');
-    }
-
+    const source = await db('epg_sources').where({ id: sourceId, user_id: userId }).first();
+    if (!source) throw createAppError('NOT_FOUND', 'EPG kaynağı bulunamadı');
     return this.parseAndStore(sourceId);
   }
 
-  /**
-   * Get the full EPG guide for a playlist on a given date.
-   * Returns channels with their associated programs in a single efficient query flow.
-   * @param {string} userId
-   * @param {string} playlistId
-   * @param {string} [date] - Date string (YYYY-MM-DD). Defaults to today.
-   * @returns {Promise<{ channels: Array<{ id: string, name: string, logo_url: string, epg_channel_id: string, programs: Array }>, date: string }>}
-   */
-  async getGuide(userId, playlistId, date) {
-    // Verify playlist belongs to user
-    const playlist = await db('playlists')
-      .where({ id: playlistId, user_id: userId })
-      .first();
+  async getGuide(userId, playlistId, date, timezoneOffset) {
+    const playlist = await db('playlists').where({ id: playlistId, user_id: userId }).first();
+    if (!playlist) throw createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı');
+    const { dateStr, start, end } = buildDateRange(date, timezoneOffset);
+    const channels = await db('channels').where({ playlist_id: playlistId }).orderBy('sort_order')
+      .select('id', 'name', 'logo_url', 'epg_channel_id', 'epg_source_id');
+    if (!channels.length) return { channels: [], date: dateStr };
 
-    if (!playlist) {
-      throw createAppError('NOT_FOUND', 'Playlist bulunamadı');
-    }
-
-    // Build date range
-    let dateStr;
-    if (date) {
-      dateStr = date;
-    } else {
-      const today = new Date();
-      const yyyy = today.getUTCFullYear();
-      const mm = String(today.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(today.getUTCDate()).padStart(2, '0');
-      dateStr = `${yyyy}-${mm}-${dd}`;
-    }
-    const startOfDay = new Date(`${dateStr}T00:00:00.000Z`);
-    const endOfDay = new Date(`${dateStr}T23:59:59.999Z`);
-
-    // Step 1: Get ALL channels for the playlist (not just matched ones)
-    const channels = await db('channels')
-      .where({ playlist_id: playlistId })
-      .orderBy('sort_order', 'asc')
-      .select('id', 'name', 'logo_url', 'epg_channel_id');
-
-    if (channels.length === 0) {
-      return { channels: [], date: dateStr };
-    }
-
-    // Filter channels that have EPG mapping for program fetching
-    const mappedChannels = channels.filter(ch => ch.epg_channel_id);
-
-    // Step 2: Collect all unique epg_channel_id strings and find their UUID records
-    const epgChannelIds = [...new Set(mappedChannels.map(ch => ch.epg_channel_id))];
-
-    const epgChannelRecords = await db('epg_channels')
-      .whereIn('channel_id', epgChannelIds)
-      .select('id', 'channel_id');
-
-    // Map from channel_id string -> epg_channels UUID
-    const epgChannelIdToUuid = {};
-    for (const rec of epgChannelRecords) {
-      epgChannelIdToUuid[rec.channel_id] = rec.id;
-    }
-
-    // Step 3: Get all epg_channel UUIDs that we need programs for
-    const epgChannelUuids = Object.values(epgChannelIdToUuid);
-
-    let programs = [];
-    if (epgChannelUuids.length > 0) {
-      programs = await db('epg_programs')
-        .whereIn('epg_channel_id', epgChannelUuids)
-        .where('start_time', '>=', startOfDay)
-        .where('start_time', '<=', endOfDay)
-        .orderBy('start_time', 'asc');
-    }
-
-    // Step 4: Group programs by epg_channel UUID
-    const programsByEpgUuid = {};
-    for (const prog of programs) {
-      if (!programsByEpgUuid[prog.epg_channel_id]) {
-        programsByEpgUuid[prog.epg_channel_id] = [];
-      }
-      programsByEpgUuid[prog.epg_channel_id].push(prog);
-    }
-
-    // Step 5: Map programs to channels
-    const result = channels.map(ch => {
-      const epgUuid = epgChannelIdToUuid[ch.epg_channel_id];
-      return {
-        id: ch.id,
-        name: ch.name,
-        logo_url: ch.logo_url,
-        epg_channel_id: ch.epg_channel_id,
-        programs: epgUuid ? (programsByEpgUuid[epgUuid] || []) : [],
-      };
-    });
-
-    return { channels: result, date: dateStr };
-  }
-
-  /**
-   * Search EPG channels by name for autocomplete.
-   * Returns matching EPG channels with icon_url for display.
-   * @param {string} userId
-   * @param {string} query - Search query string
-   * @param {number} [limit=15] - Max results
-   * @returns {Promise<Array<{ channel_id: string, display_name: string, icon_url: string }>>}
-   */
-  async searchEpgChannels(userId, query, limit = 15) {
-    if (!query || query.trim().length < 2) return [];
-
-    const q = query.trim();
-    const results = await db('epg_channels')
+    const ids = [...new Set(channels.map((channel) => channel.epg_channel_id).filter(Boolean))];
+    const epgRows = ids.length ? await db('epg_channels')
       .join('epg_sources', 'epg_channels.source_id', 'epg_sources.id')
       .where('epg_sources.user_id', userId)
-      .where(function () {
-        this.where('epg_channels.display_name', 'ilike', `%${q}%`)
-          .orWhere('epg_channels.channel_id', 'ilike', `%${q}%`);
-      })
-      .select('epg_channels.channel_id', 'epg_channels.display_name', 'epg_channels.icon_url')
-      .limit(limit);
-
-    return results;
+      .whereIn('epg_channels.channel_id', ids)
+      .select('epg_channels.id', 'epg_channels.channel_id', 'epg_channels.source_id') : [];
+    const exactMap = new Map(epgRows.map((row) => [`${row.source_id}:${row.channel_id}`, row.id]));
+    const fallbackMap = new Map(epgRows.map((row) => [row.channel_id, row.id]));
+    const epgUuids = [...new Set(epgRows.map((row) => row.id))];
+    const programs = epgUuids.length ? await db('epg_programs').whereIn('epg_channel_id', epgUuids)
+      .where('start_time', '<', end)
+      .andWhere((query) => query.whereNull('end_time').orWhere('end_time', '>=', start))
+      .orderBy('start_time') : [];
+    const grouped = new Map();
+    for (const program of programs) {
+      if (!grouped.has(program.epg_channel_id)) grouped.set(program.epg_channel_id, []);
+      grouped.get(program.epg_channel_id).push(program);
+    }
+    return {
+      date: dateStr,
+      channels: channels.map((channel) => {
+        const epgUuid = exactMap.get(`${channel.epg_source_id}:${channel.epg_channel_id}`) || fallbackMap.get(channel.epg_channel_id);
+        return { ...channel, programs: grouped.get(epgUuid) || [] };
+      }),
+    };
   }
 
-  /**
-   * Calculate string similarity between two lowercased names.
-   * @param {string} a - First name (lowercased)
-   * @param {string} b - Second name (lowercased)
-   * @returns {number} Confidence score: 1.0, 0.7, 0.5, or 0
-   * @private
-   */
+  async searchEpgChannels(userId, query, limit = 15) {
+    if (typeof query !== 'string' || query.trim().length < 2) return [];
+    const cappedLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 15, 1), 50);
+    return db('epg_channels')
+      .join('epg_sources', 'epg_channels.source_id', 'epg_sources.id')
+      .where('epg_sources.user_id', userId)
+      .andWhere((builder) => builder.where('epg_channels.display_name', 'ilike', `%${query.trim()}%`).orWhere('epg_channels.channel_id', 'ilike', `%${query.trim()}%`))
+      .select('epg_channels.channel_id', 'epg_channels.source_id', 'epg_channels.display_name', 'epg_channels.icon_url')
+      .limit(cappedLimit);
+  }
+
   _calculateSimilarity(a, b) {
-    // Exact match (case-insensitive, already lowered)
-    if (a === b) return 1.0;
-
-    // One contains the other
+    if (a === b) return 1;
     if (a.includes(b) || b.includes(a)) return 0.7;
-
-    // Partial word overlap
-    const wordsA = new Set(a.split(/\s+/).filter(Boolean));
-    const wordsB = new Set(b.split(/\s+/).filter(Boolean));
-
-    let overlap = 0;
-    for (const word of wordsA) {
-      if (wordsB.has(word)) overlap++;
-    }
-
-    if (overlap > 0) return 0.5;
-
-    return 0;
+    const wordsB = new Set(b.split(/\s+/));
+    return a.split(/\s+/).some((word) => word.length > 1 && wordsB.has(word)) ? 0.5 : 0;
   }
 }
 

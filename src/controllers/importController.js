@@ -1,193 +1,71 @@
 const ImportService = require('../services/ImportService');
+const config = require('../config');
+const { safeFetchText } = require('../utils/safeFetch');
 const { createAppError } = require('../utils/AppError');
 
-/**
- * POST /api/playlists/:id/import/xtream
- * Mevcut playlist'e Xtream Codes kanallarını içe aktar
- */
+const importService = new ImportService();
+
+function xtreamCredentials(body) {
+  const { serverUrl, username, password, streamTypes, playlistName } = body || {};
+  if (![serverUrl, username, password].every((value) => typeof value === 'string' && value.trim())) {
+    throw createAppError('VALIDATION_ERROR', 'Sunucu adresi, kullanıcı adı ve şifre gerekli');
+  }
+  if (serverUrl.length > 2048 || username.length > 500 || password.length > 500) {
+    throw createAppError('VALIDATION_ERROR', 'Xtream bağlantı bilgileri çok uzun');
+  }
+  return { serverUrl: serverUrl.trim(), username: username.trim(), password, streamTypes, playlistName };
+}
+
+async function loadM3u(body) {
+  const { m3uContent, m3uUrl } = body || {};
+  if (m3uContent && m3uUrl) throw createAppError('VALIDATION_ERROR', 'M3U içeriği veya URL’den yalnızca birini gönderin');
+  if (typeof m3uContent === 'string' && m3uContent.trim()) {
+    if (Buffer.byteLength(m3uContent) > config.limits.m3uBytes) throw createAppError('VALIDATION_ERROR', 'M3U içeriği boyut sınırını aşıyor');
+    return m3uContent;
+  }
+  if (typeof m3uUrl === 'string' && m3uUrl.trim()) {
+    const response = await safeFetchText(m3uUrl.trim(), { timeoutMs: 60_000, maxBytes: config.limits.m3uBytes, accept: 'audio/x-mpegurl,text/plain' });
+    return response.text;
+  }
+  throw createAppError('VALIDATION_ERROR', 'M3U içeriği veya URL gerekli');
+}
+
 async function importFromXtream(req, res, next) {
   try {
-    const { id: playlistId } = req.params;
-    const { serverUrl, username, password, streamTypes } = req.body;
-
-    if (!serverUrl || !username || !password) {
-      throw createAppError('VALIDATION_ERROR', 'serverUrl, username ve password alanları zorunludur');
-    }
-
-    const validTypes = ['live', 'vod', 'series'];
-    const types = Array.isArray(streamTypes) ? streamTypes.filter(t => validTypes.includes(t)) : ['live'];
-
-    const importService = new ImportService();
-    const result = await importService.importFromXtream(req.userId, { serverUrl, username, password, streamTypes: types }, undefined, playlistId);
-
-    res.json({
-      totalChannels: result.totalChannels,
-      totalCategories: result.totalCategories,
-      duration: result.duration,
-    });
-  } catch (err) {
-    next(err);
-  }
+    const result = await importService.importFromXtream(req.userId, xtreamCredentials(req.body), undefined, req.params.id);
+    res.json(result);
+  } catch (error) { next(error); }
 }
 
-/**
- * POST /api/import/xtream
- * Playlist olmadan Xtream Codes ile içe aktar (yeni playlist oluşturur veya mevcut olanı bulur)
- */
 async function importFromXtreamNew(req, res, next) {
   try {
-    const { serverUrl, username, password, streamTypes } = req.body;
-
-    if (!serverUrl || !username || !password) {
-      throw createAppError('VALIDATION_ERROR', 'serverUrl, username ve password alanları zorunludur');
-    }
-
-    const validTypes = ['live', 'vod', 'series'];
-    const types = Array.isArray(streamTypes) ? streamTypes.filter(t => validTypes.includes(t)) : ['live'];
-
-    const importService = new ImportService();
-    const result = await importService.importFromXtream(req.userId, { serverUrl, username, password, streamTypes: types }, undefined, null);
-
-    res.json({
-      playlistId: result.playlistId,
-      totalChannels: result.totalChannels,
-      totalCategories: result.totalCategories,
-      duration: result.duration,
-    });
-  } catch (err) {
-    next(err);
-  }
+    const result = await importService.importFromXtream(req.userId, xtreamCredentials(req.body));
+    res.status(201).json(result);
+  } catch (error) { next(error); }
 }
 
-/**
- * POST /api/playlists/:id/sync
- */
 async function syncPlaylist(req, res, next) {
-  try {
-    const { id: playlistId } = req.params;
-
-    const importService = new ImportService();
-    const result = await importService.syncFromXtream(req.userId, playlistId);
-
-    res.json({
-      added: result.added,
-      updated: result.updated,
-      removed: result.removed,
-      duration: result.duration,
-    });
-  } catch (err) {
-    next(err);
-  }
+  try { res.json(await importService.syncFromXtream(req.userId, req.params.id)); } catch (error) { next(error); }
 }
 
-/**
- * POST /api/import/m3u
- * Import from M3U file content or URL
- */
 async function importFromM3U(req, res, next) {
   try {
-    const { m3uContent, m3uUrl, playlistName } = req.body;
-    let content = m3uContent;
-
-    if (!content && m3uUrl) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
-      try {
-        const response = await fetch(m3uUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        content = await response.text();
-      } catch (err) {
-        clearTimeout(timeoutId);
-        throw createAppError('IMPORT_FAILED', `M3U URL alinamadi: ${err.message}`);
-      }
-    }
-
-    if (!content) {
-      throw createAppError('VALIDATION_ERROR', 'm3uContent veya m3uUrl gereklidir');
-    }
-
-    const importService = new ImportService();
-    const result = await importService.importFromM3U(req.userId, content, null, playlistName);
-
-    res.json({
-      playlistId: result.playlistId,
-      totalChannels: result.totalChannels,
-      totalCategories: result.totalCategories,
-      duration: result.duration,
-    });
-  } catch (err) {
-    next(err);
-  }
+    const result = await importService.importFromM3U(req.userId, await loadM3u(req.body), null, req.body?.playlistName);
+    res.status(201).json(result);
+  } catch (error) { next(error); }
 }
 
-/**
- * POST /api/playlists/:id/import/m3u
- * Import M3U into existing playlist
- */
 async function importM3UToPlaylist(req, res, next) {
-  try {
-    const { id: playlistId } = req.params;
-    const { m3uContent, m3uUrl } = req.body;
-    let content = m3uContent;
-
-    if (!content && m3uUrl) {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
-      try {
-        const response = await fetch(m3uUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        content = await response.text();
-      } catch (err) {
-        clearTimeout(timeoutId);
-        throw createAppError('IMPORT_FAILED', `M3U URL alinamadi: ${err.message}`);
-      }
-    }
-
-    if (!content) {
-      throw createAppError('VALIDATION_ERROR', 'm3uContent veya m3uUrl gereklidir');
-    }
-
-    const importService = new ImportService();
-    const result = await importService.importFromM3U(req.userId, content, playlistId);
-
-    res.json({
-      totalChannels: result.totalChannels,
-      totalCategories: result.totalCategories,
-      duration: result.duration,
-    });
-  } catch (err) {
-    next(err);
-  }
+  try { res.json(await importService.importFromM3U(req.userId, await loadM3u(req.body), req.params.id)); } catch (error) { next(error); }
 }
 
-/**
- * POST /api/playlists/:id/import/add-types
- * Add new stream types (vod/series) to existing playlist using stored Xtream credentials.
- */
 async function addStreamTypes(req, res, next) {
   try {
-    const { id: playlistId } = req.params;
-    const { streamTypes } = req.body;
-
-    if (!Array.isArray(streamTypes) || streamTypes.length === 0) {
-      throw createAppError('VALIDATION_ERROR', 'streamTypes bos olmayan bir dizi olmalidir');
+    if (!Array.isArray(req.body?.streamTypes) || !req.body.streamTypes.length) {
+      throw createAppError('VALIDATION_ERROR', 'En az bir içerik türü seçin');
     }
-
-    const validTypes = ['live', 'vod', 'series'];
-    const types = streamTypes.filter(t => validTypes.includes(t));
-    if (types.length === 0) {
-      throw createAppError('VALIDATION_ERROR', 'Gecerli icerik tipi belirtilmedi (live, vod, series)');
-    }
-
-    const importService = new ImportService();
-    const result = await importService.addStreamTypes(req.userId, playlistId, types);
-
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
+    res.json(await importService.addStreamTypes(req.userId, req.params.id, req.body.streamTypes));
+  } catch (error) { next(error); }
 }
 
 module.exports = { importFromXtream, importFromXtreamNew, syncPlaylist, importFromM3U, importM3UToPlaylist, addStreamTypes };

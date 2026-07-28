@@ -5,6 +5,7 @@ const { AppError } = require('../../../src/utils/AppError');
 
 // --- Mock the database module ---
 const mockKnex = jest.fn();
+mockKnex.fn = { now: jest.fn(() => 'NOW') };
 jest.mock('../../../src/config/database', () => mockKnex);
 
 // Require AuthService AFTER mocking database
@@ -38,12 +39,14 @@ describe('AuthService', () => {
       const fakeUser = { id: 'user-uuid-2', email: 'hash@example.com' };
       let insertedData = null;
 
-      mockKnex.mockReturnValue({
+      mockKnex.mockImplementation((table) => ({
         insert: jest.fn().mockImplementation((data) => {
-          insertedData = data;
-          return { returning: jest.fn().mockResolvedValue([fakeUser]) };
+          if (table === 'users') insertedData = data;
+          return { returning: jest.fn().mockResolvedValue([
+            table === 'users' ? fakeUser : { id: 'session-uuid-2', user_id: fakeUser.id },
+          ]) };
         }),
-      });
+      }));
 
       await authService.register('hash@example.com', 'mypassword');
 
@@ -60,10 +63,10 @@ describe('AuthService', () => {
       const passwordHash = await bcrypt.hash('correctpass', 10);
       const fakeUser = { id: 'user-uuid-3', email: 'login@example.com', password_hash: passwordHash };
 
-      mockKnex.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          first: jest.fn().mockResolvedValue(fakeUser),
-        }),
+      mockKnex.mockImplementation((table) => table === 'users' ? {
+        where: jest.fn().mockReturnValue({ first: jest.fn().mockResolvedValue(fakeUser) }),
+      } : {
+        insert: jest.fn().mockReturnValue({ returning: jest.fn().mockResolvedValue([{ id: 'session-uuid-3', user_id: fakeUser.id }]) }),
       });
 
       const result = await authService.login('login@example.com', 'correctpass');
@@ -156,6 +159,20 @@ describe('AuthService', () => {
       }
     });
   });
+
+  describe('verifySession', () => {
+    it('accepts an active session owned by the token user', async () => {
+      const query = { where: jest.fn().mockReturnThis(), first: jest.fn().mockResolvedValue({ id: 'session-1' }) };
+      mockKnex.mockReturnValue(query);
+      await expect(authService.verifySession('user-1', 'session-1')).resolves.toBeUndefined();
+      expect(query.where).toHaveBeenCalledWith({ id: 'session-1', user_id: 'user-1', revoked_at: null });
+    });
+
+    it('rejects a revoked, expired, or foreign session', async () => {
+      mockKnex.mockReturnValue({ where: jest.fn().mockReturnThis(), first: jest.fn().mockResolvedValue(undefined) });
+      await expect(authService.verifySession('user-1', 'session-1')).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+    });
+  });
 });
 
 describe('authMiddleware', () => {
@@ -175,6 +192,18 @@ describe('authMiddleware', () => {
     authMiddleware(req, res, next);
 
     expect(req.userId).toBe('mw-user-1');
+    expect(next).toHaveBeenCalledWith();
+  });
+
+  it('validates the session claim on newly issued access tokens', async () => {
+    mockKnex.mockReturnValue({ where: jest.fn().mockReturnThis(), first: jest.fn().mockResolvedValue({ id: 'session-1' }) });
+    const token = jwt.sign({ userId: 'mw-user-1', sid: 'session-1' }, jwtConfig.secret, {
+      expiresIn: '1h', issuer: jwtConfig.issuer, audience: jwtConfig.audience,
+    });
+    const req = createReq(`Bearer ${token}`);
+    const next = jest.fn();
+    await authMiddleware(req, res, next);
+    expect(req.sessionId).toBe('session-1');
     expect(next).toHaveBeenCalledWith();
   });
 

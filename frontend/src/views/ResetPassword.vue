@@ -11,12 +11,12 @@
         <form v-else @submit.prevent="handleSubmit">
           <div v-if="error" class="auth-error">{{ error }}</div>
           <div class="form-group">
-            <label>{{ t('account.newPassword') }}</label>
-            <input class="input" type="password" v-model="password" minlength="6" required />
+            <label for="reset-password">{{ t('account.newPassword') }}</label>
+            <input id="reset-password" class="input" type="password" v-model="password" minlength="10" required autocomplete="new-password" />
           </div>
           <div class="form-group">
-            <label>{{ t('account.confirmNewPassword') }}</label>
-            <input class="input" type="password" v-model="confirmPassword" minlength="6" required />
+            <label for="reset-password-confirm">{{ t('account.confirmNewPassword') }}</label>
+            <input id="reset-password-confirm" class="input" type="password" v-model="confirmPassword" minlength="10" required autocomplete="new-password" />
           </div>
           <button class="btn btn-primary" type="submit" :disabled="loading" style="width:100%;margin-top:12px">
             {{ loading ? t('common.loading') : t('resetPw.submit') }}

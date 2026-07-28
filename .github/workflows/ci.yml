@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: m3u_playlist_editor_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d m3u_playlist_editor_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_NAME: m3u_playlist_editor
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: ci-only-jwt-secret
+      CREDENTIAL_ENCRYPTION_KEY: ci-only-encryption-secret
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --ignore-scripts
+      - name: Validate backend and migrations
+        run: |
+          npm run check
+          npm run migrate
+          npm run test:ci
+          npm audit --audit-level=high
+
+      - name: Install and verify frontend
+        working-directory: frontend
+        run: |
+          npm ci --ignore-scripts
+          npm run check
+          npm audit --audit-level=high
+
+      - name: Validate Compose configuration
+        env:
+          DB_PASSWORD: ci-compose-db-password
+          JWT_SECRET: ci-compose-jwt-secret-with-at-least-32-chars
+          CREDENTIAL_ENCRYPTION_KEY: ci-compose-encryption-key-at-least-32-chars
+          APP_URL: http://localhost
+        run: docker compose config --quiet

@@ -10,6 +10,7 @@ const STORAGE_KEY = 'app_lang'
 // Reactive global state (shared across all components)
 const currentLang = ref(localStorage.getItem(STORAGE_KEY) || config.defaultLang)
 const currentTranslations = reactive({ data: translations[currentLang.value] || translations[config.defaultLang] })
+if (typeof document !== 'undefined') document.documentElement.lang = currentLang.value
 
 /**
  * Get nested value from object by dot notation key
@@ -50,6 +51,7 @@ export function useI18n() {
     currentLang.value = code
     currentTranslations.data = translations[code]
     localStorage.setItem(STORAGE_KEY, code)
+    document.documentElement.lang = code
   }
 
   return {

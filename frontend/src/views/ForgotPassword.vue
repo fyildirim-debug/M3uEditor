@@ -11,8 +11,8 @@
         <form v-else @submit.prevent="handleSubmit">
           <div v-if="error" class="auth-error">{{ error }}</div>
           <div class="form-group">
-            <label>{{ t('auth.email') }}</label>
-            <input class="input" type="email" v-model="email" :placeholder="t('auth.emailPlaceholder')" required />
+            <label for="forgot-email">{{ t('auth.email') }}</label>
+            <input id="forgot-email" class="input" type="email" v-model="email" :placeholder="t('auth.emailPlaceholder')" required autocomplete="email" />
           </div>
           <button class="btn btn-primary" type="submit" :disabled="loading" style="width:100%;margin-top:12px">
             {{ loading ? t('common.loading') : t('forgotPw.submit') }}

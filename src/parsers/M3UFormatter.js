@@ -65,31 +65,40 @@ class M3UFormatter {
     const attrs = [];
 
     if (channel.epgId) {
-      attrs.push(`tvg-id="${channel.epgId}"`);
+      attrs.push(`tvg-id="${this._escapeAttribute(channel.epgId)}"`);
     }
     if (channel.name) {
-      attrs.push(`tvg-name="${channel.name}"`);
+      attrs.push(`tvg-name="${this._escapeAttribute(channel.name)}"`);
     }
     if (channel.logo) {
-      attrs.push(`tvg-logo="${channel.logo}"`);
+      attrs.push(`tvg-logo="${this._escapeAttribute(channel.logo)}"`);
     }
     if (channel.group) {
-      attrs.push(`group-title="${channel.group}"`);
+      attrs.push(`group-title="${this._escapeAttribute(channel.group)}"`);
     }
 
     // Append extras as additional attributes
     if (channel.extras && typeof channel.extras === 'object') {
+      const reserved = new Set(['tvg-id', 'tvg-name', 'tvg-logo', 'group-title']);
       for (const [key, value] of Object.entries(channel.extras)) {
-        if (value) {
-          attrs.push(`${key}="${value}"`);
+        if (!reserved.has(key.toLowerCase()) && value !== null && value !== undefined && value !== '' && ['string', 'number', 'boolean'].includes(typeof value) && /^[A-Za-z0-9_-]{1,64}$/.test(key)) {
+          attrs.push(`${key}="${this._escapeAttribute(value)}"`);
         }
       }
     }
 
     const attrStr = attrs.length > 0 ? ' ' + attrs.join(' ') : '';
-    const displayName = channel.name || '';
+    const displayName = this._sanitizeLine(channel.name || '');
 
-    return `#EXTINF:-1${attrStr},${displayName}\n${channel.url || ''}`;
+    return `#EXTINF:-1${attrStr},${displayName}\n${this._sanitizeLine(channel.url || '')}`;
+  }
+
+  _sanitizeLine(value) {
+    return String(value).replace(/[\r\n\u0000-\u001f\u007f]/g, ' ').trim();
+  }
+
+  _escapeAttribute(value) {
+    return this._sanitizeLine(value).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   }
 }
 

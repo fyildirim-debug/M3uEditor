@@ -3,23 +3,23 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: m3u_playlist_editor
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME:-m3u_playlist_editor}
+      POSTGRES_USER: ${DB_USER:-m3u_editor}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
 
-  # Production: backend + embedded frontend (Dockerfile'dan build edilir)
   api:
     build: .
     restart: unless-stopped
+    init: true
     depends_on:
       db:
         condition: service_healthy
@@ -28,29 +28,65 @@ services:
       PORT: 3000
       DB_HOST: db
       DB_PORT: 5432
-      DB_NAME: m3u_playlist_editor
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production}
-    ports:
-      - "3000:3000"
-    command: >
-      sh -c "npx knex migrate:latest && node src/index.js"
-    profiles:
-      - production
+      DB_NAME: ${DB_NAME:-m3u_playlist_editor}
+      DB_USER: ${DB_USER:-m3u_editor}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?CREDENTIAL_ENCRYPTION_KEY must be set}
+      APP_URL: ${APP_URL:?APP_URL must be set}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      TRUST_PROXY: 1
+      NODE_OPTIONS: "--max-old-space-size=${NODE_MAX_OLD_SPACE_MB:-1536}"
+      UPLOAD_DIR: /app/data/logos
+      ALLOW_PRIVATE_NETWORK_URLS: ${ALLOW_PRIVATE_NETWORK_URLS:-false}
+      MAX_XTREAM_BYTES: ${MAX_XTREAM_BYTES:-268435456}
+      XTREAM_CATEGORY_CONCURRENCY: ${XTREAM_CATEGORY_CONCURRENCY:-8}
+      XTREAM_TYPE_CONCURRENCY: ${XTREAM_TYPE_CONCURRENCY:-2}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+    expose:
+      - "3000"
+    volumes:
+      - uploads:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    command: ["sh", "-c", "./node_modules/.bin/knex migrate:latest && node src/index.js"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
-  # Production: frontend (nginx + Vue build)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     ports:
-      - "80:80"
-    profiles:
-      - production
+      - "${HTTP_PORT:-80}:80"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   pgdata:
+  uploads:

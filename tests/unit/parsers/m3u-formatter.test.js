@@ -108,6 +108,19 @@ describe('M3UFormatter', () => {
       expect(result).toContain('catchup="default"');
       expect(result).not.toContain('empty=');
     });
+
+    it('does not allow extras to override reserved M3U attributes', () => {
+      const result = formatter.format([{
+        name: 'Trusted name',
+        epgId: 'trusted-id',
+        url: 'https://stream.example.com/1',
+        extras: { 'tvg-name': 'Injected name', 'tvg-id': 'injected-id', catchup: 'default' },
+      }]);
+      expect(result.match(/tvg-name=/g)).toHaveLength(1);
+      expect(result.match(/tvg-id=/g)).toHaveLength(1);
+      expect(result).toContain('catchup="default"');
+      expect(result).not.toContain('Injected name');
+    });
   });
 
   describe('formatStream()', () => {

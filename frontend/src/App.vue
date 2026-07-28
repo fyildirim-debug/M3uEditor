@@ -46,12 +46,13 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
           {{ t('nav.playlists') }}
         </router-link>
+        <router-link v-if="auth.user?.is_admin" to="/admin" class="nav-link" active-class="active">Yönetim</router-link>
       </nav>
 
       <div class="header-right">
         <div class="header-status hide-mobile" aria-live="polite">
-          <span class="status-dot" title="Sistem aktif" aria-label="Sistem aktif"></span>
-          <span class="status-label">{{ t('status.active') }}</span>
+          <span class="status-dot" :class="{ offline: systemOnline === false }" aria-hidden="true"></span>
+          <span class="status-label">{{ systemOnline === false ? 'Bağlantı yok' : t('status.active') }}</span>
         </div>
 
         <div class="lang-switcher" v-if="langs.length > 1">
@@ -117,6 +118,7 @@ const { t, lang, setLang, langs } = useI18n()
 const publicPaths = ['/', '/terms', '/privacy']
 const isPublicPage = computed(() => publicPaths.includes(route.path))
 const toasts = ref([])
+const systemOnline = ref(null)
 
 // Header scroll behavior
 const headerHidden = ref(false)
@@ -126,7 +128,10 @@ function handleScroll() {
   headerHidden.value = currentY > 100 && currentY > lastScrollY
   lastScrollY = currentY
 }
-onMounted(() => window.addEventListener('scroll', handleScroll, { passive: true }))
+onMounted(async () => {
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  try { systemOnline.value = (await fetch('/health', { cache: 'no-store' })).ok } catch { systemOnline.value = false }
+})
 onUnmounted(() => window.removeEventListener('scroll', handleScroll))
 
 function showToast(message, type = 'info') {
@@ -141,8 +146,8 @@ function dismissToast(id) {
 
 provide('toast', showToast)
 
-function handleLogout() {
-  auth.logout()
+async function handleLogout() {
+  await auth.logout()
   router.push('/login')
 }
 </script>
@@ -173,7 +178,7 @@ function handleLogout() {
 .logo:hover { background: var(--bg-hover); }
 .logo-mark {
   width: 32px; height: 32px;
-  background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);
+  background: var(--accent);
   border-radius: 9px; display: flex; align-items: center; justify-content: center;
   color: white; flex-shrink: 0;
   box-shadow: 0 2px 10px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
@@ -201,7 +206,7 @@ function handleLogout() {
   display: flex; align-items: center; gap: 6px;
   padding: 6px 11px; border-radius: var(--radius-sm);
   font-size: 13px; font-weight: 500; color: var(--text-secondary);
-  text-decoration: none; transition: all var(--transition);
+  text-decoration: none; transition: color var(--transition), background-color var(--transition), border-color var(--transition);
   position: relative;
 }
 .nav-link:hover { color: var(--text-primary); background: var(--bg-hover); }
@@ -244,12 +249,14 @@ function handleLogout() {
   font-size: 11px; font-weight: 500;
   color: var(--success);
 }
+.status-dot.offline { background: var(--danger); box-shadow: none; animation: none; }
+.status-dot.offline + .status-label { color: var(--danger); }
 
 /* User menu */
 .user-menu { display: flex; align-items: center; gap: 8px; }
 .user-avatar {
   width: 28px; height: 28px;
-  background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);
+  background: var(--accent);
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: white;
   box-shadow: 0 0 0 2px rgba(99,102,241,0.25), 0 2px 8px rgba(99,102,241,0.2);
@@ -264,7 +271,7 @@ function handleLogout() {
 .logout-btn {
   color: var(--text-muted);
   border: 1px solid transparent;
-  transition: all var(--transition);
+  transition: color var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition);
 }
 .logout-btn:hover {
   color: var(--danger);
@@ -278,7 +285,7 @@ function handleLogout() {
   width: 28px; height: 20px; padding: 0; border: 1.5px solid transparent;
   border-radius: 4px; cursor: pointer; background: none;
   display: flex; align-items: center; justify-content: center;
-  opacity: 0.45; transition: all var(--transition); overflow: hidden;
+  opacity: 0.45; transition: opacity var(--transition), border-color var(--transition), box-shadow var(--transition); overflow: hidden;
 }
 .lang-btn:hover { opacity: 0.75; }
 .lang-btn.active { opacity: 1; border-color: var(--accent); box-shadow: 0 0 6px rgba(99,102,241,0.3); }
@@ -329,8 +336,8 @@ function handleLogout() {
   color: #93c5fd;
   border: 1px solid rgba(59,130,246,0.18);
 }
-.toast-enter-active { animation: slideInRight 0.28s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.toast-leave-active { transition: all 0.22s ease; }
+.toast-enter-active { animation: slideInRight 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+.toast-leave-active { transition: opacity 0.22s ease, transform 0.22s ease; }
 .toast-leave-to { opacity: 0; transform: translateX(100%); }
 .toast-move { transition: transform 0.25s ease; }
 

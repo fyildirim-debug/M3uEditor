@@ -1,37 +1,34 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import Landing from './views/Landing.vue'
-import Login from './views/Login.vue'
-import Dashboard from './views/Dashboard.vue'
-import Editor from './views/Editor.vue'
-import Account from './views/Account.vue'
-import ForgotPassword from './views/ForgotPassword.vue'
-import ResetPassword from './views/ResetPassword.vue'
-import Terms from './views/Terms.vue'
-import Privacy from './views/Privacy.vue'
-import NotFound from './views/NotFound.vue'
 
 const routes = [
-  { path: '/', component: Landing },
-  { path: '/login', component: Login },
-  { path: '/forgot-password', component: ForgotPassword },
-  { path: '/reset-password', component: ResetPassword },
-  { path: '/terms', component: Terms },
-  { path: '/privacy', component: Privacy },
-  { path: '/dashboard', component: Dashboard, meta: { auth: true } },
-  { path: '/playlist/:id', component: Editor, meta: { auth: true } },
-  { path: '/account', component: Account, meta: { auth: true } },
-  { path: '/:pathMatch(.*)*', component: NotFound },
+  { path: '/', component: () => import('./views/Landing.vue') },
+  { path: '/login', component: () => import('./views/Login.vue'), meta: { guest: true } },
+  { path: '/forgot-password', component: () => import('./views/ForgotPassword.vue'), meta: { guest: true } },
+  { path: '/reset-password', component: () => import('./views/ResetPassword.vue'), meta: { guest: true } },
+  { path: '/terms', component: () => import('./views/Terms.vue') },
+  { path: '/privacy', component: () => import('./views/Privacy.vue') },
+  { path: '/dashboard', component: () => import('./views/Dashboard.vue'), meta: { auth: true } },
+  { path: '/playlist/:id', component: () => import('./views/Editor.vue'), meta: { auth: true } },
+  { path: '/account', component: () => import('./views/Account.vue'), meta: { auth: true } },
+  { path: '/admin', component: () => import('./views/Admin.vue'), meta: { auth: true, admin: true } },
+  { path: '/:pathMatch(.*)*', component: () => import('./views/NotFound.vue') },
 ]
 
-const router = createRouter({
-  history: createWebHashHistory(),
-  routes
-})
+const router = createRouter({ history: createWebHashHistory(), routes })
 
 router.beforeEach((to) => {
-  if (to.meta.auth && !localStorage.getItem('token')) {
-    return '/login'
-  }
+  const token = sessionStorage.getItem('token')
+  let user = null
+  try { user = JSON.parse(sessionStorage.getItem('user') || 'null') } catch {}
+  if (to.meta.auth && !token) return { path: '/login', query: { redirect: to.fullPath } }
+  if (to.meta.admin && !user?.is_admin) return '/dashboard'
+  if (to.meta.guest && token) return '/dashboard'
+})
+
+router.afterEach((to) => {
+  const title = to.path === '/' ? 'M3U Editor' : `${to.path.split('/')[1] || 'M3U Editor'} · M3U Editor`
+  document.title = title.charAt(0).toUpperCase() + title.slice(1)
+  window.scrollTo({ top: 0, behavior: 'instant' })
 })
 
 export default router

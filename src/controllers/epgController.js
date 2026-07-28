@@ -1,178 +1,86 @@
 const EPGService = require('../services/EPGService');
 const db = require('../config/database');
+const logger = require('../config/logger');
 const { createAppError } = require('../utils/AppError');
 
 const epgService = new EPGService();
 
-/**
- * POST /api/epg/sources
- * Add a new EPG source URL, then fetch and parse it.
- */
 async function addSource(req, res, next) {
   try {
-    const { url, async: asyncMode } = req.body;
-
-    if (!url || typeof url !== 'string' || url.trim().length === 0) {
-      throw createAppError('VALIDATION_ERROR', 'url alanı zorunludur');
-    }
-
-    const source = await epgService.addSource(req.userId, url.trim());
-
+    const { url, async: asyncMode } = req.body || {};
+    const source = await epgService.addSource(req.userId, url);
     if (asyncMode) {
-      // Asenkron mod: hemen cevap dön, parse arka planda çalışsın
-      epgService.parseAndStore(source.id).catch(() => {});
-      const updatedSource = await db('epg_sources').where({ id: source.id }).first();
-      return res.status(202).json({ source: updatedSource, channelCount: 0, programCount: 0 });
+      epgService.parseAndStore(source.id).catch((error) => logger.warn({ err: error, sourceId: source.id }, 'Async EPG import failed'));
+      return res.status(202).json({ source, channelCount: 0, programCount: 0 });
     }
-
-    const parseResult = await epgService.parseAndStore(source.id);
-    const updatedSource = await db('epg_sources').where({ id: source.id }).first();
-
-    res.status(201).json({
-      source: updatedSource,
-      channelCount: parseResult.channelCount,
-      programCount: parseResult.programCount,
-    });
-  } catch (err) {
-    next(err);
-  }
+    const result = await epgService.parseAndStore(source.id);
+    const [updated] = await epgService.listSources(req.userId).then((sources) => sources.filter((item) => item.id === source.id));
+    return res.status(201).json({ source: updated, ...result });
+  } catch (error) { return next(error); }
 }
 
-/**
- * GET /api/epg/sources
- * List all EPG sources for the authenticated user.
- */
 async function listSources(req, res, next) {
-  try {
-    const sources = await db('epg_sources')
-      .where({ user_id: req.userId })
-      .orderBy('created_at', 'desc');
-
-    res.json(sources);
-  } catch (err) {
-    next(err);
-  }
+  try { res.json(await epgService.listSources(req.userId)); } catch (error) { next(error); }
 }
 
-/**
- * POST /api/playlists/:id/epg/auto-match
- * Auto-match playlist channels with EPG channels.
- */
 async function autoMatch(req, res, next) {
-  try {
-    const { id: playlistId } = req.params;
-    const matches = await epgService.autoMatch(req.userId, playlistId);
-    res.json(matches);
-  } catch (err) {
-    next(err);
-  }
+  try { res.json(await epgService.autoMatch(req.userId, req.params.id)); } catch (error) { next(error); }
 }
 
-/**
- * GET /api/channels/:id/epg/preview
- * Get EPG program preview for a channel.
- */
 async function getPreview(req, res, next) {
   try {
-    const { id: channelId } = req.params;
-    const { date } = req.query;
-    const programs = await epgService.getPreview(channelId, date || undefined);
-    res.json(programs);
-  } catch (err) {
-    next(err);
-  }
+    res.json(await epgService.getPreview(req.userId, req.params.id, req.query.date, req.query.tzOffset));
+  } catch (error) { next(error); }
 }
 
-/**
- * PUT /api/channels/:id/epg
- * Assign an EPG channel ID to a channel.
- */
 async function assignEpg(req, res, next) {
   try {
-    const { id: channelId } = req.params;
-    const { epgChannelId } = req.body;
-
-    if (epgChannelId !== null && (typeof epgChannelId !== 'string' || epgChannelId.trim().length === 0)) {
-      throw createAppError('VALIDATION_ERROR', 'epgChannelId bir string olmalıdır veya null olabilir');
+    const channelId = req.params.id;
+    const { epgChannelId, epgSourceId } = req.body || {};
+    if (epgChannelId !== null && (typeof epgChannelId !== 'string' || !epgChannelId.trim())) {
+      throw createAppError('VALIDATION_ERROR', 'EPG kanal kimliği metin veya null olmalı');
     }
-
-    // Verify channel belongs to user
     const channel = await db('channels')
       .join('playlists', 'channels.playlist_id', 'playlists.id')
       .where({ 'channels.id': channelId, 'playlists.user_id': req.userId })
       .select('channels.id')
       .first();
+    if (!channel) throw createAppError('NOT_FOUND', 'Kanal bulunamadı');
 
-    if (!channel) {
-      throw createAppError('NOT_FOUND', 'Kanal bulunamadı');
+    let sourceId = null;
+    if (epgChannelId) {
+      let query = db('epg_channels')
+        .join('epg_sources', 'epg_channels.source_id', 'epg_sources.id')
+        .where({ 'epg_channels.channel_id': epgChannelId.trim(), 'epg_sources.user_id': req.userId });
+      if (epgSourceId) query = query.andWhere('epg_channels.source_id', epgSourceId);
+      const matches = await query.select('epg_channels.source_id').limit(2);
+      if (!matches.length) throw createAppError('VALIDATION_ERROR', 'EPG kanalı hesabınıza ait değil');
+      if (matches.length > 1 && !epgSourceId) throw createAppError('VALIDATION_ERROR', 'Aynı kimlik birden fazla kaynakta var; kaynak seçin');
+      sourceId = matches[0].source_id;
     }
-
-    const [updated] = await db('channels')
-      .where({ id: channelId })
-      .update({ epg_channel_id: epgChannelId, updated_at: new Date() })
-      .returning('*');
-
+    const [updated] = await db('channels').where({ id: channelId }).update({
+      epg_channel_id: epgChannelId ? epgChannelId.trim() : null,
+      epg_source_id: sourceId,
+      updated_at: db.fn.now(),
+    }).returning('*');
     res.json(updated);
-  } catch (err) {
-    next(err);
-  }
+  } catch (error) { next(error); }
 }
 
-/**
- * DELETE /api/epg/sources/:id
- * Delete an EPG source belonging to the authenticated user.
- */
 async function deleteSource(req, res, next) {
-  try {
-    const { id: sourceId } = req.params;
-    await epgService.deleteSource(req.userId, sourceId);
-    res.json({ success: true });
-  } catch (err) {
-    next(err);
-  }
+  try { await epgService.deleteSource(req.userId, req.params.id); res.json({ success: true }); } catch (error) { next(error); }
 }
 
-/**
- * POST /api/epg/sources/:id/refresh
- * Re-fetch and re-parse an EPG source.
- */
 async function refreshSource(req, res, next) {
-  try {
-    const { id: sourceId } = req.params;
-    const result = await epgService.refreshSource(req.userId, sourceId);
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
+  try { res.json(await epgService.refreshSource(req.userId, req.params.id)); } catch (error) { next(error); }
 }
 
-/**
- * GET /api/playlists/:id/epg/guide
- * Get the full EPG guide for a playlist on a given date.
- */
 async function getGuide(req, res, next) {
-  try {
-    const { id: playlistId } = req.params;
-    const { date } = req.query;
-    const guide = await epgService.getGuide(req.userId, playlistId, date || undefined);
-    res.json(guide);
-  } catch (err) {
-    next(err);
-  }
+  try { res.json(await epgService.getGuide(req.userId, req.params.id, req.query.date, req.query.tzOffset)); } catch (error) { next(error); }
 }
 
-/**
- * GET /api/epg/channels/search?q=...
- * Search EPG channels by name for autocomplete suggestions.
- */
 async function searchEpgChannels(req, res, next) {
-  try {
-    const { q } = req.query;
-    const results = await epgService.searchEpgChannels(req.userId, q);
-    res.json(results);
-  } catch (err) {
-    next(err);
-  }
+  try { res.json(await epgService.searchEpgChannels(req.userId, req.query.q, req.query.limit)); } catch (error) { next(error); }
 }
 
 module.exports = { addSource, listSources, autoMatch, getPreview, assignEpg, deleteSource, refreshSource, getGuide, searchEpgChannels };

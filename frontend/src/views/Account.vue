@@ -42,16 +42,16 @@
         <h2 class="section-title">{{ t('account.changePassword') }}</h2>
         <form class="account-form card" @submit.prevent="handleChangePassword">
           <div class="form-group">
-            <label class="form-label">{{ t('account.currentPassword') }}</label>
-            <input class="input" type="password" v-model="pwForm.current" required />
+            <label class="form-label" for="current-password">{{ t('account.currentPassword') }}</label>
+            <input id="current-password" class="input" type="password" v-model="pwForm.current" required autocomplete="current-password" />
           </div>
           <div class="form-group">
-            <label class="form-label">{{ t('account.newPassword') }}</label>
-            <input class="input" type="password" v-model="pwForm.newPw" minlength="6" required />
+            <label class="form-label" for="new-password">{{ t('account.newPassword') }}</label>
+            <input id="new-password" class="input" type="password" v-model="pwForm.newPw" minlength="10" required autocomplete="new-password" />
           </div>
           <div class="form-group">
-            <label class="form-label">{{ t('account.confirmNewPassword') }}</label>
-            <input class="input" type="password" v-model="pwForm.confirm" minlength="6" required />
+            <label class="form-label" for="confirm-new-password">{{ t('account.confirmNewPassword') }}</label>
+            <input id="confirm-new-password" class="input" type="password" v-model="pwForm.confirm" minlength="10" required autocomplete="new-password" />
           </div>
           <div v-if="pwError" class="form-error">{{ pwError }}</div>
           <button class="btn btn-primary" type="submit" :disabled="pwLoading">
@@ -65,12 +65,12 @@
         <h2 class="section-title">{{ t('account.changeEmail') }}</h2>
         <form class="account-form card" @submit.prevent="handleChangeEmail">
           <div class="form-group">
-            <label class="form-label">{{ t('account.newEmail') }}</label>
-            <input class="input" type="email" v-model="emailForm.newEmail" required />
+            <label class="form-label" for="new-email">{{ t('account.newEmail') }}</label>
+            <input id="new-email" class="input" type="email" v-model="emailForm.newEmail" required autocomplete="email" />
           </div>
           <div class="form-group">
-            <label class="form-label">{{ t('account.passwordRequired') }}</label>
-            <input class="input" type="password" v-model="emailForm.password" required />
+            <label class="form-label" for="email-password">{{ t('account.passwordRequired') }}</label>
+            <input id="email-password" class="input" type="password" v-model="emailForm.password" required autocomplete="current-password" />
           </div>
           <div v-if="emailError" class="form-error">{{ emailError }}</div>
           <button class="btn btn-primary" type="submit" :disabled="emailLoading">
@@ -85,7 +85,7 @@
         <div class="card danger-card">
           <p class="danger-text">{{ t('account.deleteWarning') }}</p>
           <form @submit.prevent="handleDeleteAccount" class="delete-form">
-            <input class="input" type="password" v-model="deletePassword" :placeholder="t('account.passwordRequired')" required />
+            <input class="input" type="password" v-model="deletePassword" :placeholder="t('account.passwordRequired')" :aria-label="t('account.passwordRequired')" required autocomplete="current-password" />
             <button class="btn btn-danger" type="submit" :disabled="deleteLoading">
               {{ deleteLoading ? t('common.loading') : t('common.permanently_delete') }}
             </button>
@@ -147,6 +147,7 @@ async function handleChangePassword() {
     await auth.changePassword(pwForm.value.current, pwForm.value.newPw)
     toast(t('account.passwordChanged'), 'success')
     pwForm.value = { current: '', newPw: '', confirm: '' }
+    router.push('/login')
   } catch (e) {
     pwError.value = e.response?.data?.error?.message || t('toast.genericError')
   } finally {
@@ -188,7 +189,7 @@ async function handleDeleteAccount() {
 .account-section { margin-bottom: 2rem; }
 .section-title { font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 0.75rem; }
 .profile-card { display: flex; align-items: center; gap: 1rem; padding: 1.25rem; flex-wrap: wrap; }
-.profile-avatar { width: 48px; height: 48px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-hover)); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 1.2rem; color: white; flex-shrink: 0; }
+.profile-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 1.2rem; color: white; flex-shrink: 0; }
 .profile-info { flex: 1; min-width: 150px; }
 .profile-email { font-weight: 500; }
 .profile-meta { font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }

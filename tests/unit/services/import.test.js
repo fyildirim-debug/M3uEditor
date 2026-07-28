@@ -1,396 +1,173 @@
+const mockDb = jest.fn();
+mockDb.fn = { now: jest.fn(() => 'NOW') };
+mockDb.transaction = jest.fn();
+jest.mock('../../../src/config/database', () => mockDb);
+
 const ImportService = require('../../../src/services/ImportService');
-const { AppError } = require('../../../src/utils/AppError');
+const { decrypt } = require('../../../src/utils/crypto');
 
-// Mock dependencies
-jest.mock('../../../src/config/database');
-jest.mock('../../../src/services/XtreamClient');
-
-const db = require('../../../src/config/database');
-const XtreamClient = require('../../../src/services/XtreamClient');
-
-// Helper to build a mock knex query builder chain
-function createQueryBuilder(overrides = {}) {
-  const builder = {
-    where: jest.fn().mockReturnThis(),
-    select: jest.fn().mockReturnThis(),
-    count: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    update: jest.fn().mockResolvedValue(1),
-    onConflict: jest.fn().mockReturnThis(),
-    merge: jest.fn().mockResolvedValue(undefined),
-    returning: jest.fn().mockResolvedValue([]),
-    first: jest.fn().mockResolvedValue(null),
-    ...overrides,
-  };
-  return builder;
+function transactionFixture(existingChannels = []) {
+  const captures = { updates: [], deletes: 0 };
+  const trx = jest.fn((table) => {
+    const query = {};
+    for (const method of ['where', 'whereIn', 'whereNotNull']) query[method] = jest.fn(() => query);
+    query.select = jest.fn().mockResolvedValue(table === 'channels' ? existingChannels : []);
+    query.update = jest.fn(async (payload) => { captures.updates.push({ table, payload }); return 1; });
+    query.del = jest.fn(async () => { captures.deletes += 1; return 1; });
+    return query;
+  });
+  trx.fn = mockDb.fn;
+  return { trx, captures };
 }
 
 describe('ImportService', () => {
-  let importService;
-  let mockXtreamInstance;
-
-  const userId = 'user-uuid-1';
-  const credentials = {
-    serverUrl: 'http://xtream.example.com',
-    username: 'testuser',
-    password: 'testpass',
-  };
-
-  const mockCategories = [
-    { category_id: '1', category_name: 'Sports' },
-    { category_id: '2', category_name: 'News' },
-  ];
-
-  const mockChannels = [
-    { stream_id: '101', name: 'ESPN', stream_icon: 'espn.png', epg_channel_id: 'espn.us', category_id: '1' },
-    { stream_id: '102', name: 'BBC News', stream_icon: 'bbc.png', epg_channel_id: 'bbc.uk', category_id: '2' },
-    { stream_id: '103', name: 'CNN', stream_icon: null, epg_channel_id: null, category_id: '1' },
-  ];
+  let service;
+  let client;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    importService = new ImportService();
-
-    // Setup mock XtreamClient instance
-    mockXtreamInstance = {
-      authenticate: jest.fn().mockResolvedValue({ serverInfo: {} }),
-      getAllChannels: jest.fn().mockResolvedValue({
-        categories: mockCategories,
-        channels: mockChannels,
-      }),
+    service = new ImportService();
+    client = {
+      serverUrl: 'https://provider.example.com',
+      buildStreamUrl: jest.fn((type, id, extension) => `https://stream/${type}/${id}.${extension}`),
+      getXmltvUrl: jest.fn(() => 'https://provider.example.com/xmltv.php?token=secret'),
     };
-    XtreamClient.mockImplementation(() => mockXtreamInstance);
+    jest.spyOn(service, '_scheduleEpg').mockImplementation(() => {});
   });
 
-  describe('importFromXtream', () => {
-    let playlistsBuilder;
-    let categoriesBuilder;
-    let channelsBuilder;
-
-    beforeEach(() => {
-      const playlistId = 'playlist-uuid-1';
-
-      // Mock db('playlists') - no existing playlist, then create one
-      playlistsBuilder = createQueryBuilder({
-        first: jest.fn().mockResolvedValue(null),
-        returning: jest.fn().mockResolvedValue([{
-          id: playlistId,
-          user_id: userId,
-          name: 'Xtream - testuser@http://xtream.example.com',
-          xtream_server_url: 'http://xtream.example.com',
-          xtream_username: 'testuser',
-          xtream_password_enc: 'testpass',
-        }]),
-      });
-
-      // Mock db('categories') - no existing categories
-      categoriesBuilder = createQueryBuilder({
-        first: jest.fn().mockResolvedValue(null),
-        returning: jest.fn()
-          .mockResolvedValueOnce([{ id: 'cat-uuid-1', name: 'Sports' }])
-          .mockResolvedValueOnce([{ id: 'cat-uuid-2', name: 'News' }]),
-      });
-
-      // Mock db('channels')
-      channelsBuilder = createQueryBuilder();
-
-      db.mockImplementation((tableName) => {
-        if (tableName === 'playlists') return playlistsBuilder;
-        if (tableName === 'categories') return categoriesBuilder;
-        if (tableName === 'channels') return channelsBuilder;
-        return createQueryBuilder();
-      });
-    });
-
-    it('should create playlist and import channels', async () => {
-      const result = await importService.importFromXtream(userId, credentials);
-
-      // XtreamClient was constructed with correct credentials
-      expect(XtreamClient).toHaveBeenCalledWith(
-        'http://xtream.example.com', 'testuser', 'testpass'
-      );
-      expect(mockXtreamInstance.authenticate).toHaveBeenCalled();
-      expect(mockXtreamInstance.getAllChannels).toHaveBeenCalled();
-
-      // Result has correct counts
-      expect(result.totalChannels).toBe(3);
-      expect(result.totalCategories).toBe(2);
-      expect(typeof result.duration).toBe('number');
-      expect(result.duration).toBeGreaterThanOrEqual(0);
-    });
-
-    it('should call onProgress with monotonically increasing values', async () => {
-      // Use 5 channels to test with batch size
-      const manyChannels = [];
-      for (let i = 0; i < 2500; i++) {
-        manyChannels.push({
-          stream_id: `${i}`,
-          name: `Channel ${i}`,
-          stream_icon: null,
-          epg_channel_id: null,
-          category_id: '1',
-        });
-      }
-      mockXtreamInstance.getAllChannels.mockResolvedValue({
-        categories: [{ category_id: '1', category_name: 'Test' }],
-        channels: manyChannels,
-      });
-
-      // Adjust categories mock for single category
-      categoriesBuilder.returning = jest.fn()
-        .mockResolvedValue([{ id: 'cat-uuid-1', name: 'Test' }]);
-
-      const progressCalls = [];
-      const onProgress = jest.fn((p) => progressCalls.push(p));
-
-      await importService.importFromXtream(userId, credentials, onProgress);
-
-      // Should have 3 batches: 1000, 1000, 500
-      expect(onProgress).toHaveBeenCalledTimes(3);
-
-      // Verify monotonically increasing
-      for (let i = 1; i < progressCalls.length; i++) {
-        expect(progressCalls[i].processed).toBeGreaterThan(progressCalls[i - 1].processed);
-      }
-
-      // All calls have same total
-      for (const call of progressCalls) {
-        expect(call.total).toBe(2500);
-      }
-
-      // Last call should have processed === total
-      expect(progressCalls[progressCalls.length - 1].processed).toBe(2500);
-    });
-
-    it('should return correct totalChannels and totalCategories', async () => {
-      const result = await importService.importFromXtream(userId, credentials);
-
-      expect(result.totalChannels).toBe(mockChannels.length);
-      expect(result.totalCategories).toBe(mockCategories.length);
-    });
-
-    it('should handle re-import by using upsert (ON CONFLICT DO UPDATE)', async () => {
-      // Simulate existing playlist found
-      playlistsBuilder.first = jest.fn().mockResolvedValue({
-        id: 'playlist-uuid-1',
-        user_id: userId,
-        xtream_server_url: 'http://xtream.example.com',
-        xtream_username: 'testuser',
-        xtream_password_enc: 'testpass',
-      });
-
-      await importService.importFromXtream(userId, credentials);
-
-      // Verify channels were inserted with onConflict merge
-      expect(channelsBuilder.insert).toHaveBeenCalled();
-      expect(channelsBuilder.onConflict).toHaveBeenCalledWith(['playlist_id', 'stream_url']);
-      expect(channelsBuilder.merge).toHaveBeenCalledWith(
-        ['name', 'logo_url', 'category_id', 'extras', 'updated_at']
-      );
-    });
-
-    it('should create categories from Xtream data', async () => {
-      await importService.importFromXtream(userId, credentials);
-
-      // Categories should be inserted
-      expect(categoriesBuilder.insert).toHaveBeenCalledTimes(2);
-
-      // First category insert
-      const firstInsert = categoriesBuilder.insert.mock.calls[0][0];
-      expect(firstInsert.name).toBe('Sports');
-      expect(firstInsert.playlist_id).toBe('playlist-uuid-1');
-
-      // Second category insert
-      const secondInsert = categoriesBuilder.insert.mock.calls[1][0];
-      expect(secondInsert.name).toBe('News');
-    });
-
-    it('should construct correct stream URLs', async () => {
-      await importService.importFromXtream(userId, credentials);
-
-      const insertedBatch = channelsBuilder.insert.mock.calls[0][0];
-      expect(insertedBatch[0].stream_url).toBe(
-        'http://xtream.example.com/live/testuser/testpass/101.ts'
-      );
-      expect(insertedBatch[1].stream_url).toBe(
-        'http://xtream.example.com/live/testuser/testpass/102.ts'
-      );
-    });
-
-    it('should throw when Xtream API authentication fails', async () => {
-      const authError = new AppError('XTREAM_AUTH_FAILED', 'Auth failed', 502);
-      mockXtreamInstance.authenticate.mockRejectedValue(authError);
-
-      await expect(importService.importFromXtream(userId, credentials))
-        .rejects.toThrow(AppError);
-
-      try {
-        await importService.importFromXtream(userId, credentials);
-      } catch (err) {
-        expect(err.code).toBe('XTREAM_AUTH_FAILED');
-      }
-    });
-
-    it('should throw when Xtream API connection fails', async () => {
-      const connError = new AppError('XTREAM_CONNECTION_FAILED', 'Connection failed', 502);
-      mockXtreamInstance.authenticate.mockRejectedValue(connError);
-
-      await expect(importService.importFromXtream(userId, credentials))
-        .rejects.toThrow(AppError);
-
-      try {
-        await importService.importFromXtream(userId, credentials);
-      } catch (err) {
-        expect(err.code).toBe('XTREAM_CONNECTION_FAILED');
-      }
-    });
-
-    it('should wrap unexpected errors as IMPORT_FAILED', async () => {
-      mockXtreamInstance.authenticate.mockRejectedValue(new Error('Unexpected'));
-
-      try {
-        await importService.importFromXtream(userId, credentials);
-        throw new Error('Should have thrown');
-      } catch (err) {
-        expect(err.code).toBe('IMPORT_FAILED');
-      }
-    });
-
-    it('should not call onProgress when no channels exist', async () => {
-      mockXtreamInstance.getAllChannels.mockResolvedValue({
-        categories: [],
-        channels: [],
-      });
-
-      const onProgress = jest.fn();
-      const result = await importService.importFromXtream(userId, credentials, onProgress);
-
-      expect(onProgress).not.toHaveBeenCalled();
-      expect(result.totalChannels).toBe(0);
-      expect(result.totalCategories).toBe(0);
-    });
-
-    it('should reuse existing categories on re-import', async () => {
-      // Simulate existing category found
-      categoriesBuilder.first = jest.fn()
-        .mockResolvedValueOnce({ id: 'existing-cat-1', name: 'Sports' })
-        .mockResolvedValueOnce({ id: 'existing-cat-2', name: 'News' });
-
-      await importService.importFromXtream(userId, credentials);
-
-      // Should NOT insert new categories since they already exist
-      expect(categoriesBuilder.insert).not.toHaveBeenCalled();
-    });
+  test('normalizes, deduplicates and validates stream types', () => {
+    expect(service._normalizeTypes(['live', 'vod', 'live', 'invalid'])).toEqual(['live', 'vod']);
+    expect(() => service._normalizeTypes(['invalid'])).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
+    expect(service._parseStoredTypes('not-json')).toEqual(['live']);
   });
 
-  describe('syncFromXtream', () => {
-    it('should throw NOT_FOUND when playlist does not exist', async () => {
-      const builder = createQueryBuilder({ first: jest.fn().mockResolvedValue(null) });
-      db.mockImplementation(() => builder);
+  test('creates a stable source record without placing credentials in extras', () => {
+    const record = service._recordForChannel('playlist-1', {
+      stream_id: 42,
+      name: 'News',
+      stream_type: 'live',
+      container_extension: 'ts',
+      category_id: 'remote-1',
+      rating: '5',
+    }, { 'remote-1': 'category-1' }, client, 3);
 
-      await expect(importService.syncFromXtream(userId, 'nonexistent-id'))
-        .rejects.toThrow(AppError);
+    expect(record).toEqual(expect.objectContaining({
+      playlist_id: 'playlist-1', source_id: '42', category_id: 'category-1', sort_order: 3,
+    }));
+    expect(client.buildStreamUrl).toHaveBeenCalledWith('live', 42, 'ts');
+    expect(record.extras).not.toContain('password');
+  });
 
-      try {
-        await importService.syncFromXtream(userId, 'nonexistent-id');
-      } catch (err) {
-        expect(err.code).toBe('NOT_FOUND');
-      }
+  test('imports fetched data atomically and encrypts stored credentials', async () => {
+    jest.spyOn(service, '_fetchXtream').mockResolvedValue({
+      categories: [{ category_id: 'remote-1', category_name: 'News' }],
+      channels: [{ stream_id: 10, name: 'Channel', stream_type: 'live', container_extension: 'ts', category_id: 'remote-1' }],
+      client,
+      streamTypes: ['live'],
+    });
+    jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({ 'remote-1': 'category-1' });
+    jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
+    const { trx, captures } = transactionFixture();
+    mockDb.transaction.mockImplementation((callback) => callback(trx));
+
+    const result = await service.importFromXtream('user-1', {
+      serverUrl: 'https://provider.example.com', username: 'user', password: 'secret-password', streamTypes: ['live'],
     });
 
-    it('should throw VALIDATION_ERROR when playlist has no Xtream credentials', async () => {
-      const builder = createQueryBuilder({
-        first: jest.fn().mockResolvedValue({
-          id: 'playlist-1',
-          user_id: userId,
-          xtream_server_url: null,
-          xtream_username: null,
-          xtream_password_enc: null,
-        }),
-      });
-      db.mockImplementation(() => builder);
+    expect(result).toEqual(expect.objectContaining({ playlistId: 'playlist-1', added: 1, updated: 0, removed: 0 }));
+    const credentialUpdate = captures.updates.find((item) => item.payload.xtream_password_enc);
+    expect(credentialUpdate.payload.xtream_password_enc).toMatch(/^enc:v1:/);
+    expect(decrypt(credentialUpdate.payload.xtream_password_enc)).toBe('secret-password');
+    expect(service._scheduleEpg).toHaveBeenCalledWith('user-1', 'playlist-1', expect.stringContaining('xmltv.php'));
+  });
 
-      try {
-        await importService.syncFromXtream(userId, 'playlist-1');
-        throw new Error('Should have thrown');
-      } catch (err) {
-        expect(err.code).toBe('VALIDATION_ERROR');
-      }
+  test('removes stale source records only after a non-empty successful fetch', async () => {
+    jest.spyOn(service, '_fetchXtream').mockResolvedValue({
+      categories: [],
+      channels: [{ stream_id: 2, name: 'Current', stream_type: 'live', container_extension: 'ts' }],
+      client,
+      streamTypes: ['live'],
     });
+    jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({});
+    jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
+    const { trx, captures } = transactionFixture([
+      { source_id: '1', stream_type: 'live' },
+      { source_id: '2', stream_type: 'live' },
+    ]);
+    mockDb.transaction.mockImplementation((callback) => callback(trx));
 
-    it('should return added, updated, removed counts', async () => {
-      const playlistId = 'playlist-uuid-sync';
-      const existingPlaylist = {
-        id: playlistId,
-        user_id: userId,
-        xtream_server_url: 'http://xtream.example.com',
-        xtream_username: 'testuser',
-        xtream_password_enc: 'testpass',
-      };
+    const result = await service.importFromXtream('user-1', { username: 'u', password: 'p' });
+    expect(result).toEqual(expect.objectContaining({ added: 0, updated: 1, removed: 1 }));
+    expect(captures.deletes).toBe(1);
+  });
 
-      // Track call sequence for db mock
-      let callCount = 0;
-      db.mockImplementation((tableName) => {
-        if (tableName === 'playlists') {
-          const b = createQueryBuilder({
-            first: jest.fn().mockResolvedValue(existingPlaylist),
-            returning: jest.fn().mockResolvedValue([existingPlaylist]),
-          });
-          return b;
-        }
-        if (tableName === 'channels') {
-          callCount++;
-          if (callCount === 1) {
-            // count query (before sync)
-            return createQueryBuilder({
-              first: jest.fn().mockResolvedValue({ count: '2' }),
-            });
-          }
-          if (callCount === 2) {
-            // select existing URLs (before sync)
-            return createQueryBuilder({
-              select: jest.fn().mockResolvedValue([
-                { stream_url: 'http://xtream.example.com/live/testuser/testpass/101.ts' },
-                { stream_url: 'http://xtream.example.com/live/testuser/testpass/999.ts' },
-              ]),
-            });
-          }
-          if (callCount === 4) {
-            // select URLs after sync
-            return createQueryBuilder({
-              select: jest.fn().mockResolvedValue([
-                { stream_url: 'http://xtream.example.com/live/testuser/testpass/101.ts' },
-                { stream_url: 'http://xtream.example.com/live/testuser/testpass/102.ts' },
-                { stream_url: 'http://xtream.example.com/live/testuser/testpass/103.ts' },
-              ]),
-            });
-          }
-          // Default for bulk upsert calls
-          return createQueryBuilder();
-        }
-        if (tableName === 'categories') {
-          return createQueryBuilder({
-            first: jest.fn().mockResolvedValue(null),
-            returning: jest.fn()
-              .mockResolvedValueOnce([{ id: 'cat-1', name: 'Sports' }])
-              .mockResolvedValueOnce([{ id: 'cat-2', name: 'News' }]),
-          });
-        }
-        return createQueryBuilder();
-      });
+  test('never deletes existing channels when a provider returns an empty list', async () => {
+    jest.spyOn(service, '_fetchXtream').mockResolvedValue({ categories: [], channels: [], client, streamTypes: ['live'] });
+    jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({});
+    jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
+    const { trx, captures } = transactionFixture([{ source_id: '1', stream_type: 'live' }]);
+    mockDb.transaction.mockImplementation((callback) => callback(trx));
 
-      const result = await importService.syncFromXtream(userId, playlistId);
+    const result = await service.importFromXtream('user-1', { username: 'u', password: 'p' });
+    expect(result.removed).toBe(0);
+    expect(captures.deletes).toBe(0);
+  });
 
-      expect(result).toHaveProperty('added');
-      expect(result).toHaveProperty('updated');
-      expect(result).toHaveProperty('removed');
-      expect(typeof result.duration).toBe('number');
-      // 101 was existing and still present → updated
-      // 102, 103 are new → added
-      // 999 was existing but not in new set → removed
-      expect(result.updated).toBe(1);
-      expect(result.added).toBe(2);
-      expect(result.removed).toBe(1);
+  test('loads existing categories once and inserts new categories in large batches', async () => {
+    const select = jest.fn().mockResolvedValue([{ id: 'existing-id', name: 'Category 0' }]);
+    const insertedBatches = [];
+    const connection = jest.fn(() => {
+      const query = {};
+      query.where = jest.fn(() => query);
+      query.whereIn = jest.fn(() => query);
+      query.select = select;
+      query.insert = jest.fn(async (rows) => { insertedBatches.push(rows); });
+      return query;
     });
+    const categories = Array.from({ length: 2501 }, (_, index) => ({
+      category_id: String(index),
+      category_name: `Category ${index}`,
+    }));
+
+    const categoryMap = await service._upsertCategories('playlist-1', categories, connection);
+
+    expect(select).toHaveBeenCalledTimes(1);
+    expect(insertedBatches.map((batch) => batch.length)).toEqual([1000, 1000, 500]);
+    expect(categoryMap['0']).toBe('existing-id');
+    expect(categoryMap['2500']).toBeTruthy();
+  });
+
+  test('writes large channel sets in 1000-row database batches', async () => {
+    const insertedBatchSizes = [];
+    const connection = jest.fn(() => ({
+      insert: jest.fn((rows) => {
+        insertedBatchSizes.push(rows.length);
+        return { toSQL: () => ({ sql: 'insert into channels', bindings: [] }) };
+      }),
+    }));
+    connection.raw = jest.fn().mockResolvedValue({ rowCount: 0 });
+    const onProgress = jest.fn();
+    const records = Array.from({ length: 2501 }, (_, index) => ({
+      id: `id-${index}`,
+      playlist_id: 'playlist-1',
+      source_id: String(index),
+      stream_type: 'live',
+      stream_url: `https://stream/${index}`,
+    }));
+
+    await service._bulkUpsertChannels('playlist-1', records, onProgress, connection);
+
+    expect(insertedBatchSizes).toEqual([1000, 1000, 501]);
+    expect(connection.raw).toHaveBeenCalledTimes(3);
+    expect(onProgress).toHaveBeenLastCalledWith({ processed: 2501, total: 2501 });
+  });
+
+  test('sync rejects playlists with no saved provider credentials', async () => {
+    const query = { where: jest.fn().mockReturnThis(), first: jest.fn().mockResolvedValue({ id: 'playlist-1' }) };
+    mockDb.mockReturnValue(query);
+    await expect(service.syncFromXtream('user-1', 'playlist-1')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 });

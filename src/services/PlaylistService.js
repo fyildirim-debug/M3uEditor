@@ -19,7 +19,18 @@ class PlaylistService {
       .leftJoin(channelCountSub, 'cc.playlist_id', 'playlists.id')
       .where('playlists.user_id', userId)
       .select(
-        'playlists.*',
+        'playlists.id',
+        'playlists.user_id',
+        'playlists.name',
+        'playlists.xtream_server_url',
+        'playlists.xtream_username',
+        'playlists.xtream_stream_types',
+        'playlists.last_synced_at',
+        'playlists.created_at',
+        'playlists.updated_at',
+        db.raw('(playlists.xtream_password_enc IS NOT NULL) as has_xtream_source'),
+        db.raw('(playlists.share_token IS NOT NULL) as is_shared'),
+        'playlists.share_expires_at',
         db.raw('COALESCE(cc.channel_count, 0)::int as channel_count')
       )
       .orderBy('playlists.created_at', 'desc');
@@ -40,7 +51,7 @@ class PlaylistService {
         user_id: userId,
         name,
       })
-      .returning('*');
+      .returning(['id', 'user_id', 'name', 'created_at', 'updated_at']);
 
     return playlist;
   }
@@ -67,6 +78,7 @@ class PlaylistService {
 
     const updated = await db('playlists')
       .where('id', playlistId)
+      .select('id', 'user_id', 'name', 'created_at', 'updated_at')
       .first();
 
     return updated;

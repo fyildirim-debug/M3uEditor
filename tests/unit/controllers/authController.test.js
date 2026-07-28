@@ -73,10 +73,10 @@ describe('Auth Controller', () => {
       const passwordHash = await bcrypt.hash('correctpass', 10);
       const fakeUser = { id: 'uuid-2', email: 'login@example.com', password_hash: passwordHash };
 
-      mockKnex.mockReturnValue({
-        where: jest.fn().mockReturnValue({
-          first: jest.fn().mockResolvedValue(fakeUser),
-        }),
+      mockKnex.mockImplementation((table) => table === 'users' ? {
+        where: jest.fn().mockReturnValue({ first: jest.fn().mockResolvedValue(fakeUser) }),
+      } : {
+        insert: jest.fn().mockReturnValue({ returning: jest.fn().mockResolvedValue([{ id: 'session-uuid-2', user_id: fakeUser.id }]) }),
       });
 
       const res = await request(app)

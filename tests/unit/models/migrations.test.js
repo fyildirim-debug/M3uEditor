@@ -10,7 +10,7 @@ describe('Database Migrations', () => {
     migrationFiles = fs.readdirSync(MIGRATIONS_DIR).sort();
   });
 
-  test('all 8 migration files exist in correct order', () => {
+  test('all migration files exist in correct order', () => {
     expect(migrationFiles).toEqual([
       '20240101000001_enable_pg_trgm.js',
       '20240101000002_create_users.js',
@@ -20,6 +20,15 @@ describe('Database Migrations', () => {
       '20240101000006_create_epg_sources.js',
       '20240101000007_create_epg_channels.js',
       '20240101000008_create_epg_programs.js',
+      '20240101000009_alter_channels_text.js',
+      '20240101000010_add_original_logo_url.js',
+      '20240101000011_alter_strings_to_text.js',
+      '20240101000012_add_stream_type_and_types.js',
+      '20240101000013_v1_6_updates.js',
+      '20240101000014_admin_and_plans.js',
+      '20240101000015_alter_epg_strings_to_text.js',
+      '20240101000016_drop_plan_columns.js',
+      '20240101000017_security_and_sync_hardening.js',
     ]);
   });
 

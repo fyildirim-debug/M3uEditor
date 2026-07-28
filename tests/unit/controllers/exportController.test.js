@@ -55,7 +55,7 @@ describe('Export Controller', () => {
       expect(res.headers['content-type']).toMatch(/audio\/x-mpegurl/);
       expect(res.headers['content-disposition']).toBe('attachment; filename="playlist.m3u"');
       expect(res.body).toBe(M3U_CONTENT);
-      expect(mockExportService.exportAsM3U).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID);
+      expect(mockExportService.exportAsM3U).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID, [], null);
     });
 
     it('should return 401 without token', async () => {
@@ -90,7 +90,7 @@ describe('Export Controller', () => {
       expect(res.status).toBe(201);
       expect(res.body.url).toBe(`/api/shared/${SHARE_TOKEN}`);
       expect(res.body.token).toBe(SHARE_TOKEN);
-      expect(mockExportService.generateShareUrl).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID);
+      expect(mockExportService.generateShareUrl).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID, { expiresInDays: undefined, password: undefined });
     });
 
     it('should return 401 without token', async () => {
@@ -131,7 +131,7 @@ describe('Export Controller', () => {
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toMatch(/audio\/x-mpegurl/);
       expect(res.body).toBe(M3U_CONTENT);
-      expect(mockExportService.getSharedPlaylist).toHaveBeenCalledWith(SHARE_TOKEN);
+      expect(mockExportService.getSharedPlaylist).toHaveBeenCalledWith(SHARE_TOKEN, null);
     });
 
     it('should return 404 for invalid token', async () => {

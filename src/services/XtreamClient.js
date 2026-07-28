@@ -1,8 +1,27 @@
 const { createAppError } = require('../utils/AppError');
+const config = require('../config');
+const { safeFetchJson, parseRemoteUrl } = require('../utils/safeFetch');
 
 const DEFAULT_TIMEOUT = 120000; // 120 saniye - büyük kanal listeleri için
 const MAX_RETRIES = 3; // Retry sayısı (toplam 4 deneme)
 const BASE_DELAY = 2000; // 2 saniye (exponential backoff başlangıcı)
+
+async function mapWithConcurrency(items, concurrency, worker) {
+  if (!items.length) return [];
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await worker(items[index], index);
+    }
+  }));
+
+  return results;
+}
 
 /**
  * Xtream Codes API istemcisi.
@@ -19,7 +38,7 @@ class XtreamClient {
    * @param {number} [options.baseDelay] - Exponential backoff başlangıç gecikmesi ms (varsayılan: 1000)
    */
   constructor(serverUrl, username, password, options = {}) {
-    this.serverUrl = serverUrl.replace(/\/+$/, '');
+    this.serverUrl = parseRemoteUrl(serverUrl).toString().replace(/\/+$/, '');
     this.username = username;
     this.password = password;
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
@@ -51,17 +70,8 @@ class XtreamClient {
 
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        return await response.json();
+        const response = await safeFetchJson(url, { timeoutMs: this.timeout, maxBytes: config.limits.xtreamBytes });
+        return response.data;
       } catch (err) {
         lastError = err;
 
@@ -144,7 +154,7 @@ class XtreamClient {
    * @param {string} [categoryId] - Opsiyonel kategori filtresi
    * @returns {Promise<Array>}
    */
-  async getVodStreams(categoryId) {
+  async getVodStreams(categoryId, suppressErrors = true) {
     const params = { action: 'get_vod_streams' };
     if (categoryId !== undefined && categoryId !== null) {
       params.category_id = categoryId;
@@ -153,9 +163,10 @@ class XtreamClient {
     try {
       const data = await this._fetchWithRetry(url);
       return Array.isArray(data) ? data : [];
-    } catch {
+    } catch (error) {
       // VOD desteklenmiyorsa boş dön
-      return [];
+      if (suppressErrors) return [];
+      throw error;
     }
   }
 
@@ -179,7 +190,7 @@ class XtreamClient {
    * @param {string} [categoryId] - Opsiyonel kategori filtresi
    * @returns {Promise<Array>}
    */
-  async getSeriesStreams(categoryId) {
+  async getSeriesStreams(categoryId, suppressErrors = true) {
     const params = { action: 'get_series' };
     if (categoryId !== undefined && categoryId !== null) {
       params.category_id = categoryId;
@@ -188,98 +199,158 @@ class XtreamClient {
     try {
       const data = await this._fetchWithRetry(url);
       return Array.isArray(data) ? data : [];
-    } catch {
+    } catch (error) {
       // Series desteklenmiyorsa boş dön
-      return [];
+      if (suppressErrors) return [];
+      throw error;
     }
   }
 
+  async _getStreamsFast(categories, getStreams, getStreamId, optional = false) {
+    let bulkStreams = [];
+    let bulkError = null;
+
+    try {
+      const result = await getStreams();
+      bulkStreams = Array.isArray(result) ? result : [];
+    } catch (error) {
+      bulkError = error;
+    }
+
+    const coveredCategoryIds = new Set(
+      bulkStreams
+        .map((stream) => stream.category_id)
+        .filter((categoryId) => categoryId !== undefined && categoryId !== null)
+        .map(String)
+    );
+    const fallbackCategories = bulkStreams.length
+      ? categories.filter((category) => !coveredCategoryIds.has(String(category.category_id)))
+      : categories;
+
+    if (!fallbackCategories.length) {
+      if (bulkError && !optional) throw bulkError;
+      return bulkStreams;
+    }
+
+    const outcomes = await mapWithConcurrency(
+      fallbackCategories,
+      config.xtream.categoryConcurrency,
+      async (category) => {
+        try {
+          const result = await getStreams(category.category_id);
+          const streams = Array.isArray(result)
+            ? result.map((stream) => (
+              stream.category_id === undefined || stream.category_id === null
+                ? { ...stream, category_id: category.category_id }
+                : stream
+            ))
+            : [];
+          return { streams, error: null };
+        } catch (error) {
+          return { streams: [], error };
+        }
+      }
+    );
+    const fallbackError = outcomes.find((outcome) => outcome.error)?.error;
+    if (fallbackError) throw fallbackError;
+
+    const uniqueStreams = new Map();
+    for (const stream of [...bulkStreams, ...outcomes.flatMap((outcome) => outcome.streams)]) {
+      const streamId = getStreamId(stream);
+      const key = streamId === undefined || streamId === null
+        ? `${stream.category_id || ''}:${stream.name || ''}:${uniqueStreams.size}`
+        : String(streamId);
+      if (!uniqueStreams.has(key)) uniqueStreams.set(key, stream);
+    }
+
+    if (!uniqueStreams.size && bulkError && !optional) throw bulkError;
+    return [...uniqueStreams.values()];
+  }
+
+  async _getLivePayload() {
+    const categories = await this.getLiveCategories();
+    const streams = await this._getStreamsFast(categories, (categoryId) => this.getLiveStreams(categoryId), (stream) => stream.stream_id);
+    return {
+      categories: categories.map((category) => ({ category_id: category.category_id, category_name: category.category_name })),
+      channels: streams.map((stream) => ({
+        stream_id: stream.stream_id,
+        name: stream.name,
+        stream_icon: stream.stream_icon || null,
+        epg_channel_id: stream.epg_channel_id || null,
+        category_id: stream.category_id ?? null,
+        stream_type: 'live',
+        container_extension: 'ts',
+      })),
+    };
+  }
+
+  async _getVodPayload() {
+    const categories = await this.getVodCategories();
+    const streams = await this._getStreamsFast(categories, (categoryId) => this.getVodStreams(categoryId, false), (stream) => stream.stream_id, true);
+    return {
+      categories: categories.map((category) => ({ category_id: `vod_${category.category_id}`, category_name: `VOD | ${category.category_name}` })),
+      channels: streams.map((stream) => ({
+        stream_id: stream.stream_id,
+        name: stream.name,
+        stream_icon: stream.stream_icon || null,
+        epg_channel_id: null,
+        category_id: stream.category_id === undefined || stream.category_id === null ? null : `vod_${stream.category_id}`,
+        stream_type: 'vod',
+        container_extension: stream.container_extension || 'mp4',
+        rating: stream.rating || null,
+        genre: stream.genre || null,
+        plot: stream.plot || null,
+        year: stream.year || stream.releaseDate?.slice(0, 4) || null,
+        tmdb_id: stream.tmdb_id || null,
+      })),
+    };
+  }
+
+  async _getSeriesPayload() {
+    const categories = await this.getSeriesCategories();
+    const streams = await this._getStreamsFast(categories, (categoryId) => this.getSeriesStreams(categoryId, false), (stream) => stream.series_id || stream.stream_id, true);
+    return {
+      categories: categories.map((category) => ({ category_id: `series_${category.category_id}`, category_name: `Series | ${category.category_name}` })),
+      channels: streams.map((stream) => ({
+        stream_id: stream.series_id || stream.stream_id,
+        name: stream.name,
+        stream_icon: stream.cover || stream.stream_icon || null,
+        epg_channel_id: null,
+        category_id: stream.category_id === undefined || stream.category_id === null ? null : `series_${stream.category_id}`,
+        stream_type: 'series',
+        container_extension: stream.container_extension || 'mp4',
+        rating: stream.rating || null,
+        genre: stream.genre || null,
+        plot: stream.plot || null,
+        year: stream.year || stream.releaseDate?.slice(0, 4) || null,
+        tmdb_id: stream.tmdb_id || null,
+      })),
+    };
+  }
+
   /**
-   * Tüm kanalları getir: kategori bazlı çekerek sağlayıcı limitini aş.
+   * Tüm kanalları getir. Önce her içerik türünün toplu endpoint'ini kullanır;
+   * sağlayıcı eksik kategori döndürürse yalnızca eksik kategorileri kontrollü
+   * paralellikle tamamlar.
    * @param {string[]} [streamTypes=['live']] - Çekilecek tipler: 'live', 'vod', 'series'
    * @returns {Promise<{ categories: Array, channels: Array }>}
    */
   async getAllChannels(streamTypes = ['live']) {
-    const allCategories = [];
-    const allChannels = [];
-
-    // Live TV
-    if (streamTypes.includes('live')) {
-      const liveCats = await this.getLiveCategories();
-      for (const cat of liveCats) {
-        allCategories.push({ category_id: cat.category_id, category_name: cat.category_name });
-        const streams = await this.getLiveStreams(cat.category_id);
-        for (const stream of streams) {
-          allChannels.push({
-            stream_id: stream.stream_id,
-            name: stream.name,
-            stream_icon: stream.stream_icon || null,
-            epg_channel_id: stream.epg_channel_id || null,
-            category_id: stream.category_id || null,
-            stream_type: 'live',
-            container_extension: 'ts',
-          });
-        }
-      }
-    }
-
-    // VOD (Filmler)
-    if (streamTypes.includes('vod')) {
-      const vodCats = await this.getVodCategories();
-      for (const cat of vodCats) {
-        allCategories.push({
-          category_id: `vod_${cat.category_id}`,
-          category_name: `VOD | ${cat.category_name}`,
-        });
-        const streams = await this.getVodStreams(cat.category_id);
-        for (const stream of streams) {
-          allChannels.push({
-            stream_id: stream.stream_id,
-            name: stream.name,
-            stream_icon: stream.stream_icon || null,
-            epg_channel_id: null,
-            category_id: `vod_${stream.category_id || cat.category_id}`,
-            stream_type: 'vod',
-            container_extension: stream.container_extension || 'mp4',
-            rating: stream.rating || null,
-            genre: stream.genre || null,
-            plot: stream.plot || null,
-            year: stream.year || stream.releaseDate?.slice(0, 4) || null,
-            tmdb_id: stream.tmdb_id || null,
-          });
-        }
-      }
-    }
-
-    // Series (Diziler)
-    if (streamTypes.includes('series')) {
-      const seriesCats = await this.getSeriesCategories();
-      for (const cat of seriesCats) {
-        allCategories.push({
-          category_id: `series_${cat.category_id}`,
-          category_name: `Series | ${cat.category_name}`,
-        });
-        const streams = await this.getSeriesStreams(cat.category_id);
-        for (const stream of streams) {
-          allChannels.push({
-            stream_id: stream.series_id || stream.stream_id,
-            name: stream.name,
-            stream_icon: stream.cover || stream.stream_icon || null,
-            epg_channel_id: null,
-            category_id: `series_${stream.category_id || cat.category_id}`,
-            stream_type: 'series',
-            container_extension: stream.container_extension || 'mp4',
-            rating: stream.rating || null,
-            genre: stream.genre || null,
-            plot: stream.plot || null,
-            year: stream.year || stream.releaseDate?.slice(0, 4) || null,
-            tmdb_id: stream.tmdb_id || null,
-          });
-        }
-      }
-    }
-
-    return { categories: allCategories, channels: allChannels };
+    const loaders = {
+      live: () => this._getLivePayload(),
+      vod: () => this._getVodPayload(),
+      series: () => this._getSeriesPayload(),
+    };
+    const selectedTypes = ['live', 'vod', 'series'].filter((type) => streamTypes.includes(type));
+    const payloads = await mapWithConcurrency(
+      selectedTypes,
+      config.xtream.typeConcurrency,
+      (type) => loaders[type]()
+    );
+    return {
+      categories: payloads.flatMap((payload) => payload.categories),
+      channels: payloads.flatMap((payload) => payload.channels),
+    };
   }
 
   /**
@@ -288,6 +359,11 @@ class XtreamClient {
    */
   getXmltvUrl() {
     return `${this.serverUrl}/xmltv.php?username=${encodeURIComponent(this.username)}&password=${encodeURIComponent(this.password)}`;
+  }
+
+  buildStreamUrl(streamType, streamId, extension = 'ts') {
+    const pathType = streamType === 'vod' ? 'movie' : streamType === 'series' ? 'series' : 'live';
+    return `${this.serverUrl}/${pathType}/${encodeURIComponent(this.username)}/${encodeURIComponent(this.password)}/${encodeURIComponent(streamId)}.${encodeURIComponent(extension)}`;
   }
 
   /**

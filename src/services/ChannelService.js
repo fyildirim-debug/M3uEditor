@@ -1,7 +1,9 @@
 const db = require('../config/database');
 const { createAppError } = require('../utils/AppError');
 
-const ALLOWED_UPDATE_FIELDS = ['name', 'logo_url', 'epg_channel_id', 'category_id', 'stream_url'];
+const { validateRegex } = require('../utils/validation');
+
+const ALLOWED_UPDATE_FIELDS = ['name', 'logo_url', 'category_id', 'stream_url'];
 
 class ChannelService {
   /**
@@ -35,6 +37,17 @@ class ChannelService {
       throw createAppError('NOT_FOUND');
     }
     return playlist;
+  }
+
+  async _verifyCategoryForPlaylist(userId, playlistId, categoryId, connection = db) {
+    if (categoryId === null || categoryId === undefined) return null;
+    const category = await connection('categories')
+      .join('playlists', 'categories.playlist_id', 'playlists.id')
+      .where({ 'categories.id': categoryId, 'categories.playlist_id': playlistId, 'playlists.user_id': userId })
+      .select('categories.*')
+      .first();
+    if (!category) throw createAppError('VALIDATION_ERROR', 'Kategori bu oynatma listesine ait değil');
+    return category;
   }
 
   /**
@@ -90,7 +103,10 @@ class ChannelService {
    * @returns {Promise<object>} Updated channel
    */
   async update(userId, channelId, updates) {
-    await this._verifyChannelOwnership(userId, channelId);
+    const ownedChannel = await this._verifyChannelOwnership(userId, channelId);
+    if (updates.category_id !== undefined) {
+      await this._verifyCategoryForPlaylist(userId, ownedChannel.playlist_id, updates.category_id);
+    }
 
     const filtered = {};
     for (const key of ALLOWED_UPDATE_FIELDS) {
@@ -136,9 +152,9 @@ class ChannelService {
 
       // Bulk update sort_order using a single query with CASE
       if (filtered.length > 0) {
-        const cases = filtered.map((c, i) => `WHEN '${c.id}' THEN ${i}`).join(' ');
-        const ids = filtered.map(c => `'${c.id}'`).join(',');
-        await trx.raw(`UPDATE channels SET sort_order = CASE id ${cases} END WHERE id IN (${ids})`);
+        for (let index = 0; index < filtered.length; index += 1) {
+          await trx('channels').where({ id: filtered[index].id }).update({ sort_order: index });
+        }
       }
     });
   }
@@ -160,10 +176,16 @@ class ChannelService {
       .join('playlists', 'channels.playlist_id', 'playlists.id')
       .whereIn('channels.id', channelIds)
       .andWhere('playlists.user_id', userId)
-      .select('channels.id');
+      .select('channels.id', 'channels.playlist_id');
 
     if (ownedChannels.length !== channelIds.length) {
       throw createAppError('NOT_FOUND');
+    }
+
+    const playlistIds = [...new Set(ownedChannels.map((channel) => channel.playlist_id))];
+    if (updates.category_id !== undefined) {
+      if (playlistIds.length !== 1) throw createAppError('VALIDATION_ERROR', 'Kategori değişikliği tek bir oynatma listesinde yapılabilir');
+      await this._verifyCategoryForPlaylist(userId, playlistIds[0], updates.category_id);
     }
 
     const filtered = {};
@@ -203,7 +225,7 @@ class ChannelService {
       .join('playlists', 'channels.playlist_id', 'playlists.id')
       .whereIn('channels.id', channelIds)
       .andWhere('playlists.user_id', userId)
-      .select('channels.id');
+      .select('channels.id', 'channels.playlist_id');
 
     if (ownedChannels.length !== channelIds.length) {
       throw createAppError('NOT_FOUND');
@@ -214,10 +236,14 @@ class ChannelService {
       .join('playlists', 'categories.playlist_id', 'playlists.id')
       .where('categories.id', targetCategoryId)
       .andWhere('playlists.user_id', userId)
+      .select('categories.*')
       .first();
 
     if (!category) {
       throw createAppError('NOT_FOUND');
+    }
+    if (ownedChannels.some((channel) => channel.playlist_id !== category.playlist_id)) {
+      throw createAppError('VALIDATION_ERROR', 'Kanallar yalnızca kendi oynatma listelerindeki kategoriye taşınabilir');
     }
 
     // Get the maximum sort_order in the target category
@@ -263,11 +289,31 @@ class ChannelService {
         .select('id');
 
       if (remaining.length > 0) {
-        const cases = remaining.map((c, i) => `WHEN '${c.id}' THEN ${i}`).join(' ');
-        const ids = remaining.map(c => `'${c.id}'`).join(',');
-        await trx.raw(`UPDATE channels SET sort_order = CASE id ${cases} END WHERE id IN (${ids})`);
+        for (let index = 0; index < remaining.length; index += 1) {
+          await trx('channels').where({ id: remaining[index].id }).update({ sort_order: index });
+        }
       }
     });
+  }
+
+  async bulkDelete(userId, channelIds) {
+    const owned = await db('channels')
+      .join('playlists', 'channels.playlist_id', 'playlists.id')
+      .whereIn('channels.id', channelIds)
+      .andWhere('playlists.user_id', userId)
+      .select('channels.id', 'channels.playlist_id');
+    if (owned.length !== channelIds.length) throw createAppError('NOT_FOUND');
+
+    await db.transaction(async (trx) => {
+      await trx('channels').whereIn('id', channelIds).del();
+      for (const playlistId of new Set(owned.map((channel) => channel.playlist_id))) {
+        const remaining = await trx('channels').where({ playlist_id: playlistId }).orderBy('sort_order').select('id');
+        for (let index = 0; index < remaining.length; index += 1) {
+          await trx('channels').where({ id: remaining[index].id }).update({ sort_order: index });
+        }
+      }
+    });
+    return { deleted: channelIds.length };
   }
 
   /**
@@ -298,6 +344,7 @@ class ChannelService {
    * @returns {Promise<{ renamed: number, total: number }>}
    */
   async bulkRename(userId, channelIds, find, replace = '', useRegex = false) {
+    if (useRegex) validateRegex(find);
     const owned = await db('channels')
       .join('playlists', 'channels.playlist_id', 'playlists.id')
       .whereIn('channels.id', channelIds)
@@ -309,20 +356,15 @@ class ChannelService {
     }
 
     let renamed = 0;
-    for (const ch of owned) {
-      let newName;
-      if (useRegex) {
-        const regex = new RegExp(find, 'g');
-        newName = ch.name.replace(regex, replace);
-      } else {
-        newName = ch.name.split(find).join(replace);
+    await db.transaction(async (trx) => {
+      for (const ch of owned) {
+        const newName = useRegex ? ch.name.replace(new RegExp(find, 'g'), replace) : ch.name.split(find).join(replace);
+        if (newName !== ch.name) {
+          await trx('channels').where('id', ch.id).update({ name: newName, updated_at: trx.fn.now() });
+          renamed += 1;
+        }
       }
-
-      if (newName !== ch.name) {
-        await db('channels').where('id', ch.id).update({ name: newName, updated_at: new Date() });
-        renamed++;
-      }
-    }
+    });
 
     return { renamed, total: channelIds.length };
   }

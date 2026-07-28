@@ -2,98 +2,105 @@
   <div class="editor" v-if="!pageLoading">
     <div class="editor-body">
       <!-- Left nav sidebar -->
-      <nav class="nav-sidebar">
+      <nav class="nav-sidebar" :class="{ 'mobile-open': mobileNavOpen }" aria-label="Editör bölümleri">
         <!-- Canli Kanallar -->
         <div class="nav-section">
-          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'live' }]" @click="toggleStreamSection('live')">
+          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'live' }]" role="button" tabindex="0" :aria-expanded="activeStreamType === 'live'" @click="toggleStreamSection('live')" @keydown.enter.space.prevent="toggleStreamSection('live')">
             <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
             <span class="nav-section-title">{{ t('nav.liveChannels') }}</span>
             <span v-if="streamTypeCounts.live" class="nav-section-count">{{ streamTypeCounts.live }}</span>
             <svg :class="['nav-chevron', { open: activeStreamType === 'live' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div v-if="activeStreamType === 'live'" class="nav-items">
-            <div :class="['nav-item', { active: activeView === 'basic' }]" @click="activeView = 'basic'">
+            <div :class="['nav-item', { active: activeView === 'basic' }]" role="button" tabindex="0" @click="activeView = 'basic'" @keydown.enter.space.prevent="activeView = 'basic'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.channelEditor') }}
             </div>
-            <div :class="['nav-item', { active: activeView === 'sort' }]" @click="activeView = 'sort'">
+            <div :class="['nav-item', { active: activeView === 'sort' }]" role="button" tabindex="0" @click="activeView = 'sort'" @keydown.enter.space.prevent="activeView = 'sort'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
             </div>
-            <div :class="['nav-item', { active: activeView === 'epg' }]" @click="activeView = 'epg'">
+            <div :class="['nav-item', { active: activeView === 'epg' }]" role="button" tabindex="0" @click="activeView = 'epg'" @keydown.enter.space.prevent="activeView = 'epg'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> {{ t('nav.epgEditor') }}
             </div>
-            <div :class="['nav-item', { active: activeView === 'category' }]" @click="activeView = 'category'">
+            <div :class="['nav-item', { active: activeView === 'category' }]" role="button" tabindex="0" @click="activeView = 'category'" @keydown.enter.space.prevent="activeView = 'category'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
             </div>
-            <div :class="['nav-item', { active: activeView === 'update' }]" @click="activeView = 'update'">
+            <div :class="['nav-item', { active: activeView === 'update' }]" role="button" tabindex="0" @click="activeView = 'update'" @keydown.enter.space.prevent="activeView = 'update'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg> {{ t('nav.update') }}
             </div>
           </div>
         </div>
         <!-- Filmler -->
         <div class="nav-section">
-          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'vod' }]" @click="toggleStreamSection('vod')">
+          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'vod' }]" role="button" tabindex="0" :aria-expanded="activeStreamType === 'vod'" @click="toggleStreamSection('vod')" @keydown.enter.space.prevent="toggleStreamSection('vod')">
             <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg></span>
             <span class="nav-section-title">{{ t('nav.movies') }}</span>
             <span v-if="streamTypeCounts.vod" class="nav-section-count">{{ streamTypeCounts.vod }}</span>
             <svg :class="['nav-chevron', { open: activeStreamType === 'vod' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div v-if="activeStreamType === 'vod'" class="nav-items">
-            <div :class="['nav-item', { active: activeView === 'basic' }]" @click="activeView = 'basic'">
+            <div :class="['nav-item', { active: activeView === 'basic' }]" role="button" tabindex="0" @click="activeView = 'basic'" @keydown.enter.space.prevent="activeView = 'basic'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.movieEditor') }}
             </div>
-            <div :class="['nav-item', { active: activeView === 'sort' }]" @click="activeView = 'sort'">
+            <div :class="['nav-item', { active: activeView === 'sort' }]" role="button" tabindex="0" @click="activeView = 'sort'" @keydown.enter.space.prevent="activeView = 'sort'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
             </div>
-            <div :class="['nav-item', { active: activeView === 'category' }]" @click="activeView = 'category'">
+            <div :class="['nav-item', { active: activeView === 'category' }]" role="button" tabindex="0" @click="activeView = 'category'" @keydown.enter.space.prevent="activeView = 'category'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
             </div>
           </div>
         </div>
         <!-- Diziler -->
         <div class="nav-section">
-          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'series' }]" @click="toggleStreamSection('series')">
+          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'series' }]" role="button" tabindex="0" :aria-expanded="activeStreamType === 'series'" @click="toggleStreamSection('series')" @keydown.enter.space.prevent="toggleStreamSection('series')">
             <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg></span>
             <span class="nav-section-title">{{ t('nav.series') }}</span>
             <span v-if="streamTypeCounts.series" class="nav-section-count">{{ streamTypeCounts.series }}</span>
             <svg :class="['nav-chevron', { open: activeStreamType === 'series' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div v-if="activeStreamType === 'series'" class="nav-items">
-            <div :class="['nav-item', { active: activeView === 'basic' }]" @click="activeView = 'basic'">
+            <div :class="['nav-item', { active: activeView === 'basic' }]" role="button" tabindex="0" @click="activeView = 'basic'" @keydown.enter.space.prevent="activeView = 'basic'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.seriesEditor') }}
             </div>
-            <div :class="['nav-item', { active: activeView === 'sort' }]" @click="activeView = 'sort'">
+            <div :class="['nav-item', { active: activeView === 'sort' }]" role="button" tabindex="0" @click="activeView = 'sort'" @keydown.enter.space.prevent="activeView = 'sort'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
             </div>
-            <div :class="['nav-item', { active: activeView === 'category' }]" @click="activeView = 'category'">
+            <div :class="['nav-item', { active: activeView === 'category' }]" role="button" tabindex="0" @click="activeView = 'category'" @keydown.enter.space.prevent="activeView = 'category'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
             </div>
           </div>
         </div>
         <div class="nav-bottom">
-          <div class="nav-item" @click="$router.push('/dashboard')">
+          <div class="nav-item" role="button" tabindex="0" @click="$router.push('/dashboard')" @keydown.enter.space.prevent="$router.push('/dashboard')">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> {{ t('nav.dashboard') }}
           </div>
-          <div class="nav-item" @click="doExport">
+          <div class="nav-item" role="button" tabindex="0" @click="doExport" @keydown.enter.space.prevent="doExport">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> {{ t('nav.downloadM3u') }}
           </div>
-          <div class="nav-item" @click="doShare">
+          <div class="nav-item" role="button" tabindex="0" @click="doShare" @keydown.enter.space.prevent="doShare">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> {{ t('nav.share') }}
           </div>
         </div>
       </nav>
+      <button v-if="mobileNavOpen" class="mobile-scrim" aria-label="Menüyü kapat" @click="mobileNavOpen = false"></button>
 
       <!-- Main content area -->
       <div class="main-area">
         <!-- Top bar -->
         <div class="top-bar">
           <div class="top-bar-left">
+            <button class="mobile-menu-btn" aria-label="Editör menüsünü aç" @click="mobileNavOpen = true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+            </button>
             <h2 class="playlist-title">{{ playlistName }}</h2>
             <span class="channel-count-badge">{{ totalChannelCount }} {{ streamTypeLabel.unit }}</span>
           </div>
           <div class="top-bar-right">
+            <button v-if="activeView === 'basic'" class="mobile-menu-btn" aria-label="Kategorileri aç" @click="mobileCategoriesOpen = true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+            </button>
             <div class="search-box">
               <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input class="search-input" v-model="search" :placeholder="streamTypeLabel.search" @input="debouncedSearch" />
+              <input class="search-input" v-model="search" :aria-label="streamTypeLabel.search" :placeholder="streamTypeLabel.search" @input="debouncedSearch" />
             </div>
             <button class="btn btn-secondary btn-sm" @click="openXtream">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> {{ t('xtream.importTitle') }}
@@ -108,7 +115,7 @@
             <template v-if="activeView === 'basic'">
               <div class="editor-split">
                 <!-- Sol: Kategori Sidebar -->
-                <div class="cat-sidebar">
+                <div class="cat-sidebar" :class="{ 'mobile-open': mobileCategoriesOpen }">
                   <div class="cat-sidebar-header">
                     <span class="cat-sidebar-title">{{ t('common.categories') }}</span>
                     <button class="btn btn-ghost btn-icon-sm" @click="showCatCreate = true" :title="t('editor.newCategory')">
@@ -116,14 +123,14 @@
                     </button>
                   </div>
                   <div class="cat-sidebar-list">
-                    <div :class="['cat-sb-item', { active: !selectedCatId }]" @click="selectCategory(null)">
+                    <div :class="['cat-sb-item', { active: !selectedCatId }]" role="button" tabindex="0" @click="selectCategory(null)" @keydown.enter.space.prevent="selectCategory(null)">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
                       <span class="cat-sb-name">{{ streamTypeLabel.all }}</span>
                       <span class="cat-sb-count">{{ totalChannelCount }}</span>
                     </div>
-                    <div v-for="cat in categories" :key="cat.id"
+                    <div v-for="cat in categories" :key="cat.id" role="button" tabindex="0"
                       :class="['cat-sb-item', { active: selectedCatId === cat.id, 'cat-sb-hidden': hiddenCats.has(cat.id) }]"
-                      @click="selectCategory(cat.id)">
+                      @click="selectCategory(cat.id)" @keydown.enter.space.self.prevent="selectCategory(cat.id)">
                       <input v-if="inlineEditCatId === cat.id"
                         class="cat-sb-input"
                         v-model="inlineEditName"
@@ -131,6 +138,7 @@
                         @keyup.enter="saveInlineEdit(cat)"
                         @keyup.escape="inlineEditCatId = null"
                         @click.stop
+                        :aria-label="`${cat.name} kategori adını düzenle`"
                         autofocus />
                       <span v-else class="cat-sb-name" @dblclick.stop="startInlineEdit(cat)">{{ cat.name }}</span>
                       <span class="cat-sb-count">{{ cat.channel_count || 0 }}</span>
@@ -149,6 +157,7 @@
                     </div>
                   </div>
                 </div>
+                <button v-if="mobileCategoriesOpen" class="mobile-scrim category-scrim" aria-label="Kategorileri kapat" @click="mobileCategoriesOpen = false"></button>
 
                 <!-- Sağ: Kanal Listesi -->
                 <div class="channel-main">
@@ -217,7 +226,7 @@
 
                         <div class="empty-smart-options">
                           <!-- Xtream Codes ile baglan -->
-                          <div class="empty-option-card" @click="openXtream">
+                          <div class="empty-option-card" role="button" tabindex="0" @click="openXtream" @keydown.enter.space.prevent="openXtream">
                             <div class="empty-option-icon xtream">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
                             </div>
@@ -229,7 +238,7 @@
                           </div>
 
                           <!-- M3U dosyasindan ice aktar -->
-                          <div class="empty-option-card" @click="showM3uImportInEditor = true">
+                          <div class="empty-option-card" role="button" tabindex="0" @click="showM3uImportInEditor = true" @keydown.enter.space.prevent="showM3uImportInEditor = true">
                             <div class="empty-option-icon m3u">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
                             </div>
@@ -256,7 +265,7 @@
                     <table class="ch-table">
                       <thead>
                         <tr>
-                          <th class="th-check"><input type="checkbox" @change="toggleSelectAll" :checked="allSelected" /></th>
+                          <th class="th-check"><input type="checkbox" aria-label="Tüm kanalları seç" @change="toggleSelectAll" :checked="allSelected" /></th>
                           <th class="th-num">#</th>
                           <th class="th-name">{{ t('table.name') }}</th>
                           <th class="th-url">{{ t('table.url') }}</th>
@@ -264,14 +273,14 @@
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="(ch, idx) in channels" :key="ch.id"
+                        <tr v-for="(ch, idx) in channels" :key="ch.id" tabindex="0"
                           :class="{ selected: selectedIds.has(ch.id), editing: editingChannel?.id === ch.id }"
-                          @click="startEditChannel(ch)">
-                          <td class="td-check" @click.stop><input type="checkbox" :checked="selectedIds.has(ch.id)" @change="toggleSelect(ch.id)" /></td>
+                          @click="startEditChannel(ch)" @keydown.enter.space.prevent="startEditChannel(ch)">
+                          <td class="td-check" @click.stop><input type="checkbox" :aria-label="`${ch.name} kanalını seç`" :checked="selectedIds.has(ch.id)" @change="toggleSelect(ch.id)" /></td>
                           <td class="td-num">{{ (page - 1) * 50 + idx + 1 }}</td>
                           <td class="td-name">
                             <div class="ch-name-cell">
-                              <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" loading="lazy" @error="$event.target.style.display='none'" />
+                              <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" loading="lazy" :alt="ch.name + ' logosu'" @error="$event.target.style.display='none'" />
                               <span v-else class="row-logo-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
                               <span>{{ ch.name }}</span>
                               <span v-if="activeStreamType !== 'live' && (ch.extras?.year || ch.extras?.rating)" class="ch-meta-badges">
@@ -338,7 +347,7 @@
                       @dragover.prevent
                       @drop="chanDrop(idx)">
                       <svg class="sort-handle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
-                      <img v-if="ch.logo_url" :src="ch.logo_url" class="sort-ch-logo" loading="lazy" @error="$event.target.style.display='none'" />
+                      <img v-if="ch.logo_url" :src="ch.logo_url" class="sort-ch-logo" loading="lazy" :alt="ch.name + ' logosu'" @error="$event.target.style.display='none'" />
                       <span class="sort-name">{{ ch.name }}</span>
                       <span class="sort-count">#{{ idx + 1 }}</span>
                     </div>
@@ -424,7 +433,7 @@
                   <!-- Channel Rows -->
                   <div class="epg-channel-col" ref="epgChannelColRef">
                     <div v-for="ch in guideChannels" :key="ch.id" class="epg-ch-row-label">
-                      <img v-if="ch.logo_url" :src="ch.logo_url" class="epg-ch-logo" loading="lazy" @error="$event.target.style.display='none'" />
+                      <img v-if="ch.logo_url" :src="ch.logo_url" class="epg-ch-logo" loading="lazy" :alt="ch.name + ' logosu'" @error="$event.target.style.display='none'" />
                       <div v-else class="epg-ch-logo-fb">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
                       </div>
@@ -468,7 +477,7 @@
                     <div class="epg-add-card-title">{{ t('epg.addSourceTitle') }}</div>
                     <div class="epg-add-card-desc">{{ t('epg.addSourceDesc') }}</div>
                     <div class="epg-add-input-row">
-                      <input class="input" v-model="newEpgUrl" placeholder="https://epg-source.com/guide.xml" @keyup.enter="addEpgSource" />
+                      <input class="input" type="url" v-model="newEpgUrl" :aria-label="t('epg.addSourceTitle')" placeholder="https://epg-source.com/guide.xml" @keyup.enter="addEpgSource" />
                       <button class="btn btn-primary btn-sm" @click="addEpgSource" :disabled="addingEpg || !newEpgUrl.trim()">
                         <span v-if="addingEpg" class="spinner" style="width:13px;height:13px"></span>
                         <span v-else>{{ t('common.add') }}</span>
@@ -640,30 +649,30 @@
           <aside class="edit-panel" v-if="editingChannel">
             <div class="ep-header">
               <h3>{{ t('editPanel.title') }}</h3>
-              <button class="btn btn-ghost btn-icon-sm" @click="editingChannel = null">✕</button>
+              <button class="btn btn-ghost btn-icon-sm" aria-label="Düzenleme panelini kapat" @click="editingChannel = null">✕</button>
             </div>
             <div class="ep-body">
               <div class="ep-logo-area">
-                <div v-if="editForm.logo_url" class="ep-logo-preview" @click="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
-                  <img :src="editForm.logo_url" @error="$event.target.style.display='none'" />
+                <div v-if="editForm.logo_url" class="ep-logo-preview" role="button" tabindex="0" @click="triggerLogoUpload" @keydown.enter.space.prevent="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
+                  <img :src="editForm.logo_url" :alt="editingChannel.name + ' logosu'" @error="$event.target.style.display='none'" />
                   <div class="ep-logo-overlay">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   </div>
                 </div>
-                <div v-else class="ep-logo-placeholder ep-logo-upload" @click="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
+                <div v-else class="ep-logo-placeholder ep-logo-upload" role="button" tabindex="0" @click="triggerLogoUpload" @keydown.enter.space.prevent="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   <span class="ep-logo-upload-hint">{{ t('common.upload') }}</span>
                 </div>
-                <input ref="logoFileInput" type="file" accept="image/*" style="display:none" @change="handleLogoUpload" />
+                <input ref="logoFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" @change="handleLogoUpload" />
               </div>
               <div class="ep-form">
                 <div class="form-group epg-ac-wrap">
-                  <label>{{ t('editPanel.channelName') }}</label>
-                  <input class="input" v-model="editForm.name" @input="onNameInput" @focus="onNameFocus" @blur="onNameBlur" autocomplete="off" />
+                  <label for="channel-name">{{ t('editPanel.channelName') }}</label>
+                  <input id="channel-name" class="input" v-model="editForm.name" @input="onNameInput" @focus="onNameFocus" @blur="onNameBlur" autocomplete="off" />
                   <!-- EPG Autocomplete Dropdown -->
-                  <div v-if="epgAcResults.length > 0 && epgAcOpen" class="epg-ac-dropdown">
-                    <div v-for="epgCh in epgAcResults" :key="epgCh.channel_id" class="epg-ac-item" @mousedown.prevent="selectEpgChannel(epgCh)">
-                      <img v-if="epgCh.icon_url" :src="epgCh.icon_url" class="epg-ac-logo" @error="$event.target.style.display='none'" />
+                  <div v-if="epgAcResults.length > 0 && epgAcOpen" class="epg-ac-dropdown" role="listbox">
+                    <div v-for="epgCh in epgAcResults" :key="epgCh.source_id + ':' + epgCh.channel_id" class="epg-ac-item" role="option" tabindex="0" @mousedown.prevent="selectEpgChannel(epgCh)" @keydown.enter.space.prevent="selectEpgChannel(epgCh)">
+                      <img v-if="epgCh.icon_url" :src="epgCh.icon_url" class="epg-ac-logo" alt="" @error="$event.target.style.display='none'" />
                       <div v-else class="epg-ac-logo-fb">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
                       </div>
@@ -676,11 +685,11 @@
                 </div>
                 <div class="form-row">
                   <div class="form-group epg-ac-wrap" style="flex:1">
-                    <label>{{ t('editPanel.epgId') }}</label>
-                    <input class="input" v-model="editForm.epg_channel_id" :placeholder="t('common.optional')" @input="onEpgIdInput" @focus="onEpgIdFocus" @blur="onEpgIdBlur" autocomplete="off" />
-                    <div v-if="epgIdAcResults.length > 0 && epgIdAcOpen" class="epg-ac-dropdown">
-                      <div v-for="epgCh in epgIdAcResults" :key="epgCh.channel_id" class="epg-ac-item" @mousedown.prevent="selectEpgFromId(epgCh)">
-                        <img v-if="epgCh.icon_url" :src="epgCh.icon_url" class="epg-ac-logo" @error="$event.target.style.display='none'" />
+                    <label for="channel-epg-id">{{ t('editPanel.epgId') }}</label>
+                    <input id="channel-epg-id" class="input" v-model="editForm.epg_channel_id" :placeholder="t('common.optional')" @input="onEpgIdInput" @focus="onEpgIdFocus" @blur="onEpgIdBlur" autocomplete="off" />
+                    <div v-if="epgIdAcResults.length > 0 && epgIdAcOpen" class="epg-ac-dropdown" role="listbox">
+                      <div v-for="epgCh in epgIdAcResults" :key="epgCh.source_id + ':' + epgCh.channel_id" class="epg-ac-item" role="option" tabindex="0" @mousedown.prevent="selectEpgFromId(epgCh)" @keydown.enter.space.prevent="selectEpgFromId(epgCh)">
+                        <img v-if="epgCh.icon_url" :src="epgCh.icon_url" class="epg-ac-logo" alt="" @error="$event.target.style.display='none'" />
                         <div v-else class="epg-ac-logo-fb">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
                         </div>
@@ -695,7 +704,7 @@
                 <!-- EPG Logo Çekme Seçeneği -->
                 <div v-if="epgSelectedIcon" class="epg-logo-offer">
                   <div class="epg-logo-offer-preview">
-                    <img :src="epgSelectedIcon" class="epg-logo-offer-img" @error="epgSelectedIcon = null" />
+                    <img :src="epgSelectedIcon" class="epg-logo-offer-img" alt="Seçilen EPG kanal logosu" @error="epgSelectedIcon = null" />
                   </div>
                   <div class="epg-logo-offer-info">
                     <span class="epg-logo-offer-label">{{ t('editPanel.epgLogoAvailable') }}</span>
@@ -705,10 +714,10 @@
                     </button>
                   </div>
                 </div>
-                <div class="form-group"><label>{{ t('editPanel.logoUrl') }}</label><input class="input" v-model="editForm.logo_url" placeholder="https://..." /></div>
-                <div class="form-group"><label>{{ t('editPanel.streamUrl') }}</label><input class="input" v-model="editForm.stream_url" /></div>
-                <div class="form-group"><label>{{ t('common.category') }}</label>
-                  <select class="input" v-model="editForm.category_id">
+                <div class="form-group"><label for="channel-logo-url">{{ t('editPanel.logoUrl') }}</label><input id="channel-logo-url" class="input" type="url" v-model="editForm.logo_url" placeholder="https://..." /></div>
+                <div class="form-group"><label for="channel-stream-url">{{ t('editPanel.streamUrl') }}</label><input id="channel-stream-url" class="input" type="url" v-model="editForm.stream_url" /></div>
+                <div class="form-group"><label for="channel-category">{{ t('common.category') }}</label>
+                  <select id="channel-category" class="input" v-model="editForm.category_id">
                     <option :value="null">{{ t('common.uncategorized') }}</option>
                     <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
                   </select>
@@ -744,7 +753,7 @@
                 </div>
                 <div v-if="editingChannel.extras?.metadata_fetched" class="ep-metadata-body">
                   <div v-if="editingChannel.extras.backdrop_url" class="ep-meta-backdrop">
-                    <img :src="editingChannel.extras.backdrop_url" @error="$event.target.style.display='none'" />
+                    <img :src="editingChannel.extras.backdrop_url" :alt="editingChannel.name + ' arka plan görseli'" @error="$event.target.style.display='none'" />
                   </div>
                   <div v-if="editingChannel.extras.overview" class="ep-meta-overview">{{ editingChannel.extras.overview }}</div>
                   <div class="ep-meta-grid">
@@ -811,7 +820,7 @@
 
     <!-- Modals -->
     <Teleport to="body">
-      <div v-if="showXtreamModal" class="modal-overlay" @click.self="showXtreamModal = false">
+      <div v-if="showXtreamModal" v-focus-trap class="modal-overlay" @click.self="showXtreamModal = false">
         <div class="modal" style="max-width:500px">
           <div class="modal-header"><h3>{{ t('xtream.importTitle') }}</h3>
             <button class="btn btn-ghost btn-icon-sm" @click="showXtreamModal = false">✕</button>
@@ -843,20 +852,20 @@
     </Teleport>
     <!-- M3U Import Modal (Editor) -->
     <Teleport to="body">
-      <div v-if="showM3uImportInEditor" class="modal-overlay" @click.self="showM3uImportInEditor = false">
+      <div v-if="showM3uImportInEditor" v-focus-trap class="modal-overlay" @click.self="showM3uImportInEditor = false">
         <div class="modal">
           <div class="modal-header">
             <h3>{{ t('m3uImport.title') }}</h3>
             <button class="btn btn-ghost btn-icon-sm" @click="showM3uImportInEditor = false">✕</button>
           </div>
           <div class="form-group">
-            <label>{{ t('m3uImport.fromUrl') }}</label>
-            <input class="input" v-model="editorM3uForm.url" :placeholder="t('m3uImport.urlPlaceholder')" />
+            <label for="editor-m3u-url">{{ t('m3uImport.fromUrl') }}</label>
+            <input id="editor-m3u-url" class="input" type="url" v-model="editorM3uForm.url" :placeholder="t('m3uImport.urlPlaceholder')" />
           </div>
           <div class="url-divider"><span>{{ t('common.or') }}</span></div>
           <div class="form-group">
-            <label>{{ t('m3uImport.fromFile') }}</label>
-            <input type="file" accept=".m3u,.m3u8,.txt" @change="onEditorM3uFile" class="input" />
+            <label for="editor-m3u-file">{{ t('m3uImport.fromFile') }}</label>
+            <input id="editor-m3u-file" type="file" accept=".m3u,.m3u8,.txt" @change="onEditorM3uFile" class="input" />
           </div>
           <div v-if="editorM3uError" class="result-box error">{{ editorM3uError }}</div>
           <div v-if="editorM3uResult" class="result-box success">
@@ -873,11 +882,11 @@
       </div>
     </Teleport>
     <Teleport to="body">
-      <div v-if="showBulkMove" class="modal-overlay" @click.self="showBulkMove = false">
+      <div v-if="showBulkMove" v-focus-trap class="modal-overlay" @click.self="showBulkMove = false">
         <div class="modal">
           <div class="modal-header"><h3>{{ t('bulkMove.title') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="showBulkMove = false">✕</button></div>
-          <div class="form-group"><label>{{ t('bulkMove.targetCategory') }}</label>
-            <select class="input" v-model="bulkTargetCat">
+          <div class="form-group"><label for="bulk-target-category">{{ t('bulkMove.targetCategory') }}</label>
+            <select id="bulk-target-category" class="input" v-model="bulkTargetCat">
               <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
             </select>
           </div>
@@ -889,7 +898,7 @@
       </div>
     </Teleport>
     <Teleport to="body">
-      <div v-if="showCatCreate" class="modal-overlay" @click.self="showCatCreate = false">
+      <div v-if="showCatCreate" v-focus-trap class="modal-overlay" @click.self="showCatCreate = false">
         <div class="modal">
           <div class="modal-header"><h3>{{ t('categoryEditor.createTitle') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="showCatCreate = false">✕</button></div>
           <div class="form-group"><label>{{ t('categoryEditor.nameLabel') }}</label><input class="input" v-model="newCatName" @keyup.enter="createCategory" autofocus /></div>
@@ -898,7 +907,7 @@
       </div>
     </Teleport>
     <Teleport to="body">
-      <div v-if="editingCat" class="modal-overlay" @click.self="editingCat = null">
+      <div v-if="editingCat" v-focus-trap class="modal-overlay" @click.self="editingCat = null">
         <div class="modal">
           <div class="modal-header"><h3>{{ t('categoryEditor.editTitle') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="editingCat = null">✕</button></div>
           <div class="form-group"><label>{{ t('categoryEditor.nameLabel') }}</label><input class="input" v-model="editCatName" @keyup.enter="updateCategory" /></div>
@@ -907,7 +916,7 @@
       </div>
     </Teleport>
     <Teleport to="body">
-      <div v-if="deletingCat" class="modal-overlay" @click.self="deletingCat = null">
+      <div v-if="deletingCat" v-focus-trap class="modal-overlay" @click.self="deletingCat = null">
         <div class="modal">
           <div class="modal-header"><h3>{{ t('categoryEditor.deleteTitle') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="deletingCat = null">✕</button></div>
           <p style="font-size:13px;color:var(--text-secondary)">"{{ deletingCat.name }}" {{ t('categoryEditor.deleteConfirm') }}</p>
@@ -916,10 +925,10 @@
       </div>
     </Teleport>
     <Teleport to="body">
-      <div v-if="shareUrl" class="modal-overlay" @click.self="shareUrl = null">
+      <div v-if="shareUrl" v-focus-trap class="modal-overlay" @click.self="shareUrl = null">
         <div class="modal">
           <div class="modal-header"><h3>{{ t('share.title') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="shareUrl = null">✕</button></div>
-          <div class="form-group"><input class="input" :value="shareUrl" readonly @click="$event.target.select()" /></div>
+          <div class="form-group"><label for="share-url" class="sr-only">{{ t('share.title') }}</label><input id="share-url" class="input" :value="shareUrl" readonly @click="$event.target.select()" /></div>
           <p style="font-size:12px;color:var(--text-muted)">{{ t('share.instruction') }}</p>
           <div class="modal-actions"><button class="btn btn-primary" @click="copyShare">{{ t('common.copy') }}</button><button class="btn btn-secondary" @click="shareUrl = null">{{ t('common.close') }}</button></div>
         </div>
@@ -927,11 +936,11 @@
     </Teleport>
     <!-- EPG Program Detail Modal -->
     <Teleport to="body">
-      <div v-if="selectedProgram" class="modal-overlay" @click.self="selectedProgram = null">
+      <div v-if="selectedProgram" v-focus-trap class="modal-overlay" @click.self="selectedProgram = null">
         <div class="modal epg-detail-modal">
           <div class="epg-detail-header">
             <div class="epg-detail-channel" v-if="selectedProgramChannel">
-              <img v-if="selectedProgramChannel.logo_url" :src="selectedProgramChannel.logo_url" class="epg-detail-ch-logo" @error="$event.target.style.display='none'" />
+              <img v-if="selectedProgramChannel.logo_url" :src="selectedProgramChannel.logo_url" class="epg-detail-ch-logo" :alt="selectedProgramChannel.name + ' logosu'" @error="$event.target.style.display='none'" />
               <span>{{ selectedProgramChannel.name }}</span>
             </div>
             <button class="btn btn-ghost btn-icon-sm" @click="selectedProgram = null">
@@ -998,11 +1007,12 @@ const fetchingMetadata = ref(false)
 const activeView = ref('basic')
 const activeStreamType = ref('live')
 const streamTypeCounts = ref({ live: 0, vod: 0, series: 0 })
+const mobileNavOpen = ref(false)
+const mobileCategoriesOpen = ref(false)
 
 // Accordion
 const openAccordions = ref(new Set())
 const accChannels = reactive({})
-const categoriesWithChannels = computed(() => categories.value)
 
 // Sort
 let sortDragIdx = null
@@ -1042,9 +1052,6 @@ const newEpgUrl = ref('')
 const addingEpg = ref(false)
 const autoMatching = ref(false)
 const matchResult = ref(null)
-const epgSelectedChannelId = ref(null)
-const epgPrograms = ref([])
-const allChannels = ref([])
 const editChannelEpg = ref([])
 // EPG Autocomplete (name field)
 const epgAcResults = ref([])
@@ -1113,7 +1120,7 @@ const emptySmartTitle = computed(() => {
 const showM3uImportInEditor = ref(false)
 
 function toggleStreamSection(type) {
-  if (activeStreamType.value === type) return
+  if (activeStreamType.value === type) { mobileNavOpen.value = false; return }
   activeStreamType.value = type
   activeView.value = 'basic'
   selectedCatId.value = null
@@ -1123,6 +1130,7 @@ function toggleStreamSection(type) {
   loadChannels()
   loadTotalCount()
   loadCategories()
+  mobileNavOpen.value = false
 }
 
 async function loadStreamTypeCounts() {
@@ -1159,7 +1167,11 @@ onMounted(async () => {
 })
 
 // Load EPG sources and guide when switching to epg view
-watch(activeView, v => { if (v === 'epg') { loadEpgSources(); loadGuide() } })
+watch(activeView, v => {
+  mobileNavOpen.value = false
+  mobileCategoriesOpen.value = false
+  if (v === 'epg') { loadEpgSources(); loadGuide() }
+})
 
 // Load EPG data when editing channel changes
 watch(editingChannel, ch => { if (ch) loadEditChannelEpg() })
@@ -1197,33 +1209,18 @@ async function loadAccChannels(catId) {
   } catch { accChannels[catId] = [] }
 }
 
-function toggleAccordion(catId) {
-  const s = new Set(openAccordions.value)
-  if (s.has(catId)) { s.delete(catId) } else { s.add(catId); if (!accChannels[catId]) loadAccChannels(catId) }
-  openAccordions.value = s
-}
-
 function selectCategory(id) {
-  selectedCatId.value = id; page.value = 1; selectedIds.value = new Set(); editingChannel.value = null; loadChannels()
+  selectedCatId.value = id; page.value = 1; selectedIds.value = new Set(); editingChannel.value = null; mobileCategoriesOpen.value = false; loadChannels()
 }
 
 function debouncedSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => { page.value = 1; loadChannels() }, 300) }
 function toggleSelect(id) { const s = new Set(selectedIds.value); if (s.has(id)) s.delete(id); else s.add(id); selectedIds.value = s }
 function toggleSelectAll() { if (allSelected.value) selectedIds.value = new Set(); else selectedIds.value = new Set(channels.value.map(ch => ch.id)) }
-function toggleSelectCat(catId) {
-  const chs = accChannels[catId] || []
-  const allIn = chs.every(ch => selectedIds.value.has(ch.id))
-  const s = new Set(selectedIds.value)
-  if (allIn) { chs.forEach(ch => s.delete(ch.id)) } else { chs.forEach(ch => s.add(ch.id)) }
-  selectedIds.value = s
-}
-function isCatAllSelected(catId) { const chs = accChannels[catId] || []; return chs.length > 0 && chs.every(ch => selectedIds.value.has(ch.id)) }
-
 function shortenUrl(url) { if (!url) return '-'; try { return url.length > 60 ? '...' + url.slice(-50) : url } catch { return url } }
 
 function startEditChannel(ch) {
   editingChannel.value = ch
-  editForm.value = { name: ch.name, logo_url: ch.logo_url || '', epg_channel_id: ch.epg_channel_id || '', category_id: ch.category_id || null, stream_url: ch.stream_url || '' }
+  editForm.value = { name: ch.name, logo_url: ch.logo_url || '', epg_channel_id: ch.epg_channel_id || '', epg_source_id: ch.epg_source_id || null, category_id: ch.category_id || null, stream_url: ch.stream_url || '' }
   epgAcResults.value = []
   epgAcOpen.value = false
   epgIdAcResults.value = []
@@ -1233,7 +1230,11 @@ function startEditChannel(ch) {
 
 async function saveChannel() {
   try {
-    await api.put(`/channels/${editingChannel.value.id}`, editForm.value)
+    const { epg_channel_id, epg_source_id, ...channelUpdates } = editForm.value
+    await Promise.all([
+      api.put(`/channels/${editingChannel.value.id}`, channelUpdates),
+      api.put(`/channels/${editingChannel.value.id}/epg`, { epgChannelId: epg_channel_id || null, epgSourceId: epg_source_id || null }),
+    ])
     toast(t('toast.channelUpdated'), 'success'); editingChannel.value = null
     loadChannels(); loadCategories(); loadTotalCount()
     for (const catId of openAccordions.value) loadAccChannels(catId)
@@ -1254,7 +1255,7 @@ async function resetChannel() {
   if (!editingChannel.value) return
   try {
     const { data } = await api.post(`/channels/${editingChannel.value.id}/reset`)
-    editForm.value = { name: data.name, logo_url: data.logo_url || '', epg_channel_id: data.epg_channel_id || '', category_id: data.category_id || null, stream_url: data.stream_url || '' }
+    editForm.value = { name: data.name, logo_url: data.logo_url || '', epg_channel_id: data.epg_channel_id || '', epg_source_id: data.epg_source_id || null, category_id: data.category_id || null, stream_url: data.stream_url || '' }
     editingChannel.value = data
     toast(t('toast.resetToOriginal'), 'success')
     loadChannels()
@@ -1291,7 +1292,7 @@ async function handleLogoUpload(event) {
 async function bulkDelete() {
   if (!confirm(t('toast.deleteChannelConfirm', { count: selectedIds.value.size }))) return
   try {
-    for (const id of selectedIds.value) await api.delete(`/channels/${id}`)
+    await api.post('/channels/bulk', { action: 'delete', channelIds: [...selectedIds.value] })
     selectedIds.value = new Set(); toast(t('toast.deleted'), 'success')
     loadChannels(); loadCategories(); loadTotalCount()
     for (const catId of openAccordions.value) loadAccChannels(catId)
@@ -1460,10 +1461,6 @@ async function doEditorM3uImport() {
   } finally { editorM3uImporting.value = false }
 }
 
-async function loadAllChannels() {
-  try { const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { limit: 10000 } }); allChannels.value = data.channels || data }
-  catch { allChannels.value = [] }
-}
 async function loadEpgSources() { try { const { data } = await api.get('/epg/sources'); epgSources.value = data } catch {} }
 async function addEpgSource() {
   if (!newEpgUrl.value.trim()) return; addingEpg.value = true
@@ -1491,7 +1488,7 @@ async function doAutoMatch() {
 async function loadGuide() {
   guideLoading.value = true
   try {
-    const { data } = await api.get(`/playlists/${playlistId}/epg/guide`, { params: { date: guideDate.value } })
+    const { data } = await api.get(`/playlists/${playlistId}/epg/guide`, { params: { date: guideDate.value, tzOffset: new Date().getTimezoneOffset() } })
     guideChannels.value = data.channels || []
     updateNowOffset()
   } catch { guideChannels.value = [] }
@@ -1531,14 +1528,9 @@ function showProgramDetail(prog, ch) {
   selectedProgram.value = prog
   selectedProgramChannel.value = ch
 }
-async function loadEpgPrograms() {
-  if (!epgSelectedChannelId.value) { epgPrograms.value = []; return }
-  try { const { data } = await api.get(`/channels/${epgSelectedChannelId.value}/epg/preview`); epgPrograms.value = data }
-  catch { epgPrograms.value = [] }
-}
 async function loadEditChannelEpg() {
   if (!editingChannel.value?.id) { editChannelEpg.value = []; return }
-  try { const { data } = await api.get(`/channels/${editingChannel.value.id}/epg/preview`); editChannelEpg.value = data }
+  try { const { data } = await api.get(`/channels/${editingChannel.value.id}/epg/preview`, { params: { tzOffset: new Date().getTimezoneOffset() } }); editChannelEpg.value = data }
   catch { editChannelEpg.value = [] }
 }
 function isProgramLive(prog) {
@@ -1590,6 +1582,7 @@ function onNameBlur() { setTimeout(() => { epgAcOpen.value = false }, 200) }
 function selectEpgChannel(epgCh) {
   editForm.value.name = epgCh.display_name
   editForm.value.epg_channel_id = epgCh.channel_id
+  editForm.value.epg_source_id = epgCh.source_id
   epgAcResults.value = []
   epgAcOpen.value = false
   if (epgCh.icon_url) {
@@ -1620,6 +1613,7 @@ async function fetchXtreamMetadata() {
 // EPG ID field autocomplete
 function onEpgIdInput() {
   clearTimeout(epgIdAcTimer)
+  editForm.value.epg_source_id = null
   const q = editForm.value.epg_channel_id
   if (!q || q.trim().length < 2) { epgIdAcResults.value = []; return }
   epgIdAcTimer = setTimeout(async () => {
@@ -1634,6 +1628,7 @@ function onEpgIdFocus() { if (epgIdAcResults.value.length > 0) epgIdAcOpen.value
 function onEpgIdBlur() { setTimeout(() => { epgIdAcOpen.value = false }, 200) }
 function selectEpgFromId(epgCh) {
   editForm.value.epg_channel_id = epgCh.channel_id
+  editForm.value.epg_source_id = epgCh.source_id
   epgIdAcResults.value = []
   epgIdAcOpen.value = false
   if (epgCh.icon_url) {
@@ -1641,7 +1636,6 @@ function selectEpgFromId(epgCh) {
   }
 }
 
-function formatDate(d) { if (!d) return ''; return new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) }
 function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) }
 </script>
 
@@ -1808,9 +1802,10 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 }
 .ch-table td { padding: 5px 10px; border-bottom: 1px solid var(--border); }
 .ch-table tbody tr { cursor: pointer; transition: background 0.1s; }
+.ch-table tbody tr { content-visibility: auto; contain-intrinsic-size: 42px; }
 .ch-table tbody tr:hover { background: var(--bg-hover); }
 .ch-table tbody tr.selected { background: var(--accent-soft); }
-.ch-table tbody tr.editing { background: var(--accent-soft); border-left: 3px solid var(--accent); }
+.ch-table tbody tr.editing { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
 .th-check, .td-check { width: 32px; text-align: center; }
 .td-check input, .th-check input { accent-color: var(--accent); cursor: pointer; }
 .th-num, .td-num { width: 40px; color: var(--text-muted); text-align: center; }
@@ -2364,9 +2359,66 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .ch-meta-year { font-size: 10px; color: var(--text-muted); background: var(--bg-tertiary); padding: 1px 5px; border-radius: 4px; }
 .ch-meta-rating { font-size: 10px; color: #fbbf24; background: rgba(251,191,36,0.1); padding: 1px 5px; border-radius: 4px; font-weight: 600; }
 
-.nav-section-active { background: var(--bg-hover); border-left: 2px solid var(--accent); }
+.nav-section-active { background: var(--accent-soft); color: var(--accent); }
 .nav-section-count { font-size: 11px; color: var(--text-muted); background: var(--bg-tertiary); padding: 1px 6px; border-radius: 8px; margin-left: auto; margin-right: 4px; }
 .stream-type-group { display: flex; gap: 16px; margin-top: 4px; }
 .stream-type-label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; color: var(--text-secondary); }
 .stream-type-label input[type="checkbox"] { accent-color: var(--accent); }
+
+.mobile-menu-btn, .mobile-scrim { display: none; }
+
+@media (max-width: 1180px) {
+  .edit-panel { width: 280px; min-width: 280px; }
+  .cat-sidebar { width: 190px; min-width: 170px; }
+  .search-input { width: 180px; }
+}
+
+@media (max-width: 960px) {
+  .mobile-menu-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; flex: 0 0 40px;
+    border: 1px solid var(--border-light); border-radius: var(--radius);
+    color: var(--text-primary); background: var(--bg-tertiary); cursor: pointer;
+  }
+  .nav-sidebar {
+    position: fixed; z-index: 702; top: var(--header-height, 52px); bottom: 0; left: 0;
+    width: min(320px, 86vw); transform: translateX(-102%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 12px 0 36px rgba(0,0,0,0.35);
+  }
+  .nav-sidebar.mobile-open { transform: translateX(0); }
+  .mobile-scrim {
+    display: block; position: fixed; inset: var(--header-height, 52px) 0 0; z-index: 701;
+    border: 0; width: auto; height: auto; background: rgba(3,5,10,0.64);
+  }
+  .edit-panel {
+    position: fixed; z-index: 690; right: 0; top: var(--header-height, 52px); bottom: 0;
+    width: min(380px, 88vw); min-width: 0; box-shadow: -12px 0 36px rgba(0,0,0,0.35);
+  }
+  .edit-panel-empty { display: none; }
+}
+
+@media (max-width: 720px) {
+  .editor, .editor-loading { height: calc(100dvh - var(--header-height, 52px)); }
+  .top-bar { padding: 8px; gap: 8px; }
+  .top-bar-left, .top-bar-right { gap: 6px; min-width: 0; }
+  .playlist-title { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .channel-count-badge, .top-bar-right > .btn { display: none; }
+  .search-input { width: min(34vw, 160px); height: 40px; }
+  .cat-sidebar {
+    position: fixed; z-index: 704; top: var(--header-height, 52px); bottom: 0; left: 0;
+    width: min(330px, 88vw); min-width: 0; transform: translateX(-102%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 12px 0 36px rgba(0,0,0,0.35);
+  }
+  .cat-sidebar.mobile-open { transform: translateX(0); }
+  .category-scrim { z-index: 703; }
+  .edit-panel { inset: var(--header-height, 52px) 0 0; width: 100%; }
+  .th-url, .td-url, .th-epg, .td-epg, .th-num, .td-num { display: none; }
+  .ch-table th, .ch-table td { padding-block: 10px; }
+  .td-name { max-width: none; }
+  .center-empty { padding: 36px 18px; }
+  .modal { width: calc(100% - 24px); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 20px; }
+  .epg-toolbar, .view-header { flex-wrap: wrap; }
+}
 </style>

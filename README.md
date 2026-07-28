@@ -1,246 +1,160 @@
 # M3U Playlist Editor
 
-> A modern, self-hosted IPTV playlist manager. Edit, categorize and share your M3U playlists with native Xtream Codes integration, EPG support, drag-and-drop sorting and a clean dark/light UI.
+A self-hosted IPTV playlist manager for importing, editing, organizing, exporting, and sharing M3U/Xtream playlists. It includes a responsive Vue interface, XMLTV guide support, multi-user isolation, and a production Docker stack.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-43853d.svg)](https://nodejs.org/)
-[![Vue 3](https://img.shields.io/badge/Vue-3.5-42b883.svg)](https://vuejs.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13%2B-336791.svg)](https://www.postgresql.org/)
-[![100% Free](https://img.shields.io/badge/100%25-FREE-success.svg)](#)
+## Update notes / Güncelleme notları — 2026-07-28
 
-> 📢 **This project replaces [xtreamcodesapitom3u](https://github.com/fyildirim-debug/xtreamcodesapitom3u).** All future development, new features and updates will continue here. **Completely free, no plan limits, no ads** — full Xtream Codes & M3U editor with EPG, drag-and-drop sorting, multi-language UI, themes, and much more than the original tool.
+### English
 
-![M3U Playlist Editor – Landing](screenshot/main.png)
+- **Large Xtream imports:** Replaced serial category-by-category downloads with one bulk request per content type, two-type parallel downloads, bounded fallback for missing categories, bulk category creation, and 1,000-row PostgreSQL upserts. The default response and Node memory limits now support playlists around 150,000 Live/VOD/Series entries.
+- **Security hardening:** Added rotating `HttpOnly` refresh sessions, encrypted provider credentials, hashed sensitive tokens, tenant ownership checks, SSRF-resistant remote fetching with DNS pinning and redirect validation, safer upload validation, structured error handling, and hardened browser security headers.
+- **Reliability:** Improved Xtream synchronization identity, stale-channel protection, M3U escaping, EPG source isolation, pagination validation, timezone-aware guide queries, and production-safe startup validation.
+- **Frontend and accessibility:** Refined the responsive application shell and editor, session recovery, protected routing, keyboard focus trapping, accessible dialogs, empty/error states, and cache behavior.
+- **Deployment and quality:** Upgraded to Node.js 22, added reproducible lockfiles, non-root read-only containers, private PostgreSQL networking, health checks, automatic migrations, lint/build validation, dependency audits, and GitHub Actions CI.
+- **Verification:** 253 backend tests pass; frontend lint and production build pass; backend and frontend high-severity dependency audits report no vulnerabilities.
 
----
+### Türkçe
 
-## ✨ Features
+- **Büyük Xtream aktarımları:** Kategori kategori seri indirme kaldırıldı; içerik türü başına tek toplu istek, iki türü paralel indirme, eksik kategoriler için kontrollü geri dönüş, toplu kategori oluşturma ve 1.000 satırlık PostgreSQL upsert paketleri eklendi. Varsayılan yanıt ve Node bellek sınırları yaklaşık 150.000 Canlı TV/VOD/Dizi içeren listeleri destekleyecek şekilde yükseltildi.
+- **Güvenlik sıkılaştırması:** Dönen `HttpOnly` yenileme oturumları, şifreli sağlayıcı bilgileri, hash’lenmiş hassas tokenlar, kullanıcı sahipliği kontrolleri, DNS sabitleme ve yönlendirme doğrulamalı SSRF koruması, güvenli dosya doğrulama, yapılandırılmış hata yönetimi ve tarayıcı güvenlik başlıkları eklendi.
+- **Güvenilirlik:** Xtream senkronizasyon kimliği, eski kanal silme koruması, M3U kaçış kuralları, EPG kaynak izolasyonu, sayfalama doğrulaması, saat dilimine duyarlı rehber sorguları ve production başlangıç kontrolleri iyileştirildi.
+- **Arayüz ve erişilebilirlik:** Responsive uygulama kabuğu ve editör, oturum kurtarma, korumalı rotalar, klavye odak kilidi, erişilebilir diyaloglar, boş/hata durumları ve önbellek davranışı geliştirildi.
+- **Dağıtım ve kalite:** Node.js 22’ye geçildi; tekrarlanabilir lockfile’lar, root olmayan salt-okunur container’lar, dışarı açılmayan PostgreSQL, sağlık kontrolleri, otomatik migration, lint/build doğrulaması, bağımlılık denetimleri ve GitHub Actions CI eklendi.
+- **Doğrulama:** 253 backend testi, frontend lint ve production build başarılıdır; backend ve frontend yüksek önem seviyeli bağımlılık denetimlerinde açık bulunmamıştır.
 
-- **Xtream Codes API integration** — Connect with server URL, username and password. Automatically pulls Live TV, Movies (VOD) and Series with categories.
-- **M3U import / export** — Import from a local file or remote URL, edit, then export back to a clean `.m3u` file.
-- **EPG TV Guide** — Add XMLTV sources, automatic channel-to-EPG matching, multi-day programme grid.
-- **Bulk channel editing** — Rename channels, change logos, edit stream URLs, swap categories — all from a side panel.
-- **Drag-and-drop sorting** — Reorder both categories and channels with smooth drag handles.
-- **Three content types** — Separate editors for Live Channels, Movies (VOD) and Series with their own categories and counts.
-- **Search & filter** — Trigram fuzzy search across thousands of channels (PostgreSQL `pg_trgm`).
-- **Multi-language UI** — Turkish + English (i18n keys, easy to extend).
-- **Dark / Light / System theme** — Per-user preference saved in browser.
-- **Authentication** — JWT access tokens + refresh tokens, password reset flow with SMTP, account deletion.
-- **Self-hosted & 100% free** — No accounts on third-party servers, no plan limits, no ads. MIT licensed.
-- **Successor to [xtreamcodesapitom3u](https://github.com/fyildirim-debug/xtreamcodesapitom3u)** — All future development happens here, with a far richer feature set: full editor UI, EPG, drag-and-drop sorting, multi-user auth, themes, i18n, demo seed, Docker support and much more.
+## Highlights
 
----
+- Xtream Codes imports for Live TV, VOD, and Series
+- Local or remote M3U import and escaped M3U export
+- XMLTV sources, source-scoped channel matching, and timezone-aware guide views
+- Category and channel sorting, bulk operations, logo uploads, search, and metadata
+- Short-lived access tokens with rotating HttpOnly refresh sessions
+- Turkish and English interface, light/dark/system themes, keyboard navigation, and mobile layouts
+- PostgreSQL migrations, structured logs, health checks, CI, and hardened containers
 
-## 📸 Screenshots
+## Requirements
 
-### Landing page
-Clean entry page with theme-aware hero, language switcher and direct GitHub link.
+- Node.js 22 or newer
+- PostgreSQL 13 or newer (PostgreSQL 16 is used by Docker and CI)
+- npm 10 or newer
 
-![Landing page](screenshot/main.png)
+## Local development
 
-### My Playlists
-Dashboard showing all playlists with channel counts, stream-type badges (LIVE / VOD / SERIES), creation dates and quick actions for editing or deleting.
-
-![Playlists dashboard](screenshot/playlists.png)
-
-### Xtream Codes import
-One-step connect flow. Auto-fills server URL, username and password by parsing a regular `get.php?...` M3U URL, or fill the fields manually. Pick which content types to pull.
-
-![Xtream Codes import](screenshot/addplaylists.png)
-
-### Channel Editor (Live)
-Three-pane editor: stream-type sidebar, category list, channels table, and an edit panel for the selected channel (logo upload, EPG ID, stream URL, category).
-
-![Channel editor – Live channels](screenshot/editor.png)
-
-### Movie Editor (VOD)
-The same editor specialized for movies — separate categories, channel-count badges per category, and a metadata "Fetch Info" action that hydrates titles from external sources.
-
-![Movie editor](screenshot/movieeditor.png)
-
-### EPG Editor
-Multi-day TV-guide grid. Add XMLTV sources, auto-match channels by `tvg-id`, then visually inspect the programme schedule per channel.
-
-![EPG editor](screenshot/epgeditor.png)
-
-### Drag-and-drop sorting
-Reorder categories on the left, then drag channels on the right. Order is persisted instantly.
-
-![Sorting view](screenshot/shorting.png)
-
-### Account settings
-Profile summary, theme switcher (System / Dark / Light) and password change.
-
-![Account settings](screenshot/account.png)
-
----
-
-## 🧱 Tech stack
-
-**Backend**
-- Node.js 18+ · Express 4
-- PostgreSQL 13+ · Knex 3 (migrations + query builder)
-- JWT (access + refresh) · bcryptjs · helmet · express-rate-limit
-- Pino structured logging · Nodemailer (SMTP)
-
-**Frontend**
-- Vue 3 (Composition API) · Vue Router 4 · Pinia 3
-- Vite 6 · Axios
-- Vanilla CSS with design tokens (no Tailwind)
-
-**Architecture**
-- Layered: routes → controllers → services → models
-- M3U / EPG parsers as standalone modules (`src/parsers/`)
-- Xtream Codes client with retry + exponential backoff (`src/services/XtreamClient.js`)
-
----
-
-## 🚀 Quick start
-
-### Prerequisites
-- Node.js **18+**
-- PostgreSQL **13+** (with `pg_trgm` extension — auto-enabled by the first migration)
-
-### 1. Clone & install
 ```bash
 git clone https://github.com/fyildirim-debug/M3uEditor.git
 cd M3uEditor
-
-# Backend deps
-npm install
-
-# Frontend deps
-cd frontend && npm install && cd ..
+npm ci
+cd frontend
+npm ci
+cd ..
 ```
 
-### 2. Configure environment
-Copy the example file and fill in your values:
+Copy `.env.example` to `.env`, then set the database and application values. In particular, replace these with independently generated secrets of at least 32 characters:
 
-```bash
-cp .env.example .env
-```
-
-Minimum required keys:
 ```env
-PORT=3000
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=m3u_playlist_editor
-DB_USER=postgres
-DB_PASSWORD=postgres
-JWT_SECRET=change-me-to-a-long-random-string
-APP_URL=http://localhost:5173
-CORS_ORIGIN=http://localhost:5173
+JWT_SECRET=replace-with-a-long-random-secret
+CREDENTIAL_ENCRYPTION_KEY=replace-with-another-long-random-secret
 ```
 
-SMTP keys (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, …) are optional — only needed for password-reset emails.
+Create the database and start the application:
 
-### 3. Create the database
 ```bash
-createdb m3u_playlist_editor      # or use psql / pgAdmin
 npm run migrate
-```
-
-### 4. (Optional) Seed demo data
-A one-shot seed creates a demo user with one populated playlist (9 categories, 36 channels — Live + VOD + Series) so you can explore the UI immediately:
-
-```bash
-npm run seed:demo
-```
-
-Demo login:
-```
-Email:    demo@m3ueditor.local
-Password: demo1234
-```
-
-### 5. Run
-
-```bash
-# Terminal 1 — backend (http://localhost:3000)
 npm run dev
-
-# Terminal 2 — frontend (http://localhost:5173)
-cd frontend && npm run dev
 ```
 
-Open http://localhost:5173 and sign in.
-
----
-
-## 🐳 Docker
-
-A `docker-compose.yml` is included for a single-command boot:
+In a second terminal:
 
 ```bash
-docker compose up -d
+cd frontend
+npm run dev
 ```
 
-This starts the API, the static frontend (served by Nginx) and a PostgreSQL container with persistent volume.
+The frontend defaults to `http://localhost:5173`; the API and health endpoint default to `http://localhost:3000` and `http://localhost:3000/health`.
 
----
+## Docker deployment
 
-## 📁 Project layout
+Create `.env` from `.env.example` and set at least:
 
-```
-.
-├── src/                    Backend
-│   ├── config/             DB, JWT, env config
-│   ├── controllers/        Route handlers
-│   ├── routes/             Express routers
-│   ├── services/           Business logic (Auth, Channel, EPG, Xtream, …)
-│   ├── parsers/            M3UParser, M3UFormatter, EPGParser
-│   ├── middleware/         auth, admin, errorHandler
-│   ├── models/migrations/  Knex SQL migrations
-│   └── utils/              AppError, helpers
-│
-├── frontend/               Vue 3 SPA
-│   └── src/
-│       ├── views/          Landing, Login, Dashboard, Editor, Account, Admin, …
-│       ├── stores/         Pinia (auth)
-│       ├── langs/          i18n (tr.json, en.json) + useI18n composable
-│       ├── composables/    useTheme
-│       └── api.js          Axios instance with refresh-token interceptor
-│
-├── scripts/                One-shot scripts (seed-demo.js, …)
-├── tests/                  Jest unit + property tests
-├── screenshot/             UI screenshots used in this README
-├── knexfile.js             Knex config
-└── docker-compose.yml      Local stack
+```env
+DB_PASSWORD=a-strong-database-password
+JWT_SECRET=a-unique-secret-with-at-least-32-characters
+CREDENTIAL_ENCRYPTION_KEY=a-different-secret-with-at-least-32-characters
+APP_URL=https://m3u.example.com
+CORS_ORIGIN=https://m3u.example.com
+HTTP_PORT=80
 ```
 
----
-
-## 🔐 Security notes
-
-- Passwords are hashed with **bcryptjs** (cost factor 10).
-- JWT secret **must** be rotated on first deploy — do not ship the example value.
-- Auth endpoints are rate-limited (20 req / 15 min).
-- All routes use **helmet** for security headers and **CORS** is locked to `CORS_ORIGIN`.
-- Stream URLs and channel data live in your own PostgreSQL — nothing is sent to third parties.
-
----
-
-## 🤝 Contributing
-
-PRs and issues are welcome. Before opening a PR:
+Then run:
 
 ```bash
-npm test          # Jest unit tests
-npm run migrate   # ensure migrations are clean
+docker compose up -d --build
+docker compose ps
 ```
 
-Conventional commits are used (`feat:`, `fix:`, `refactor:`, `docs:`, …).
+The API container applies pending migrations before startup. PostgreSQL is not exposed to the host. Uploaded logos and database files use named volumes. The API runs as a non-root user with a read-only root filesystem; the frontend is served by Nginx with security and cache headers.
 
----
+Private-network remote URLs are blocked by default to prevent SSRF. Only set `ALLOW_PRIVATE_NETWORK_URLS=true` when importing from a trusted service on your own network and after understanding the exposure.
 
-## 📜 License
+### Large Xtream providers
 
-MIT © Furkan Yıldırım — see [LICENSE](LICENSE).
+Xtream imports use one bulk stream request per selected content type and download two content types concurrently. If a provider omits categories from a bulk response, only the missing categories are fetched with bounded concurrency. Channel writes use 1,000-row PostgreSQL batches.
 
----
+The Docker defaults are sized for playlists with roughly 150,000 Live/VOD/Series entries:
 
-## 🙏 Credits
+```env
+MAX_XTREAM_BYTES=268435456
+XTREAM_CATEGORY_CONCURRENCY=8
+XTREAM_TYPE_CONCURRENCY=2
+NODE_MAX_OLD_SPACE_MB=1536
+```
 
-Built with [Vue 3](https://vuejs.org/), [Express](https://expressjs.com/), [Knex](https://knexjs.org/) and [PostgreSQL](https://www.postgresql.org/).
-Channel logos used in the demo seed are sourced from Wikimedia Commons.
+Lower the concurrency values if a provider rate-limits parallel requests. Increase `MAX_XTREAM_BYTES` and `NODE_MAX_OLD_SPACE_MB` together only when a single provider response exceeds the defaults and the host has sufficient memory.
+
+## Verification
+
+```bash
+npm run check
+npm run test:ci
+npm audit --audit-level=high
+
+cd frontend
+npm run check
+npm audit --audit-level=high
+```
+
+CI additionally starts PostgreSQL, applies every migration, verifies the Compose configuration, and builds the production frontend.
+
+## Security model
+
+- Passwords use bcrypt with cost factor 12.
+- Access tokens expire after 15 minutes by default and include issuer, audience, and session claims.
+- Refresh tokens are random, hashed at rest, rotated on use, and delivered in `HttpOnly`, `SameSite=Strict` cookies.
+- Saved Xtream passwords and EPG source URLs use AES-256-GCM authenticated encryption.
+- Share and password-reset tokens are stored as hashes; protected shares use bcrypt passwords.
+- Remote M3U, XMLTV, metadata, and stream checks resolve DNS before connection, reject private/reserved addresses, revalidate redirects, enforce timeouts, and cap response sizes.
+- Tenant ownership is checked before playlist, category, channel, EPG, upload, export, and admin mutations.
+- Uploaded logos are size-limited and validated by image signatures; SVG uploads are not accepted.
+- Production startup rejects missing, short, or known placeholder secrets.
+
+Do not commit `.env`, database dumps, exported playlists, or provider credentials. Rotate both application secrets when an environment may have been exposed; existing encrypted credentials must be re-entered after rotating `CREDENTIAL_ENCRYPTION_KEY`.
+
+## Project layout
+
+```text
+src/
+  config/             Environment, database, JWT, and logger
+  controllers/        HTTP request handlers
+  middleware/         Authentication, admin, and errors
+  models/migrations/  PostgreSQL schema migrations
+  parsers/            M3U and XMLTV parsing/formatting
+  routes/             Express routers
+  services/           Authentication, import, EPG, and domain logic
+  utils/              Encryption, SSRF-safe fetch, and validation
+frontend/src/         Vue application
+tests/                Jest unit and property tests
+```
+
+## License
+
+MIT © Furkan Yıldırım. See [LICENSE](LICENSE).

@@ -20,7 +20,7 @@ async function createPlaylist(req, res, next) {
   try {
     const { name } = req.body;
 
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 255) {
       throw createAppError('VALIDATION_ERROR', 'name alanı zorunludur');
     }
 
@@ -39,7 +39,7 @@ async function updatePlaylist(req, res, next) {
     const { id } = req.params;
     const { name } = req.body;
 
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 255) {
       throw createAppError('VALIDATION_ERROR', 'name alanı zorunludur');
     }
 

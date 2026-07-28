@@ -119,14 +119,8 @@ const auth = useAuthStore()
   line-height: 1.1;
   margin: 0 0 18px;
   color: var(--text-primary);
-  background: linear-gradient(135deg, #ffffff 0%, #c7d2fe 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 :global([data-theme="light"]) .hero-title {
-  background: none;
-  -webkit-text-fill-color: currentColor;
   color: var(--text-primary);
 }
 

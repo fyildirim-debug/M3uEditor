@@ -54,7 +54,7 @@ describe('Category Controller', () => {
       expect(res.status).toBe(200);
       expect(res.body).toHaveLength(2);
       expect(res.body[0].name).toBe('Spor');
-      expect(mockCategoryService.list).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID);
+      expect(mockCategoryService.list).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID, undefined);
     });
 
     it('should return 401 without token', async () => {

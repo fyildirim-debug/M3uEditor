@@ -1,302 +1,166 @@
 const { AppError } = require('../../../src/utils/AppError');
+
+const mockSafeFetchJson = jest.fn();
+jest.mock('../../../src/utils/safeFetch', () => ({
+  safeFetchJson: (...args) => mockSafeFetchJson(...args),
+  parseRemoteUrl: (value) => new URL(value),
+}));
+
 const XtreamClient = require('../../../src/services/XtreamClient');
 
-// Mock global fetch
-const originalFetch = global.fetch;
-
-function mockFetchResponse(body, ok = true, status = 200) {
-  return jest.fn().mockResolvedValue({
-    ok,
-    status,
-    json: () => Promise.resolve(body),
-  });
-}
-
-function mockFetchReject(error) {
-  return jest.fn().mockRejectedValue(error);
-}
-
 describe('XtreamClient', () => {
-  let client;
+  beforeEach(() => mockSafeFetchJson.mockReset());
 
-  beforeEach(() => {
-    client = new XtreamClient('http://xtream.example.com/', 'testuser', 'testpass', { baseDelay: 0 });
-    jest.useFakeTimers({ advanceTimers: true });
+  test('normalizes and validates the server URL', () => {
+    expect(new XtreamClient('https://example.com///', 'u', 'p').serverUrl).toBe('https://example.com');
+    expect(() => new XtreamClient('not-a-url', 'u', 'p')).toThrow();
   });
 
-  afterEach(() => {
-    global.fetch = originalFetch;
-    jest.useRealTimers();
+  test('authenticates through the SSRF-safe JSON client', async () => {
+    mockSafeFetchJson.mockResolvedValue({ data: { user_info: { auth: 1 }, server_info: { url: 'example.com' } } });
+    const client = new XtreamClient('https://example.com', 'user name', 'p&ss', { maxRetries: 1 });
+
+    await expect(client.authenticate()).resolves.toEqual({ serverInfo: { url: 'example.com' } });
+    const [url, options] = mockSafeFetchJson.mock.calls[0];
+    expect(url).toContain('username=user+name');
+    expect(url).toContain('password=p%26ss');
+    expect(options).toEqual(expect.objectContaining({ timeoutMs: expect.any(Number), maxBytes: expect.any(Number) }));
   });
 
-  describe('constructor', () => {
-    it('should normalize serverUrl by removing trailing slash', () => {
-      const c = new XtreamClient('http://example.com///', 'u', 'p');
-      expect(c.serverUrl).toBe('http://example.com');
+  test.each([
+    [{}, 'XTREAM_AUTH_FAILED'],
+    [{ user_info: { auth: 0 }, server_info: {} }, 'XTREAM_AUTH_FAILED'],
+  ])('rejects invalid authentication payloads', async (data, code) => {
+    mockSafeFetchJson.mockResolvedValue({ data });
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 1 });
+    await expect(client.authenticate()).rejects.toMatchObject({ code });
+  });
+
+  test('retries transient failures and then succeeds', async () => {
+    mockSafeFetchJson
+      .mockRejectedValueOnce(new Error('reset'))
+      .mockResolvedValueOnce({ data: [{ category_id: '1', category_name: 'News' }] });
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 2, baseDelay: 0 });
+
+    await expect(client.getLiveCategories()).resolves.toHaveLength(1);
+    expect(mockSafeFetchJson).toHaveBeenCalledTimes(2);
+  });
+
+  test('wraps an exhausted connection failure', async () => {
+    mockSafeFetchJson.mockRejectedValue(new Error('connection refused'));
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 2, baseDelay: 0 });
+
+    await expect(client.authenticate()).rejects.toEqual(expect.objectContaining({
+      code: 'XTREAM_CONNECTION_FAILED',
+    }));
+    expect(mockSafeFetchJson).toHaveBeenCalledTimes(2);
+  });
+
+  test('maps live, VOD and series data into stable channel records', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: '1', category_name: 'Live' }]);
+    jest.spyOn(client, 'getLiveStreams').mockResolvedValue([{ stream_id: 10, name: 'Live One', category_id: '1' }]);
+    jest.spyOn(client, 'getVodCategories').mockResolvedValue([{ category_id: '2', category_name: 'Films' }]);
+    jest.spyOn(client, 'getVodStreams').mockResolvedValue([{ stream_id: 20, name: 'Film', category_id: '2', container_extension: 'mkv' }]);
+    jest.spyOn(client, 'getSeriesCategories').mockResolvedValue([{ category_id: '3', category_name: 'Shows' }]);
+    jest.spyOn(client, 'getSeriesStreams').mockResolvedValue([{ series_id: 30, name: 'Show', category_id: '3' }]);
+
+    const result = await client.getAllChannels(['live', 'vod', 'series']);
+    expect(result.channels.map((item) => item.stream_type)).toEqual(['live', 'vod', 'series']);
+    expect(result.categories.map((item) => item.category_id)).toEqual(['1', 'vod_2', 'series_3']);
+  });
+
+  test('uses one bulk stream request when it covers every category', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    const categories = Array.from({ length: 100 }, (_, index) => ({
+      category_id: String(index),
+      category_name: `Category ${index}`,
+    }));
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue(categories);
+    const getStreams = jest.spyOn(client, 'getLiveStreams').mockResolvedValue(
+      categories.map((category, index) => ({ stream_id: index, name: `Channel ${index}`, category_id: category.category_id }))
+    );
+
+    const result = await client.getAllChannels(['live']);
+
+    expect(result.channels).toHaveLength(100);
+    expect(getStreams).toHaveBeenCalledTimes(1);
+    expect(getStreams).toHaveBeenCalledWith(undefined);
+  });
+
+  test('fetches only missing categories concurrently when a bulk response is incomplete', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([
+      { category_id: '1', category_name: 'One' },
+      { category_id: '2', category_name: 'Two' },
+      { category_id: '3', category_name: 'Three' },
+    ]);
+    let active = 0;
+    let maxActive = 0;
+    const getStreams = jest.spyOn(client, 'getLiveStreams').mockImplementation(async (categoryId) => {
+      if (categoryId === undefined) return [{ stream_id: 1, name: 'One', category_id: '1' }];
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setImmediate(resolve));
+      active -= 1;
+      return [{ stream_id: Number(categoryId), name: categoryId, category_id: categoryId }];
     });
 
-    it('should store credentials', () => {
-      expect(client.username).toBe('testuser');
-      expect(client.password).toBe('testpass');
-    });
+    const result = await client.getAllChannels(['live']);
+
+    expect(result.channels).toHaveLength(3);
+    expect(getStreams.mock.calls.map(([categoryId]) => categoryId)).toEqual([undefined, '2', '3']);
+    expect(maxActive).toBe(2);
   });
 
-  describe('authenticate', () => {
-    it('should return serverInfo on valid credentials', async () => {
-      const apiResponse = {
-        user_info: { auth: 1, username: 'testuser', status: 'Active' },
-        server_info: { url: 'xtream.example.com', port: '80' },
+  test('rejects an incomplete category fallback instead of deleting unseen provider data', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([
+      { category_id: '1', category_name: 'One' },
+      { category_id: '2', category_name: 'Two' },
+    ]);
+    jest.spyOn(client, 'getLiveStreams').mockImplementation(async (categoryId) => {
+      if (categoryId === undefined) throw new Error('bulk unavailable');
+      if (categoryId === '2') throw new Error('category unavailable');
+      return [{ stream_id: 1, name: 'One', category_id: '1' }];
+    });
+
+    await expect(client.getAllChannels(['live'])).rejects.toThrow('category unavailable');
+  });
+
+  test('loads content types with bounded parallelism while preserving result order', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    let active = 0;
+    let maxActive = 0;
+    const loader = (type) => async () => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setImmediate(resolve));
+      active -= 1;
+      return {
+        categories: [{ category_id: type, category_name: type }],
+        channels: [{ stream_id: type, stream_type: type }],
       };
-      global.fetch = mockFetchResponse(apiResponse);
+    };
+    jest.spyOn(client, '_getLivePayload').mockImplementation(loader('live'));
+    jest.spyOn(client, '_getVodPayload').mockImplementation(loader('vod'));
+    jest.spyOn(client, '_getSeriesPayload').mockImplementation(loader('series'));
 
-      const result = await client.authenticate();
+    const result = await client.getAllChannels(['live', 'vod', 'series']);
 
-      expect(result).toEqual({ serverInfo: { url: 'xtream.example.com', port: '80' } });
-      expect(global.fetch).toHaveBeenCalledTimes(1);
-      const calledUrl = global.fetch.mock.calls[0][0];
-      expect(calledUrl).toContain('player_api.php');
-      expect(calledUrl).toContain('username=testuser');
-      expect(calledUrl).toContain('password=testpass');
-    });
-
-    it('should throw XTREAM_AUTH_FAILED when response has no user_info', async () => {
-      global.fetch = mockFetchResponse({ some: 'data' });
-
-      await expect(client.authenticate()).rejects.toThrow(AppError);
-      try {
-        await client.authenticate();
-      } catch (err) {
-        expect(err.code).toBe('XTREAM_AUTH_FAILED');
-      }
-    });
-
-    it('should throw XTREAM_AUTH_FAILED when auth is 0', async () => {
-      global.fetch = mockFetchResponse({
-        user_info: { auth: 0 },
-        server_info: {},
-      });
-
-      await expect(client.authenticate()).rejects.toThrow(AppError);
-      try {
-        await client.authenticate();
-      } catch (err) {
-        expect(err.code).toBe('XTREAM_AUTH_FAILED');
-      }
-    });
-
-    it('should throw XTREAM_CONNECTION_FAILED when server is unreachable', async () => {
-      const abortError = new Error('The operation was aborted');
-      abortError.name = 'AbortError';
-      global.fetch = mockFetchReject(abortError);
-
-      try {
-        await client.authenticate();
-        throw new Error('Should have thrown');
-      } catch (err) {
-        expect(err).toBeInstanceOf(AppError);
-        expect(err.code).toBe('XTREAM_CONNECTION_FAILED');
-      }
-    });
-
-    it('should throw XTREAM_CONNECTION_FAILED on network error', async () => {
-      global.fetch = mockFetchReject(new Error('Network error'));
-
-      try {
-        await client.authenticate();
-        throw new Error('Should have thrown');
-      } catch (err) {
-        expect(err).toBeInstanceOf(AppError);
-        expect(err.code).toBe('XTREAM_CONNECTION_FAILED');
-      }
-    });
+    expect(maxActive).toBe(2);
+    expect(result.channels.map((channel) => channel.stream_type)).toEqual(['live', 'vod', 'series']);
   });
 
-  describe('getLiveCategories', () => {
-    it('should return categories array', async () => {
-      const categories = [
-        { category_id: '1', category_name: 'Sports' },
-        { category_id: '2', category_name: 'News' },
-      ];
-      global.fetch = mockFetchResponse(categories);
-
-      const result = await client.getLiveCategories();
-
-      expect(result).toEqual(categories);
-      const calledUrl = global.fetch.mock.calls[0][0];
-      expect(calledUrl).toContain('action=get_live_categories');
-    });
-
-    it('should return empty array when response is not an array', async () => {
-      global.fetch = mockFetchResponse({ error: 'something' });
-
-      const result = await client.getLiveCategories();
-
-      expect(result).toEqual([]);
-    });
+  test('encodes credentials and identifiers in generated URLs', () => {
+    const client = new XtreamClient('https://example.com', 'a/b', 'p@ss', { maxRetries: 1 });
+    expect(client.getXmltvUrl()).toContain('username=a%2Fb');
+    expect(client.buildStreamUrl('vod', '1/2', 'mkv')).toBe('https://example.com/movie/a%2Fb/p%40ss/1%2F2.mkv');
   });
 
-  describe('getLiveStreams', () => {
-    it('should return streams array', async () => {
-      const streams = [
-        { stream_id: '101', name: 'Channel 1', stream_icon: 'icon.png', epg_channel_id: 'ch1', category_id: '1' },
-        { stream_id: '102', name: 'Channel 2', stream_icon: '', epg_channel_id: '', category_id: '2' },
-      ];
-      global.fetch = mockFetchResponse(streams);
-
-      const result = await client.getLiveStreams();
-
-      expect(result).toEqual(streams);
-      const calledUrl = global.fetch.mock.calls[0][0];
-      expect(calledUrl).toContain('action=get_live_streams');
-      expect(calledUrl).not.toContain('category_id');
-    });
-
-    it('should include category_id param when provided', async () => {
-      global.fetch = mockFetchResponse([]);
-
-      await client.getLiveStreams('5');
-
-      const calledUrl = global.fetch.mock.calls[0][0];
-      expect(calledUrl).toContain('category_id=5');
-    });
-
-    it('should return empty array when response is not an array', async () => {
-      global.fetch = mockFetchResponse(null);
-
-      const result = await client.getLiveStreams();
-
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe('getAllChannels', () => {
-    it('should combine categories and streams in parallel', async () => {
-      const categories = [
-        { category_id: '1', category_name: 'Sports' },
-      ];
-      const streams = [
-        { stream_id: '101', name: 'ESPN', stream_icon: 'espn.png', epg_channel_id: 'espn.us', category_id: '1' },
-        { stream_id: '102', name: 'BBC', stream_icon: '', epg_channel_id: '', category_id: '1' },
-      ];
-
-      // First call returns categories, second returns streams
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve(categories) })
-        .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve(streams) });
-
-      const result = await client.getAllChannels();
-
-      expect(result.categories).toEqual([
-        { category_id: '1', category_name: 'Sports' },
-      ]);
-      expect(result.channels).toEqual([
-        { stream_id: '101', name: 'ESPN', stream_icon: 'espn.png', epg_channel_id: 'espn.us', category_id: '1' },
-        { stream_id: '102', name: 'BBC', stream_icon: null, epg_channel_id: null, category_id: '1' },
-      ]);
-      expect(global.fetch).toHaveBeenCalledTimes(2);
-    });
-
-    it('should handle null/missing fields in streams', async () => {
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve([]) })
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve([
-            { stream_id: '1', name: 'Test' },
-          ]),
-        });
-
-      const result = await client.getAllChannels();
-
-      expect(result.channels[0]).toEqual({
-        stream_id: '1',
-        name: 'Test',
-        stream_icon: null,
-        epg_channel_id: null,
-        category_id: null,
-      });
-    });
-  });
-
-  describe('retry logic', () => {
-    it('should retry on transient failures and succeed', async () => {
-      const networkError = new Error('ECONNRESET');
-      const successResponse = {
-        user_info: { auth: 1 },
-        server_info: { url: 'test.com' },
-      };
-
-      global.fetch = jest.fn()
-        .mockRejectedValueOnce(networkError)
-        .mockRejectedValueOnce(networkError)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve(successResponse),
-        });
-
-      const result = await client.authenticate();
-
-      expect(result).toEqual({ serverInfo: { url: 'test.com' } });
-      expect(global.fetch).toHaveBeenCalledTimes(3);
-    });
-
-    it('should fail after 3 retries exhausted', async () => {
-      const networkError = new Error('ECONNREFUSED');
-      global.fetch = mockFetchReject(networkError);
-
-      try {
-        await client.authenticate();
-        throw new Error('Should have thrown');
-      } catch (err) {
-        expect(err).toBeInstanceOf(AppError);
-        expect(err.code).toBe('XTREAM_CONNECTION_FAILED');
-      }
-      // 3 attempts total
-      expect(global.fetch).toHaveBeenCalledTimes(3);
-    });
-
-    it('should retry on HTTP error responses', async () => {
-      const successResponse = [{ category_id: '1', category_name: 'Test' }];
-
-      global.fetch = jest.fn()
-        .mockResolvedValueOnce({ ok: false, status: 500, json: () => Promise.resolve({}) })
-        .mockResolvedValueOnce({ ok: true, status: 200, json: () => Promise.resolve(successResponse) });
-
-      const result = await client.getLiveCategories();
-
-      expect(result).toEqual(successResponse);
-      expect(global.fetch).toHaveBeenCalledTimes(2);
-    });
-
-    it('should use exponential backoff delays', async () => {
-      // Use a client with real delays to test backoff timing
-      const clientWithDelay = new XtreamClient('http://test.com', 'u', 'p', { baseDelay: 1000 });
-      const networkError = new Error('fail');
-      const successResponse = {
-        user_info: { auth: 1 },
-        server_info: { url: 'test.com' },
-      };
-
-      global.fetch = jest.fn()
-        .mockRejectedValueOnce(networkError)
-        .mockRejectedValueOnce(networkError)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          json: () => Promise.resolve(successResponse),
-        });
-
-      const promise = clientWithDelay.authenticate();
-
-      // Advance through retry delays (1s, 2s)
-      await jest.advanceTimersByTimeAsync(1000);
-      await jest.advanceTimersByTimeAsync(2000);
-
-      const result = await promise;
-      expect(result).toEqual({ serverInfo: { url: 'test.com' } });
-      expect(global.fetch).toHaveBeenCalledTimes(3);
-    });
+  test('uses AppError for connection failures', async () => {
+    mockSafeFetchJson.mockRejectedValue(new Error('offline'));
+    await expect(new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 1 }).authenticate())
+      .rejects.toBeInstanceOf(AppError);
   });
 });

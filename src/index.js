@@ -1,11 +1,6 @@
 require('dotenv').config();
-const pino = require('pino');
-
-const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
-  transport: process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty', options: { colorize: true } } : undefined,
-});
-
+const logger = require('./config/logger');
+const db = require('./config/database');
 const app = require('./app');
 
 const PORT = process.env.PORT || 3000;
@@ -15,16 +10,39 @@ const server = app.listen(PORT, () => {
 });
 
 // Graceful shutdown
-function shutdown(signal) {
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
   logger.info({ signal }, 'Shutdown signal received');
-  server.close(() => {
-    logger.info('Server closed');
-    process.exit(0);
+  const forcedExit = setTimeout(() => {
+    logger.error('Graceful shutdown timed out');
+    process.exit(1);
+  }, 10000);
+  forcedExit.unref();
+
+  server.close(async () => {
+    try {
+      await db.destroy();
+      clearTimeout(forcedExit);
+      logger.info('Server and database pool closed');
+      process.exit(0);
+    } catch (error) {
+      logger.error({ err: error }, 'Database pool could not be closed');
+      process.exit(1);
+    }
   });
-  setTimeout(() => process.exit(1), 10000);
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('unhandledRejection', (error) => {
+  logger.fatal({ err: error }, 'Unhandled promise rejection');
+  shutdown('unhandledRejection');
+});
+process.on('uncaughtException', (error) => {
+  logger.fatal({ err: error }, 'Uncaught exception');
+  shutdown('uncaughtException');
+});
 
 module.exports = { logger };

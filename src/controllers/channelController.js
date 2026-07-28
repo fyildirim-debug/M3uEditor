@@ -1,206 +1,128 @@
 const fs = require('fs').promises;
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
+const config = require('../config');
 const channelService = require('../services/ChannelService');
+const XtreamClient = require('../services/XtreamClient');
 const { createAppError } = require('../utils/AppError');
+const { decrypt } = require('../utils/crypto');
+const { requestBuffer } = require('../utils/safeFetch');
+const { parsePagination, validateIdArray } = require('../utils/validation');
 
-/**
- * GET /api/playlists/:id/channels
- */
 async function listChannels(req, res, next) {
   try {
-    const { id: playlistId } = req.params;
     const { page, limit, search, categoryId, streamType } = req.query;
-
-    const options = {};
-    if (page !== undefined) options.page = parseInt(page, 10);
-    if (limit !== undefined) options.limit = parseInt(limit, 10);
-    if (search) options.search = search;
-    if (categoryId) options.categoryId = categoryId;
-    if (streamType) options.streamType = streamType;
-
-    const result = await channelService.list(req.userId, playlistId, options);
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
+    const options = { ...parsePagination(page, limit), search, categoryId, streamType };
+    res.json(await channelService.list(req.userId, req.params.id, options));
+  } catch (error) { next(error); }
 }
 
-/**
- * PUT /api/channels/:id
- */
 async function updateChannel(req, res, next) {
-  try {
-    const { id: channelId } = req.params;
-    const updates = req.body;
-
-    const channel = await channelService.update(req.userId, channelId, updates);
-    res.json(channel);
-  } catch (err) {
-    next(err);
-  }
+  try { res.json(await channelService.update(req.userId, req.params.id, req.body)); } catch (error) { next(error); }
 }
 
-/**
- * DELETE /api/channels/:id
- */
 async function deleteChannel(req, res, next) {
   try {
-    const { id: channelId } = req.params;
-
-    await channelService.delete(req.userId, channelId);
+    await channelService.delete(req.userId, req.params.id);
     res.status(204).end();
-  } catch (err) {
-    next(err);
-  }
+  } catch (error) { next(error); }
 }
 
-/**
- * PUT /api/channels/:id/order
- */
 async function updateChannelOrder(req, res, next) {
   try {
-    const { id: channelId } = req.params;
     const { newPosition } = req.body;
-
-    if (newPosition === undefined || typeof newPosition !== 'number' || newPosition < 0) {
-      throw createAppError('VALIDATION_ERROR', 'newPosition sayısal ve 0 veya daha büyük olmalıdır');
+    if (!Number.isInteger(newPosition) || newPosition < 0) {
+      throw createAppError('VALIDATION_ERROR', 'Yeni sıra sıfır veya daha büyük bir tam sayı olmalı');
     }
-
-    await channelService.updateOrder(req.userId, channelId, newPosition);
+    await channelService.updateOrder(req.userId, req.params.id, newPosition);
     res.json({ success: true });
-  } catch (err) {
-    next(err);
-  }
+  } catch (error) { next(error); }
 }
 
-/**
- * POST /api/channels/bulk
- */
 async function bulkAction(req, res, next) {
   try {
     const { action, channelIds, updates, targetCategoryId } = req.body;
-
-    if (!action || !['update', 'move'].includes(action)) {
-      throw createAppError('VALIDATION_ERROR', 'action "update" veya "move" olmalıdır');
+    if (!['update', 'move', 'delete'].includes(action)) {
+      throw createAppError('VALIDATION_ERROR', 'Desteklenmeyen toplu işlem');
     }
-
-    if (!Array.isArray(channelIds) || channelIds.length === 0) {
-      throw createAppError('VALIDATION_ERROR', 'channelIds boş olmayan bir dizi olmalıdır');
-    }
-
+    const uniqueIds = validateIdArray(channelIds);
     let result;
-    if (action === 'update') {
-      result = await channelService.bulkUpdate(req.userId, channelIds, updates || {});
-    } else {
-      result = await channelService.bulkMove(req.userId, channelIds, targetCategoryId);
+    if (action === 'update') result = await channelService.bulkUpdate(req.userId, uniqueIds, updates || {});
+    if (action === 'move') {
+      if (!targetCategoryId) throw createAppError('VALIDATION_ERROR', 'Hedef kategori gerekli');
+      result = await channelService.bulkMove(req.userId, uniqueIds, targetCategoryId);
     }
-
+    if (action === 'delete') result = await channelService.bulkDelete(req.userId, uniqueIds);
     res.json(result);
-  } catch (err) {
-    next(err);
-  }
+  } catch (error) { next(error); }
 }
 
-/**
- * POST /api/channels/:id/reset
- * Reset channel to original Xtream values (name + logo).
- */
 async function resetChannel(req, res, next) {
-  try {
-    const { id: channelId } = req.params;
-    const channel = await channelService.reset(req.userId, channelId);
-    res.json(channel);
-  } catch (err) {
-    next(err);
-  }
+  try { res.json(await channelService.reset(req.userId, req.params.id)); } catch (error) { next(error); }
 }
 
-/**
- * POST /api/channels/:id/logo
- * Upload a custom logo image (base64) and update channel logo_url.
- * body: { imageData: "data:image/png;base64,..." }
- */
+function detectImageExtension(buffer) {
+  if (buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'jpg';
+  if (['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('ascii'))) return 'gif';
+  if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'webp';
+  return null;
+}
+
 async function uploadLogo(req, res, next) {
   try {
-    const { id: channelId } = req.params;
     const { imageData } = req.body;
-
-    if (!imageData || typeof imageData !== 'string') {
-      throw createAppError('VALIDATION_ERROR', 'imageData zorunludur');
+    if (typeof imageData !== 'string' || imageData.length > 3 * 1024 * 1024) {
+      throw createAppError('VALIDATION_ERROR', 'En fazla 2 MB boyutunda bir resim gönderin');
     }
-
-    const match = imageData.match(/^data:image\/([a-zA-Z+]+);base64,(.+)$/);
-    if (!match) {
-      throw createAppError('VALIDATION_ERROR', 'Geçersiz resim formatı');
-    }
-
-    const ext = match[1].replace('+', '').toLowerCase();
-    const allowed = ['png', 'jpeg', 'jpg', 'gif', 'webp', 'svg', 'svgxml'];
-    if (!allowed.includes(ext)) {
-      throw createAppError('VALIDATION_ERROR', 'Desteklenmeyen resim formatı');
-    }
+    const match = imageData.match(/^data:image\/(png|jpe?g|gif|webp);base64,([A-Za-z0-9+/=]+)$/i);
+    if (!match) throw createAppError('VALIDATION_ERROR', 'PNG, JPEG, GIF veya WebP resmi gerekli');
 
     const imageBuffer = Buffer.from(match[2], 'base64');
-    if (imageBuffer.length > 2 * 1024 * 1024) {
-      throw createAppError('VALIDATION_ERROR', 'Resim 2MB\'dan büyük olamaz');
+    if (!imageBuffer.length || imageBuffer.length > 2 * 1024 * 1024) {
+      throw createAppError('VALIDATION_ERROR', 'Resim 2 MB’den büyük olamaz');
+    }
+    const detectedExt = detectImageExtension(imageBuffer);
+    if (!detectedExt || match[1].toLowerCase().replace('jpeg', 'jpg') !== detectedExt) {
+      throw createAppError('VALIDATION_ERROR', 'Dosya içeriği bildirilen resim türüyle eşleşmiyor');
     }
 
-    const logosDir = path.join(__dirname, '../../public/logos');
-    await fs.mkdir(logosDir, { recursive: true });
-
-    const filename = `${channelId}.${ext === 'jpeg' ? 'jpg' : ext}`;
-    await fs.writeFile(path.join(logosDir, filename), imageBuffer);
-
-    const logoUrl = `/logos/${filename}`;
-    const channel = await channelService.update(req.userId, channelId, { logo_url: logoUrl });
-    res.json(channel);
-  } catch (err) {
-    next(err);
-  }
+    const channelId = req.params.id;
+    await channelService._verifyChannelOwnership(req.userId, channelId);
+    await fs.mkdir(config.uploadDir, { recursive: true });
+    const filename = `${channelId}.${detectedExt}`;
+    await fs.writeFile(path.join(config.uploadDir, filename), imageBuffer, { flag: 'w', mode: 0o640 });
+    await Promise.all(['png', 'jpg', 'gif', 'webp']
+      .filter((extension) => extension !== detectedExt)
+      .map((extension) => fs.unlink(path.join(config.uploadDir, `${channelId}.${extension}`)).catch((error) => {
+        if (error.code !== 'ENOENT') throw error;
+      })));
+    res.json(await channelService.update(req.userId, channelId, { logo_url: `/logos/${filename}` }));
+  } catch (error) { next(error); }
 }
 
-/**
- * POST /api/channels/:id/metadata
- * Fetch metadata from Xtream get_vod_info / get_series_info and update channel extras.
- */
 async function fetchMetadata(req, res, next) {
   try {
-    const { id: channelId } = req.params;
+    const channelId = req.params.id;
     const force = req.query.force === 'true';
-
     const channel = await channelService._verifyChannelOwnership(req.userId, channelId);
-    const extras = channel.extras || {};
-
-    if (extras.metadata_fetched && !force) {
-      return res.json(channel);
+    const extras = typeof channel.extras === 'string' ? JSON.parse(channel.extras) : (channel.extras || {});
+    if (extras.metadata_fetched && !force) return res.json(channel);
+    if (!['vod', 'series'].includes(channel.stream_type)) {
+      throw createAppError('VALIDATION_ERROR', 'Metadata yalnızca film ve dizi için alınabilir');
     }
 
-    if (channel.stream_type !== 'vod' && channel.stream_type !== 'series') {
-      throw createAppError('VALIDATION_ERROR', 'Metadata sadece film ve dizi icin cekilebilir');
-    }
-
-    // Playlist'ten Xtream credentials al
-    const playlist = await db('playlists').where('id', channel.playlist_id).first();
+    const playlist = await db('playlists').where({ id: channel.playlist_id, user_id: req.userId }).first();
     if (!playlist?.xtream_server_url || !playlist?.xtream_username || !playlist?.xtream_password_enc) {
-      throw createAppError('VALIDATION_ERROR', 'Xtream Codes kaynagi bulunamadi');
+      throw createAppError('VALIDATION_ERROR', 'Xtream kaynağı bulunamadı');
     }
+    const client = new XtreamClient(playlist.xtream_server_url, playlist.xtream_username, decrypt(playlist.xtream_password_enc));
+    const info = channel.stream_type === 'vod'
+      ? await client.getVodInfo(extras.stream_id)
+      : await client.getSeriesInfo(extras.stream_id);
+    if (!info) throw createAppError('NOT_FOUND', 'Sağlayıcıdan metadata alınamadı');
 
-    const XtreamClient = require('../services/XtreamClient');
-    const client = new XtreamClient(playlist.xtream_server_url, playlist.xtream_username, playlist.xtream_password_enc);
-
-    let info;
-    if (channel.stream_type === 'vod') {
-      info = await client.getVodInfo(extras.stream_id);
-    } else {
-      info = await client.getSeriesInfo(extras.stream_id);
-    }
-
-    if (!info) {
-      throw createAppError('NOT_FOUND', 'Xtream API\'den bilgi alinamadi');
-    }
-
-    // VOD info normalize
     const movieInfo = info.info || info.movie_data || info;
     const metadata = {
       metadata_fetched: true,
@@ -209,7 +131,7 @@ async function fetchMetadata(req, res, next) {
       title: movieInfo.name || movieInfo.title || movieInfo.o_name || null,
       overview: movieInfo.plot || movieInfo.description || movieInfo.overview || null,
       year: movieInfo.year || movieInfo.releaseDate?.slice(0, 4) || movieInfo.releasedate?.slice(0, 4) || extras.year || null,
-      rating: movieInfo.rating || movieInfo.rating_5based ? String(parseFloat(movieInfo.rating_5based || 0) * 2) : extras.rating || null,
+      rating: movieInfo.rating || (movieInfo.rating_5based ? String(Number.parseFloat(movieInfo.rating_5based) * 2) : extras.rating || null),
       genre: movieInfo.genre || movieInfo.category_name || extras.genre || null,
       cast: movieInfo.cast || movieInfo.actors || null,
       director: movieInfo.director || null,
@@ -217,164 +139,81 @@ async function fetchMetadata(req, res, next) {
       backdrop_url: movieInfo.backdrop_path?.[0] || movieInfo.cover_big || movieInfo.cover || null,
       poster_url: movieInfo.movie_image || movieInfo.cover || channel.logo_url || null,
     };
-
-    // Series ek bilgiler
     if (channel.stream_type === 'series') {
       const seasons = info.seasons || info.episodes;
       if (seasons) {
         metadata.seasons = Object.keys(seasons).length || null;
-        let totalEp = 0;
-        for (const s of Object.values(seasons)) {
-          totalEp += Array.isArray(s) ? s.length : 0;
-        }
-        metadata.episodes = totalEp || null;
+        metadata.episodes = Object.values(seasons).reduce((total, season) => total + (Array.isArray(season) ? season.length : 0), 0) || null;
       }
     }
 
-    const updatedExtras = { ...extras, ...metadata };
-    await db('channels').where('id', channelId).update({
-      extras: JSON.stringify(updatedExtras),
-      updated_at: db.fn.now(),
-    });
-
-    const updated = await db('channels').where('id', channelId).first();
-    res.json(updated);
-  } catch (err) {
-    next(err);
-  }
+    await db('channels').where({ id: channelId }).update({ extras: JSON.stringify({ ...extras, ...metadata }), updated_at: db.fn.now() });
+    res.json(await db('channels').where({ id: channelId }).first());
+  } catch (error) { next(error); }
 }
 
-/**
- * POST /api/channels/bulk-rename
- * Bulk rename channels using find/replace or regex
- */
 async function bulkRename(req, res, next) {
   try {
     const { channelIds, find, replace, useRegex } = req.body;
-
-    if (!Array.isArray(channelIds) || channelIds.length === 0) {
-      throw createAppError('VALIDATION_ERROR', 'channelIds bos olmayan bir dizi olmalidir');
-    }
-    if (find === undefined || find === '') {
-      throw createAppError('VALIDATION_ERROR', 'find alani gereklidir');
-    }
-
-    // Verify ownership
-    const owned = await db('channels')
-      .join('playlists', 'channels.playlist_id', 'playlists.id')
-      .whereIn('channels.id', channelIds)
-      .andWhere('playlists.user_id', req.userId)
-      .select('channels.id', 'channels.name');
-
-    if (owned.length !== channelIds.length) {
-      throw createAppError('NOT_FOUND');
-    }
-
-    let renamed = 0;
-    for (const ch of owned) {
-      let newName;
-      if (useRegex) {
-        try {
-          const regex = new RegExp(find, 'g');
-          newName = ch.name.replace(regex, replace || '');
-        } catch (e) {
-          throw createAppError('VALIDATION_ERROR', 'Gecersiz regex deseni');
-        }
-      } else {
-        newName = ch.name.split(find).join(replace || '');
-      }
-
-      if (newName !== ch.name) {
-        await db('channels').where('id', ch.id).update({ name: newName, updated_at: new Date() });
-        renamed++;
-      }
-    }
-
-    res.json({ renamed, total: channelIds.length });
-  } catch (err) {
-    next(err);
-  }
+    const uniqueIds = validateIdArray(channelIds);
+    if (typeof find !== 'string' || !find.length) throw createAppError('VALIDATION_ERROR', 'Aranacak metin gerekli');
+    res.json(await channelService.bulkRename(req.userId, uniqueIds, find, String(replace || ''), Boolean(useRegex)));
+  } catch (error) { next(error); }
 }
 
-/**
- * POST /api/channels/:id/test
- * Test if a stream URL is reachable
- */
 async function testStream(req, res, next) {
   try {
-    const { id: channelId } = req.params;
-    const channel = await channelService._verifyChannelOwnership(req.userId, channelId);
-
-    if (!channel.stream_url) {
-      return res.json({ reachable: false, error: 'Stream URL bos' });
-    }
-
+    const channel = await channelService._verifyChannelOwnership(req.userId, req.params.id);
+    if (!channel.stream_url) return res.json({ reachable: false, error: 'Akış adresi boş' });
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const response = await fetch(channel.stream_url, {
-        method: 'HEAD',
-        signal: controller.signal,
-        redirect: 'follow',
-      });
-      clearTimeout(timeoutId);
-
-      res.json({
-        reachable: response.ok || response.status === 302 || response.status === 301,
-        status: response.status,
-        contentType: response.headers.get('content-type') || null,
-      });
-    } catch (err) {
-      res.json({ reachable: false, error: err.message });
+      const response = await requestBuffer(channel.stream_url, { method: 'HEAD', timeoutMs: 10_000, maxBytes: 1024 });
+      res.json({ reachable: true, status: response.status, contentType: response.headers['content-type'] || null });
+    } catch (error) {
+      res.json({ reachable: false, error: error.message });
     }
-  } catch (err) {
-    next(err);
-  }
+  } catch (error) { next(error); }
 }
 
-/**
- * POST /api/playlists/:id/channels
- * Create a channel manually
- */
 async function createChannel(req, res, next) {
   try {
-    const { id: playlistId } = req.params;
+    const playlistId = req.params.id;
     const { name, streamUrl, logoUrl, categoryId, epgChannelId, streamType } = req.body;
-
-    if (!name || !streamUrl) {
-      throw createAppError('VALIDATION_ERROR', 'name ve streamUrl gereklidir');
+    if (typeof name !== 'string' || !name.trim() || name.length > 500 || typeof streamUrl !== 'string' || !streamUrl.trim() || streamUrl.length > 5000) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli kanal adı ve akış adresi gerekli');
     }
-
-    // Verify playlist ownership
     const playlist = await db('playlists').where({ id: playlistId, user_id: req.userId }).first();
     if (!playlist) throw createAppError('NOT_FOUND');
+    await channelService._verifyCategoryForPlaylist(req.userId, playlistId, categoryId || null);
 
-    // Get max sort_order
+    let epgSourceId = null;
+    if (epgChannelId) {
+      const epgChannel = await db('epg_channels')
+        .join('epg_sources', 'epg_channels.source_id', 'epg_sources.id')
+        .where({ 'epg_channels.channel_id': epgChannelId, 'epg_sources.user_id': req.userId })
+        .select('epg_channels.source_id')
+        .first();
+      if (!epgChannel) throw createAppError('VALIDATION_ERROR', 'EPG kanalı hesabınıza ait değil');
+      epgSourceId = epgChannel.source_id;
+    }
+
     const maxSort = await db('channels').where({ playlist_id: playlistId }).max('sort_order as max').first();
-    const sortOrder = (maxSort?.max ?? -1) + 1;
-
-    const { v4: uuidv4 } = require('uuid');
-    const [channel] = await db('channels')
-      .insert({
-        id: uuidv4(),
-        playlist_id: playlistId,
-        name,
-        original_name: name,
-        stream_url: streamUrl,
-        logo_url: logoUrl || null,
-        original_logo_url: logoUrl || null,
-        category_id: categoryId || null,
-        epg_channel_id: epgChannelId || null,
-        stream_type: streamType || 'live',
-        sort_order: sortOrder,
-        extras: JSON.stringify({}),
-      })
-      .returning('*');
-
+    const [channel] = await db('channels').insert({
+      id: uuidv4(),
+      playlist_id: playlistId,
+      name: name.trim(),
+      original_name: name.trim(),
+      stream_url: streamUrl.trim(),
+      logo_url: logoUrl || null,
+      original_logo_url: logoUrl || null,
+      category_id: categoryId || null,
+      epg_channel_id: epgChannelId || null,
+      epg_source_id: epgSourceId,
+      stream_type: ['live', 'vod', 'series'].includes(streamType) ? streamType : 'live',
+      sort_order: (maxSort?.max ?? -1) + 1,
+      extras: JSON.stringify({}),
+    }).returning('*');
     res.status(201).json(channel);
-  } catch (err) {
-    next(err);
-  }
+  } catch (error) { next(error); }
 }
 
 module.exports = { listChannels, updateChannel, deleteChannel, updateChannelOrder, bulkAction, resetChannel, uploadLogo, fetchMetadata, bulkRename, testStream, createChannel };

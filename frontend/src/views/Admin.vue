@@ -51,6 +51,7 @@
         <h2>Kullanicilar</h2>
         <div class="search-box">
           <input
+            aria-label="E-posta ile kullanıcı ara"
             v-model="searchQuery"
             type="text"
             placeholder="E-posta ile ara..."
@@ -77,10 +78,10 @@
               <td><span :class="user.is_admin ? 'badge-yes' : 'badge-no'">{{ user.is_admin ? 'Evet' : 'Hayir' }}</span></td>
               <td>{{ formatDate(user.created_at) }}</td>
               <td class="actions-cell">
-                <button class="btn-edit" @click="openEditModal(user)" title="Duzenle">
+                <button class="btn-edit" @click="openEditModal(user)" title="Düzenle" :aria-label="`${user.email} kullanıcısını düzenle`">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-delete" @click="confirmDelete(user)" title="Sil" :disabled="user.is_admin">
+                <button class="btn-delete" @click="confirmDelete(user)" title="Sil" :aria-label="`${user.email} kullanıcısını sil`" :disabled="user.is_admin">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                 </button>
               </td>
@@ -101,11 +102,11 @@
     </div>
 
     <!-- Edit Modal -->
-    <div class="modal-overlay" v-if="editModal.visible" @click.self="closeEditModal">
+    <div class="modal-overlay" v-if="editModal.visible" v-focus-trap @click.self="closeEditModal">
       <div class="modal-content">
         <div class="modal-header">
           <h3>Kullanici Duzenle</h3>
-          <button class="modal-close" @click="closeEditModal">&times;</button>
+          <button class="modal-close" aria-label="Pencereyi kapat" @click="closeEditModal">&times;</button>
         </div>
         <div class="modal-body">
           <p class="modal-email">{{ editModal.user?.email }}</p>
@@ -127,11 +128,11 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div class="modal-overlay" v-if="deleteModal.visible" @click.self="closeDeleteModal">
+    <div class="modal-overlay" v-if="deleteModal.visible" v-focus-trap @click.self="closeDeleteModal">
       <div class="modal-content modal-small">
         <div class="modal-header">
           <h3>Kullanici Sil</h3>
-          <button class="modal-close" @click="closeDeleteModal">&times;</button>
+          <button class="modal-close" aria-label="Pencereyi kapat" @click="closeDeleteModal">&times;</button>
         </div>
         <div class="modal-body">
           <p><strong>{{ deleteModal.user?.email }}</strong> kullanicisini silmek istediginize emin misiniz?</p>
@@ -196,7 +197,7 @@ async function fetchStats() {
   try {
     const res = await api.get('/admin/stats');
     Object.assign(stats, res.data);
-  } catch (err) {
+  } catch {
     toast?.error?.('Istatistikler yuklenemedi');
   }
 }
@@ -208,7 +209,7 @@ async function fetchUsers() {
     const res = await api.get('/admin/users', { params });
     users.value = res.data.users;
     totalPages.value = res.data.totalPages;
-  } catch (err) {
+  } catch {
     toast?.error?.('Kullanici listesi yuklenemedi');
   }
 }

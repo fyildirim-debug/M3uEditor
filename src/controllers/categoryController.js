@@ -23,7 +23,7 @@ async function createCategory(req, res, next) {
     const { id: playlistId } = req.params;
     const { name } = req.body;
 
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 500) {
       throw createAppError('VALIDATION_ERROR', 'name alanı zorunludur ve boş olamaz');
     }
 
@@ -42,7 +42,7 @@ async function updateCategory(req, res, next) {
     const { id: categoryId } = req.params;
     const { name } = req.body;
 
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 500) {
       throw createAppError('VALIDATION_ERROR', 'name alanı zorunludur ve boş olamaz');
     }
 
@@ -74,7 +74,7 @@ async function updateCategoryOrder(req, res, next) {
     const { id: categoryId } = req.params;
     const { newPosition } = req.body;
 
-    if (newPosition === undefined || typeof newPosition !== 'number' || newPosition < 0) {
+    if (!Number.isInteger(newPosition) || newPosition < 0) {
       throw createAppError('VALIDATION_ERROR', 'newPosition sayısal ve 0 veya daha büyük olmalıdır');
     }
 

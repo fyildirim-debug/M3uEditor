@@ -37,10 +37,7 @@ const { t } = useI18n()
   font-weight: 900;
   letter-spacing: -4px;
   line-height: 1;
-  background: linear-gradient(135deg, var(--accent) 0%, #7c3aed 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--accent);
   margin-bottom: 16px;
   opacity: 0.85;
 }
