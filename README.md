@@ -72,6 +72,22 @@ npm run dev
 
 The frontend defaults to `http://localhost:5173`; the API and health endpoint default to `http://localhost:3000` and `http://localhost:3000/health`.
 
+## İlk yöneticiyi oluşturma
+
+Önce uygulamada normal bir kullanıcı hesabı oluşturun, ardından kayıtlı e-posta adresine yönetici yetkisi verin:
+
+```bash
+npm run make-admin -- <email>
+```
+
+Docker kurulumunda aynı komutu API container'ı içinde çalıştırın:
+
+```bash
+docker compose exec api npm run make-admin -- <email>
+```
+
+Yetkiyi geri almak için komutun sonuna `--revoke` ekleyin.
+
 ## Docker deployment
 
 Create `.env` from `.env.example`. Generate the two secrets independently — do not reuse one value for both, and do not ship the placeholders:
@@ -154,7 +170,7 @@ CI additionally starts PostgreSQL, applies every migration, verifies the Compose
 - Share and password-reset tokens are stored as hashes; protected shares use bcrypt passwords.
 - Remote M3U, XMLTV, metadata, and stream checks resolve DNS before connection, reject private/reserved addresses, revalidate redirects, enforce timeouts, and cap response sizes.
 - Tenant ownership is checked before playlist, category, channel, EPG, upload, export, and admin mutations.
-- Uploaded logos are size-limited and validated by image signatures; SVG uploads are not accepted.
+- Uploaded logos are size-limited and validated by image signatures; SVG uploads are not accepted. The cacheable `/logos` route is intentionally unauthenticated, but local logo files are removed when their channel, playlist, or account is deleted, and when a local logo is replaced by an external URL. Run `node scripts/cleanup-logos.js` for a dry-run orphan report or add `--delete` to remove reported orphan files.
 - Production startup refuses to boot on missing, short, placeholder, low-entropy, or identical secrets.
 - Transport security is **not** provided by this stack; see [TLS is required and is not included](#tls-is-required-and-is-not-included).
 

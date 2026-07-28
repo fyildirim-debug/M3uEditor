@@ -32,7 +32,9 @@
     "uncategorized": "Uncategorized",
     "selected": "selected",
     "showMore": "Show {count} more channels",
-    "permanently_delete": "Permanently Delete"
+    "permanently_delete": "Permanently Delete",
+    "previous": "Previous",
+    "next": "Next"
   },
   "nav": {
     "playlists": "Playlists",
@@ -48,12 +50,14 @@
     "update": "Update",
     "dashboard": "Dashboard",
     "downloadM3u": "Download M3U",
-    "share": "Share"
+    "share": "Share",
+    "admin": "Admin"
   },
   "status": {
     "systemActive": "System active",
     "active": "Active",
-    "connected": "Connected"
+    "connected": "Connected",
+    "offline": "Offline"
   },
   "auth": {
     "login": "Login",
@@ -69,11 +73,13 @@
     "email": "Email Address",
     "emailPlaceholder": "example@email.com",
     "password": "Password",
-    "passwordPlaceholder": "At least 6 characters",
+    "passwordPlaceholder": "At least 10 characters",
     "confirmPassword": "Confirm Password",
     "confirmPlaceholder": "Re-enter your password",
     "passwordMismatch": "Passwords do not match",
-    "socialProof": "Trusted by 1,000+ users"
+    "socialProof": "Trusted by 1,000+ users",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "passwordStrength": {
     "weak": "Weak",
@@ -173,7 +179,8 @@
     "streamUrl": "Stream URL",
     "broadcast": "Broadcast Schedule",
     "resetToOriginal": "Reset to Xtream original",
-    "noOriginal": "No original"
+    "noOriginal": "No original",
+    "logoPlaceholder": "https://..."
   },
   "sort": {
     "title": "Sorting",
@@ -286,6 +293,7 @@
     "noXtreamSource": "Xtream Codes source not found"
   },
   "metadata": {
+    "title": "Metadata",
     "fetch": "Fetch Info",
     "refetch": "Refetch",
     "overview": "Overview",
@@ -335,6 +343,37 @@
     "streamUrl": "Stream URL",
     "logoUrl": "Logo URL",
     "streamType": "Content Type"
+  },
+  "admin": {
+    "title": "Admin Panel",
+    "subtitle": "System administration and user management",
+    "totalUsers": "Total Users",
+    "totalPlaylists": "Total Playlists",
+    "totalChannels": "Total Channels",
+    "newThisWeek": "New This Week",
+    "users": "Users",
+    "searchLabel": "Search users by email address",
+    "searchPlaceholder": "Search by email...",
+    "administrator": "Administrator",
+    "registeredAt": "Registered",
+    "actions": "Actions",
+    "editUserAria": "Edit user {email}",
+    "deleteUserAria": "Delete user {email}",
+    "noUsers": "No users found",
+    "editUser": "Edit User",
+    "deleteUser": "Delete User",
+    "adminAccess": "Administrator Access",
+    "saving": "Saving...",
+    "deleting": "Deleting...",
+    "deleteConfirm": "Are you sure you want to delete {email}?",
+    "deleteWarning": "This action cannot be undone. All of this user's playlists and channels will be deleted.",
+    "adminRequired": "Administrator access is required",
+    "statsLoadFailed": "Could not load statistics",
+    "usersLoadFailed": "Could not load the user list",
+    "userUpdated": "User updated",
+    "updateFailed": "Could not update the user",
+    "userDeleted": "User deleted",
+    "deleteFailed": "Could not delete the user"
   },
   "account": {
     "title": "Account Settings",
@@ -400,6 +439,26 @@
     "dark": "Dark Theme",
     "system": "System"
   },
+  "accessibility": {
+    "home": "Home",
+    "mainNavigation": "Main navigation",
+    "userInfo": "User information",
+    "logout": "Log out",
+    "dismissNotification": "Dismiss notification",
+    "closeDialog": "Close dialog",
+    "editorSections": "Editor sections",
+    "closeMenu": "Close menu",
+    "openEditorMenu": "Open editor menu",
+    "openCategories": "Open categories",
+    "editCategoryName": "Edit the name of {name}",
+    "closeCategories": "Close categories",
+    "selectAllChannels": "Select all channels",
+    "selectChannel": "Select {name}",
+    "closeEditPanel": "Close edit panel",
+    "selectedEpgLogo": "Logo for the selected EPG channel",
+    "channelLogo": "Logo for {name}",
+    "backdropImage": "Backdrop image for {name}"
+  },
   "forgotPw": {
     "title": "Forgot Password",
     "subtitle": "Enter your email and we'll send you a password reset link.",
@@ -411,7 +470,8 @@
   "resetPw": {
     "title": "Set New Password",
     "submit": "Change Password",
-    "success": "Your password has been changed successfully. You can now log in."
+    "success": "Your password has been changed successfully. You can now log in.",
+    "tokenMissing": "The password reset link is invalid or incomplete."
   },
   "landing": {
     "badge": "Open source — MIT licensed",
@@ -424,7 +484,36 @@
   "legal": {
     "termsTitle": "Terms of Service",
     "privacyTitle": "Privacy Policy",
-    "lastUpdated": "Last updated: 2026-03-26"
+    "lastUpdated": "Last updated: 2026-03-26",
+    "home": "Home",
+    "terms": {
+      "generalTitle": "1. General Terms",
+      "generalBody": "By accessing this website or using the service, you agree to these terms. If you do not agree, please do not use the service.",
+      "serviceTitle": "2. Service Description",
+      "serviceBody": "M3U Editor is a web-based tool for managing IPTV playlists. You can edit M3U files, connect Xtream Codes accounts, work with EPG data, and share playlists.",
+      "responsibilityTitle": "3. User Responsibilities",
+      "responsibilityBody": "You must use the platform in accordance with applicable law. Uploading, sharing, or distributing content that infringes copyright is strictly prohibited. You are responsible for keeping your account secure.",
+      "contentTitle": "4. Content Disclaimer",
+      "contentBody": "M3U Editor is not responsible for content uploaded by users. The platform provides editing tools only; users are responsible for ensuring that their content is lawful.",
+      "terminationTitle": "5. Account Termination",
+      "terminationBody": "Accounts that violate these terms may be suspended or permanently closed without prior notice. You may also delete your account at any time.",
+      "changesTitle": "6. Changes to These Terms",
+      "changesBody": "These terms may be updated without prior notice. We recommend checking this page periodically for the latest version."
+    },
+    "privacy": {
+      "collectionTitle": "Information We Collect",
+      "collectionBody": "When you use the service, we process your email address, your securely hashed password, and usage data. Playlist and channel information is stored in the database on your server and linked to your account.",
+      "useTitle": "How We Use Information",
+      "useBody": "Information is used only to provide the service, manage accounts, and improve the platform. Your data is never sold to third parties for marketing.",
+      "thirdPartiesTitle": "Third-Party Services",
+      "thirdPartiesBody": "The service may connect to third parties such as Xtream Codes servers and EPG sources. You initiate these connections, and each service's own privacy policy applies.",
+      "storageTitle": "Browser Storage",
+      "storageBody": "Browser storage is used for essential features such as session management and language preferences. We do not use third-party tracking cookies.",
+      "rightsTitle": "Your Rights",
+      "rightsBody": "You can view and update your information in account settings, or delete your account entirely. Deleting your account permanently removes all of its data.",
+      "contactTitle": "Contact",
+      "contactBody": "If you have questions about this privacy policy, contact us at info@m3ueditor.com."
+    }
   },
   "notFound": {
     "title": "Page Not Found",

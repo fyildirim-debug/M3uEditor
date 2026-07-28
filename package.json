@@ -17,7 +17,8 @@
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
     "seed": "knex seed:run",
-    "seed:demo": "node scripts/seed-demo.js"
+    "seed:demo": "node scripts/seed-demo.js",
+    "make-admin": "node scripts/make-admin.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

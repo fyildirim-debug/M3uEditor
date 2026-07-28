@@ -32,7 +32,9 @@
     "uncategorized": "Kategorisiz",
     "selected": "seçili",
     "showMore": "{count} kanal daha göster",
-    "permanently_delete": "Kalıcı Olarak Sil"
+    "permanently_delete": "Kalıcı Olarak Sil",
+    "previous": "Önceki",
+    "next": "Sonraki"
   },
   "nav": {
     "playlists": "Playlistler",
@@ -48,12 +50,14 @@
     "update": "Güncelle",
     "dashboard": "Dashboard",
     "downloadM3u": "M3U İndir",
-    "share": "Paylaş"
+    "share": "Paylaş",
+    "admin": "Yönetim"
   },
   "status": {
     "systemActive": "Sistem aktif",
     "active": "Aktif",
-    "connected": "Bağlı"
+    "connected": "Bağlı",
+    "offline": "Bağlantı yok"
   },
   "auth": {
     "login": "Giriş Yap",
@@ -69,11 +73,13 @@
     "email": "E-posta Adresi",
     "emailPlaceholder": "ornek@email.com",
     "password": "Şifre",
-    "passwordPlaceholder": "En az 6 karakter",
+    "passwordPlaceholder": "En az 10 karakter",
     "confirmPassword": "Şifre Tekrar",
     "confirmPlaceholder": "Şifreyi tekrar gir",
     "passwordMismatch": "Şifreler eşleşmemiş",
-    "socialProof": "1.000+ kullanıcı güvenle kullanıyor"
+    "socialProof": "1.000+ kullanıcı güvenle kullanıyor",
+    "showPassword": "Şifreyi göster",
+    "hidePassword": "Şifreyi gizle"
   },
   "passwordStrength": {
     "weak": "Zayıf",
@@ -173,7 +179,8 @@
     "streamUrl": "Stream URL",
     "broadcast": "Yayın Akışı",
     "resetToOriginal": "Xtream orijinaline sıfırla",
-    "noOriginal": "Orijinal yok"
+    "noOriginal": "Orijinal yok",
+    "logoPlaceholder": "https://..."
   },
   "sort": {
     "title": "Sıralama",
@@ -286,6 +293,7 @@
     "noXtreamSource": "Xtream Codes kaynağı bulunamadı"
   },
   "metadata": {
+    "title": "Meta Veriler",
     "fetch": "Bilgi Çek",
     "refetch": "Tekrar Çek",
     "overview": "Özet",
@@ -335,6 +343,37 @@
     "streamUrl": "Stream URL",
     "logoUrl": "Logo URL",
     "streamType": "İçerik Tipi"
+  },
+  "admin": {
+    "title": "Yönetim Paneli",
+    "subtitle": "Sistem yönetimi ve kullanıcı işlemleri",
+    "totalUsers": "Toplam Kullanıcı",
+    "totalPlaylists": "Toplam Playlist",
+    "totalChannels": "Toplam Kanal",
+    "newThisWeek": "Bu Hafta Katılanlar",
+    "users": "Kullanıcılar",
+    "searchLabel": "E-posta adresine göre kullanıcı ara",
+    "searchPlaceholder": "E-posta ile ara...",
+    "administrator": "Yönetici",
+    "registeredAt": "Kayıt Tarihi",
+    "actions": "İşlemler",
+    "editUserAria": "{email} kullanıcısını düzenle",
+    "deleteUserAria": "{email} kullanıcısını sil",
+    "noUsers": "Kullanıcı bulunamadı",
+    "editUser": "Kullanıcıyı Düzenle",
+    "deleteUser": "Kullanıcıyı Sil",
+    "adminAccess": "Yönetici Yetkisi",
+    "saving": "Kaydediliyor...",
+    "deleting": "Siliniyor...",
+    "deleteConfirm": "{email} kullanıcısını silmek istediğinizden emin misiniz?",
+    "deleteWarning": "Bu işlem geri alınamaz. Kullanıcının tüm playlistleri ve kanalları silinecektir.",
+    "adminRequired": "Yönetici yetkisi gereklidir",
+    "statsLoadFailed": "İstatistikler yüklenemedi",
+    "usersLoadFailed": "Kullanıcı listesi yüklenemedi",
+    "userUpdated": "Kullanıcı güncellendi",
+    "updateFailed": "Güncelleme başarısız",
+    "userDeleted": "Kullanıcı silindi",
+    "deleteFailed": "Silme başarısız"
   },
   "account": {
     "title": "Hesap Ayarları",
@@ -400,6 +439,26 @@
     "dark": "Koyu Tema",
     "system": "Sistem"
   },
+  "accessibility": {
+    "home": "Ana sayfa",
+    "mainNavigation": "Ana navigasyon",
+    "userInfo": "Kullanıcı bilgisi",
+    "logout": "Çıkış yap",
+    "dismissNotification": "Bildirimi kapat",
+    "closeDialog": "Pencereyi kapat",
+    "editorSections": "Editör bölümleri",
+    "closeMenu": "Menüyü kapat",
+    "openEditorMenu": "Editör menüsünü aç",
+    "openCategories": "Kategorileri aç",
+    "editCategoryName": "{name} kategorisinin adını düzenle",
+    "closeCategories": "Kategorileri kapat",
+    "selectAllChannels": "Tüm kanalları seç",
+    "selectChannel": "{name} kanalını seç",
+    "closeEditPanel": "Düzenleme panelini kapat",
+    "selectedEpgLogo": "Seçilen EPG kanalının logosu",
+    "channelLogo": "{name} kanalının logosu",
+    "backdropImage": "{name} arka plan görseli"
+  },
   "forgotPw": {
     "title": "Şifremi Unuttum",
     "subtitle": "E-posta adresinizi girin, şifre sıfırlama linki gönderelim.",
@@ -411,7 +470,8 @@
   "resetPw": {
     "title": "Yeni Şifre Belirle",
     "submit": "Şifremi Değiştir",
-    "success": "Şifreniz başarıyla değiştirildi. Şimdi giriş yapabilirsiniz."
+    "success": "Şifreniz başarıyla değiştirildi. Şimdi giriş yapabilirsiniz.",
+    "tokenMissing": "Şifre sıfırlama bağlantısı geçersiz veya eksik."
   },
   "landing": {
     "badge": "Açık kaynak — MIT lisanslı",
@@ -424,7 +484,36 @@
   "legal": {
     "termsTitle": "Kullanım Şartları",
     "privacyTitle": "Gizlilik Politikası",
-    "lastUpdated": "Son güncelleme: 2026-03-26"
+    "lastUpdated": "Son güncelleme: 2026-03-26",
+    "home": "Ana Sayfa",
+    "terms": {
+      "generalTitle": "1. Genel Koşullar",
+      "generalBody": "Bu web sitesine erişerek ve hizmetlerimizi kullanarak aşağıdaki kullanım şartlarını kabul etmiş sayılırsınız. Bu şartları kabul etmiyorsanız hizmetlerimizi kullanmayın.",
+      "serviceTitle": "2. Hizmet Tanımı",
+      "serviceBody": "M3U Editor, IPTV playlistlerini yönetmek için web tabanlı bir araç sunar. Kullanıcılar M3U dosyalarını düzenleyebilir, Xtream Codes entegrasyonunu kullanabilir, EPG verileriyle çalışabilir ve playlistlerini paylaşabilir.",
+      "responsibilityTitle": "3. Kullanıcı Sorumluluğu",
+      "responsibilityBody": "Kullanıcılar platformu yasalara uygun biçimde kullanmakla yükümlüdür. Telif hakkı ihlali içeren içeriklerin yüklenmesi, paylaşılması veya dağıtılması kesinlikle yasaktır. Hesabınızın güvenliği sizin sorumluluğunuzdadır.",
+      "contentTitle": "4. İçerik ve Sorumluluk Reddi",
+      "contentBody": "M3U Editor, kullanıcıların yüklediği içeriklerden sorumlu değildir. Platform yalnızca bir düzenleme aracı sunar; içeriklerin yasallığı kullanıcının sorumluluğundadır.",
+      "terminationTitle": "5. Hesap Feshi",
+      "terminationBody": "Kullanım şartlarını ihlal eden hesaplar önceden bildirilmeksizin askıya alınabilir veya kalıcı olarak kapatılabilir. Hesabınızı istediğiniz zaman kendiniz de silebilirsiniz.",
+      "changesTitle": "6. Değişiklikler",
+      "changesBody": "Bu kullanım şartları önceden bildirilmeksizin güncellenebilir. Güncel sürümü düzenli olarak kontrol etmenizi öneririz."
+    },
+    "privacy": {
+      "collectionTitle": "Veri Toplama",
+      "collectionBody": "Hizmetlerimizi kullandığınızda e-posta adresiniz, güvenli bir özet olarak saklanan şifreniz ve kullanım verileriniz işlenir. Playlist ve kanal bilgileriniz hesabınıza bağlı olarak sunucunuzdaki veritabanında saklanır.",
+      "useTitle": "Kullanım",
+      "useBody": "Toplanan veriler yalnızca hizmet sunumu, hesap yönetimi ve platformun iyileştirilmesi amacıyla kullanılır. Verileriniz pazarlama amacıyla üçüncü taraflara satılmaz.",
+      "thirdPartiesTitle": "Üçüncü Taraflar",
+      "thirdPartiesBody": "Hizmetin çalışması için Xtream Codes sunucuları ve EPG kaynakları gibi üçüncü taraf servislerle iletişim kurulabilir. Bu bağlantıları siz başlatırsınız ve ilgili servislerin gizlilik politikaları geçerlidir.",
+      "storageTitle": "Tarayıcı Depolama",
+      "storageBody": "Oturum yönetimi ve dil tercihi gibi temel işlevler için tarayıcı depolaması kullanılır. Üçüncü taraf izleme çerezleri kullanılmaz.",
+      "rightsTitle": "Haklarınız",
+      "rightsBody": "Hesap ayarlarından verilerinizi görüntüleyebilir, düzenleyebilir ve hesabınızı tamamen silebilirsiniz. Hesabı silmek tüm verilerinizi kalıcı olarak kaldırır.",
+      "contactTitle": "İletişim",
+      "contactBody": "Gizlilik politikamızla ilgili sorularınız için info@m3ueditor.com adresinden bize ulaşabilirsiniz."
+    }
   },
   "notFound": {
     "title": "Sayfa Bulunamadı",

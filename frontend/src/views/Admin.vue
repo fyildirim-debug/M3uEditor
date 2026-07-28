@@ -1,8 +1,8 @@
 <template>
   <div class="admin-page">
     <div class="admin-header">
-      <h1>Admin Paneli</h1>
-      <p class="admin-subtitle">Sistem yonetimi ve kullanici islemleri</p>
+      <h1>{{ t('admin.title') }}</h1>
+      <p class="admin-subtitle">{{ t('admin.subtitle') }}</p>
     </div>
 
     <!-- Stats Cards -->
@@ -13,7 +13,7 @@
         </div>
         <div class="stat-info">
           <span class="stat-value">{{ stats.users }}</span>
-          <span class="stat-label">Toplam Kullanici</span>
+          <span class="stat-label">{{ t('admin.totalUsers') }}</span>
         </div>
       </div>
       <div class="stat-card">
@@ -22,7 +22,7 @@
         </div>
         <div class="stat-info">
           <span class="stat-value">{{ stats.playlists }}</span>
-          <span class="stat-label">Toplam Playlist</span>
+          <span class="stat-label">{{ t('admin.totalPlaylists') }}</span>
         </div>
       </div>
       <div class="stat-card">
@@ -31,7 +31,7 @@
         </div>
         <div class="stat-info">
           <span class="stat-value">{{ stats.channels }}</span>
-          <span class="stat-label">Toplam Kanal</span>
+          <span class="stat-label">{{ t('admin.totalChannels') }}</span>
         </div>
       </div>
       <div class="stat-card">
@@ -40,7 +40,7 @@
         </div>
         <div class="stat-info">
           <span class="stat-value">{{ stats.newUsersThisWeek }}</span>
-          <span class="stat-label">Bu Hafta Yeni</span>
+          <span class="stat-label">{{ t('admin.newThisWeek') }}</span>
         </div>
       </div>
     </div>
@@ -48,13 +48,13 @@
     <!-- User Table -->
     <div class="users-section">
       <div class="users-header">
-        <h2>Kullanicilar</h2>
+        <h2>{{ t('admin.users') }}</h2>
         <div class="search-box">
           <input
-            aria-label="E-posta ile kullanıcı ara"
+            :aria-label="t('admin.searchLabel')"
             v-model="searchQuery"
             type="text"
-            placeholder="E-posta ile ara..."
+            :placeholder="t('admin.searchPlaceholder')"
             @input="debouncedSearch"
           />
         </div>
@@ -64,30 +64,30 @@
         <table class="users-table">
           <thead>
             <tr>
-              <th>E-posta</th>
-              <th>Playlist</th>
-              <th>Admin</th>
-              <th>Kayit Tarihi</th>
-              <th>Islemler</th>
+              <th>{{ t('auth.email') }}</th>
+              <th>{{ t('dashboard.statsPlaylist') }}</th>
+              <th>{{ t('admin.administrator') }}</th>
+              <th>{{ t('admin.registeredAt') }}</th>
+              <th>{{ t('admin.actions') }}</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="user in users" :key="user.id">
               <td class="email-cell">{{ user.email }}</td>
               <td>{{ user.playlist_count }}</td>
-              <td><span :class="user.is_admin ? 'badge-yes' : 'badge-no'">{{ user.is_admin ? 'Evet' : 'Hayir' }}</span></td>
+              <td><span :class="user.is_admin ? 'badge-yes' : 'badge-no'">{{ user.is_admin ? t('common.yes') : t('common.no') }}</span></td>
               <td>{{ formatDate(user.created_at) }}</td>
               <td class="actions-cell">
-                <button class="btn-edit" @click="openEditModal(user)" title="Düzenle" :aria-label="`${user.email} kullanıcısını düzenle`">
+                <button class="btn-edit" @click="openEditModal(user)" :title="t('common.edit')" :aria-label="t('admin.editUserAria', { email: user.email })">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
-                <button class="btn-delete" @click="confirmDelete(user)" title="Sil" :aria-label="`${user.email} kullanıcısını sil`" :disabled="user.is_admin">
+                <button class="btn-delete" @click="confirmDelete(user)" :title="t('common.delete')" :aria-label="t('admin.deleteUserAria', { email: user.email })" :disabled="user.is_admin">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                 </button>
               </td>
             </tr>
             <tr v-if="users.length === 0">
-              <td colspan="5" class="empty-row">Kullanici bulunamadi</td>
+              <td colspan="5" class="empty-row">{{ t('admin.noUsers') }}</td>
             </tr>
           </tbody>
         </table>
@@ -95,9 +95,9 @@
 
       <!-- Pagination -->
       <div class="pagination" v-if="totalPages > 1">
-        <button :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">Onceki</button>
+        <button :disabled="currentPage <= 1" @click="goToPage(currentPage - 1)">{{ t('common.previous') }}</button>
         <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-        <button :disabled="currentPage >= totalPages" @click="goToPage(currentPage + 1)">Sonraki</button>
+        <button :disabled="currentPage >= totalPages" @click="goToPage(currentPage + 1)">{{ t('common.next') }}</button>
       </div>
     </div>
 
@@ -105,8 +105,8 @@
     <div class="modal-overlay" v-if="editModal.visible" v-focus-trap @click.self="closeEditModal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>Kullanici Duzenle</h3>
-          <button class="modal-close" aria-label="Pencereyi kapat" @click="closeEditModal">&times;</button>
+          <h3>{{ t('admin.editUser') }}</h3>
+          <button class="modal-close" :aria-label="t('accessibility.closeDialog')" @click="closeEditModal">&times;</button>
         </div>
         <div class="modal-body">
           <p class="modal-email">{{ editModal.user?.email }}</p>
@@ -114,14 +114,14 @@
           <div class="form-group checkbox-group">
             <label>
               <input type="checkbox" v-model="editModal.form.is_admin" />
-              Admin Yetkisi
+              {{ t('admin.adminAccess') }}
             </label>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn-cancel" @click="closeEditModal">Iptal</button>
+          <button class="btn-cancel" @click="closeEditModal">{{ t('common.cancel') }}</button>
           <button class="btn-save" @click="saveUser" :disabled="editModal.saving">
-            {{ editModal.saving ? 'Kaydediliyor...' : 'Kaydet' }}
+            {{ editModal.saving ? t('admin.saving') : t('common.save') }}
           </button>
         </div>
       </div>
@@ -131,17 +131,17 @@
     <div class="modal-overlay" v-if="deleteModal.visible" v-focus-trap @click.self="closeDeleteModal">
       <div class="modal-content modal-small">
         <div class="modal-header">
-          <h3>Kullanici Sil</h3>
-          <button class="modal-close" aria-label="Pencereyi kapat" @click="closeDeleteModal">&times;</button>
+          <h3>{{ t('admin.deleteUser') }}</h3>
+          <button class="modal-close" :aria-label="t('accessibility.closeDialog')" @click="closeDeleteModal">&times;</button>
         </div>
         <div class="modal-body">
-          <p><strong>{{ deleteModal.user?.email }}</strong> kullanicisini silmek istediginize emin misiniz?</p>
-          <p class="warning-text">Bu islem geri alinamaz. Kullanicinin tum playlist ve kanallari silinecektir.</p>
+          <p>{{ t('admin.deleteConfirm', { email: deleteModal.user?.email }) }}</p>
+          <p class="warning-text">{{ t('admin.deleteWarning') }}</p>
         </div>
         <div class="modal-footer">
-          <button class="btn-cancel" @click="closeDeleteModal">Iptal</button>
+          <button class="btn-cancel" @click="closeDeleteModal">{{ t('common.cancel') }}</button>
           <button class="btn-danger" @click="doDelete" :disabled="deleteModal.deleting">
-            {{ deleteModal.deleting ? 'Siliniyor...' : 'Sil' }}
+            {{ deleteModal.deleting ? t('admin.deleting') : t('common.delete') }}
           </button>
         </div>
       </div>
@@ -153,9 +153,11 @@
 import { ref, reactive, onMounted, inject } from 'vue';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
+import { useI18n } from '../langs/useI18n';
 
 const toast = inject('toast');
 const auth = useAuthStore();
+const { t, lang } = useI18n();
 
 const stats = reactive({
   users: 0,
@@ -187,7 +189,7 @@ const deleteModal = reactive({
 
 onMounted(async () => {
   if (!auth.user?.is_admin) {
-    toast?.error?.('Admin yetkisi gereklidir');
+    toast?.(t('admin.adminRequired'), 'error');
     return;
   }
   await Promise.all([fetchStats(), fetchUsers()]);
@@ -198,7 +200,7 @@ async function fetchStats() {
     const res = await api.get('/admin/stats');
     Object.assign(stats, res.data);
   } catch {
-    toast?.error?.('Istatistikler yuklenemedi');
+    toast?.(t('admin.statsLoadFailed'), 'error');
   }
 }
 
@@ -210,7 +212,7 @@ async function fetchUsers() {
     users.value = res.data.users;
     totalPages.value = res.data.totalPages;
   } catch {
-    toast?.error?.('Kullanici listesi yuklenemedi');
+    toast?.(t('admin.usersLoadFailed'), 'error');
   }
 }
 
@@ -229,7 +231,7 @@ function goToPage(page) {
 
 function formatDate(dateStr) {
   if (!dateStr) return '-';
-  return new Date(dateStr).toLocaleDateString('tr-TR', {
+  return new Date(dateStr).toLocaleDateString(lang.value === 'tr' ? 'tr-TR' : 'en-US', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -257,11 +259,11 @@ async function saveUser() {
       is_admin: editModal.form.is_admin,
     };
     await api.put(`/admin/users/${editModal.user.id}`, payload);
-    toast?.success?.('Kullanici guncellendi');
+    toast?.(t('admin.userUpdated'), 'success');
     closeEditModal();
     await fetchUsers();
   } catch (err) {
-    toast?.error?.(err.response?.data?.error?.message || 'Guncelleme basarisiz');
+    toast?.(err.response?.data?.error?.message || t('admin.updateFailed'), 'error');
   } finally {
     editModal.saving = false;
   }
@@ -282,11 +284,11 @@ async function doDelete() {
   deleteModal.deleting = true;
   try {
     await api.delete(`/admin/users/${deleteModal.user.id}`);
-    toast?.success?.('Kullanici silindi');
+    toast?.(t('admin.userDeleted'), 'success');
     closeDeleteModal();
     await Promise.all([fetchStats(), fetchUsers()]);
   } catch (err) {
-    toast?.error?.(err.response?.data?.error?.message || 'Silme basarisiz');
+    toast?.(err.response?.data?.error?.message || t('admin.deleteFailed'), 'error');
   } finally {
     deleteModal.deleting = false;
   }

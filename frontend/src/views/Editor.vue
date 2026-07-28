@@ -2,7 +2,7 @@
   <div class="editor" v-if="!pageLoading">
     <div class="editor-body">
       <!-- Left nav sidebar -->
-      <nav class="nav-sidebar" :class="{ 'mobile-open': mobileNavOpen }" aria-label="Editör bölümleri">
+      <nav class="nav-sidebar" :class="{ 'mobile-open': mobileNavOpen }" :aria-label="t('accessibility.editorSections')">
         <!-- Canli Kanallar -->
         <div class="nav-section">
           <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'live' }]" role="button" tabindex="0" :aria-expanded="activeStreamType === 'live'" @click="toggleStreamSection('live')" @keydown.enter.space.prevent="toggleStreamSection('live')">
@@ -81,21 +81,21 @@
           </div>
         </div>
       </nav>
-      <button v-if="mobileNavOpen" class="mobile-scrim" aria-label="Menüyü kapat" @click="mobileNavOpen = false"></button>
+      <button v-if="mobileNavOpen" class="mobile-scrim" :aria-label="t('accessibility.closeMenu')" @click="mobileNavOpen = false"></button>
 
       <!-- Main content area -->
       <div class="main-area">
         <!-- Top bar -->
         <div class="top-bar">
           <div class="top-bar-left">
-            <button class="mobile-menu-btn" aria-label="Editör menüsünü aç" @click="mobileNavOpen = true">
+            <button class="mobile-menu-btn" :aria-label="t('accessibility.openEditorMenu')" @click="mobileNavOpen = true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
             </button>
             <h2 class="playlist-title">{{ playlistName }}</h2>
             <span class="channel-count-badge">{{ totalChannelCount }} {{ streamTypeLabel.unit }}</span>
           </div>
           <div class="top-bar-right">
-            <button v-if="activeView === 'basic'" class="mobile-menu-btn" aria-label="Kategorileri aç" @click="mobileCategoriesOpen = true">
+            <button v-if="activeView === 'basic'" class="mobile-menu-btn" :aria-label="t('accessibility.openCategories')" @click="mobileCategoriesOpen = true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
             </button>
             <div class="search-box">
@@ -138,7 +138,7 @@
                         @keyup.enter="saveInlineEdit(cat)"
                         @keyup.escape="inlineEditCatId = null"
                         @click.stop
-                        :aria-label="`${cat.name} kategori adını düzenle`"
+                        :aria-label="t('accessibility.editCategoryName', { name: cat.name })"
                         autofocus />
                       <span v-else class="cat-sb-name" @dblclick.stop="startInlineEdit(cat)">{{ cat.name }}</span>
                       <span class="cat-sb-count">{{ cat.channel_count || 0 }}</span>
@@ -157,7 +157,7 @@
                     </div>
                   </div>
                 </div>
-                <button v-if="mobileCategoriesOpen" class="mobile-scrim category-scrim" aria-label="Kategorileri kapat" @click="mobileCategoriesOpen = false"></button>
+                <button v-if="mobileCategoriesOpen" class="mobile-scrim category-scrim" :aria-label="t('accessibility.closeCategories')" @click="mobileCategoriesOpen = false"></button>
 
                 <!-- Sağ: Kanal Listesi -->
                 <div class="channel-main">
@@ -265,7 +265,7 @@
                     <table class="ch-table">
                       <thead>
                         <tr>
-                          <th class="th-check"><input type="checkbox" aria-label="Tüm kanalları seç" @change="toggleSelectAll" :checked="allSelected" /></th>
+                          <th class="th-check"><input type="checkbox" :aria-label="t('accessibility.selectAllChannels')" @change="toggleSelectAll" :checked="allSelected" /></th>
                           <th class="th-num">#</th>
                           <th class="th-name">{{ t('table.name') }}</th>
                           <th class="th-url">{{ t('table.url') }}</th>
@@ -276,11 +276,11 @@
                         <tr v-for="(ch, idx) in channels" :key="ch.id" tabindex="0"
                           :class="{ selected: selectedIds.has(ch.id), editing: editingChannel?.id === ch.id }"
                           @click="startEditChannel(ch)" @keydown.enter.space.prevent="startEditChannel(ch)">
-                          <td class="td-check" @click.stop><input type="checkbox" :aria-label="`${ch.name} kanalını seç`" :checked="selectedIds.has(ch.id)" @change="toggleSelect(ch.id)" /></td>
+                          <td class="td-check" @click.stop><input type="checkbox" :aria-label="t('accessibility.selectChannel', { name: ch.name })" :checked="selectedIds.has(ch.id)" @change="toggleSelect(ch.id)" /></td>
                           <td class="td-num">{{ (page - 1) * 50 + idx + 1 }}</td>
                           <td class="td-name">
                             <div class="ch-name-cell">
-                              <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" loading="lazy" :alt="ch.name + ' logosu'" @error="$event.target.style.display='none'" />
+                              <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="$event.target.style.display='none'" />
                               <span v-else class="row-logo-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
                               <span>{{ ch.name }}</span>
                               <span v-if="activeStreamType !== 'live' && (ch.extras?.year || ch.extras?.rating)" class="ch-meta-badges">
@@ -350,7 +350,7 @@
                       @dragover.prevent
                       @drop="chanDrop(idx)">
                       <svg class="sort-handle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
-                      <img v-if="ch.logo_url" :src="ch.logo_url" class="sort-ch-logo" loading="lazy" :alt="ch.name + ' logosu'" @error="$event.target.style.display='none'" />
+                      <img v-if="ch.logo_url" :src="ch.logo_url" class="sort-ch-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="$event.target.style.display='none'" />
                       <span class="sort-name">{{ ch.name }}</span>
                       <span class="sort-count">#{{ idx + 1 }}</span>
                     </div>
@@ -436,7 +436,7 @@
                   <!-- Channel Rows -->
                   <div class="epg-channel-col" ref="epgChannelColRef">
                     <div v-for="ch in guideChannels" :key="ch.id" class="epg-ch-row-label">
-                      <img v-if="ch.logo_url" :src="ch.logo_url" class="epg-ch-logo" loading="lazy" :alt="ch.name + ' logosu'" @error="$event.target.style.display='none'" />
+                      <img v-if="ch.logo_url" :src="ch.logo_url" class="epg-ch-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="$event.target.style.display='none'" />
                       <div v-else class="epg-ch-logo-fb">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
                       </div>
@@ -480,7 +480,7 @@
                     <div class="epg-add-card-title">{{ t('epg.addSourceTitle') }}</div>
                     <div class="epg-add-card-desc">{{ t('epg.addSourceDesc') }}</div>
                     <div class="epg-add-input-row">
-                      <input class="input" type="url" v-model="newEpgUrl" :aria-label="t('epg.addSourceTitle')" placeholder="https://epg-source.com/guide.xml" @keyup.enter="addEpgSource" />
+                      <input class="input" type="url" v-model="newEpgUrl" :aria-label="t('epg.addSourceTitle')" :placeholder="t('epg.urlPlaceholder')" @keyup.enter="addEpgSource" />
                       <button class="btn btn-primary btn-sm" @click="addEpgSource" :disabled="addingEpg || !newEpgUrl.trim()">
                         <span v-if="addingEpg" class="spinner" style="width:13px;height:13px"></span>
                         <span v-else>{{ t('common.add') }}</span>
@@ -652,12 +652,12 @@
           <aside class="edit-panel" v-if="editingChannel">
             <div class="ep-header">
               <h3>{{ t('editPanel.title') }}</h3>
-              <button class="btn btn-ghost btn-icon-sm" aria-label="Düzenleme panelini kapat" @click="editingChannel = null">✕</button>
+              <button class="btn btn-ghost btn-icon-sm" :aria-label="t('accessibility.closeEditPanel')" @click="editingChannel = null">✕</button>
             </div>
             <div class="ep-body">
               <div class="ep-logo-area">
                 <div v-if="editForm.logo_url" class="ep-logo-preview" role="button" tabindex="0" @click="triggerLogoUpload" @keydown.enter.space.prevent="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
-                  <img :src="editForm.logo_url" :alt="editingChannel.name + ' logosu'" @error="$event.target.style.display='none'" />
+                  <img :src="editForm.logo_url" :alt="t('accessibility.channelLogo', { name: editingChannel.name })" @error="$event.target.style.display='none'" />
                   <div class="ep-logo-overlay">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   </div>
@@ -707,7 +707,7 @@
                 <!-- EPG Logo Çekme Seçeneği -->
                 <div v-if="epgSelectedIcon" class="epg-logo-offer">
                   <div class="epg-logo-offer-preview">
-                    <img :src="epgSelectedIcon" class="epg-logo-offer-img" alt="Seçilen EPG kanal logosu" @error="epgSelectedIcon = null" />
+                    <img :src="epgSelectedIcon" class="epg-logo-offer-img" :alt="t('accessibility.selectedEpgLogo')" @error="epgSelectedIcon = null" />
                   </div>
                   <div class="epg-logo-offer-info">
                     <span class="epg-logo-offer-label">{{ t('editPanel.epgLogoAvailable') }}</span>
@@ -717,7 +717,7 @@
                     </button>
                   </div>
                 </div>
-                <div class="form-group"><label for="channel-logo-url">{{ t('editPanel.logoUrl') }}</label><input id="channel-logo-url" class="input" type="url" v-model="editForm.logo_url" placeholder="https://..." /></div>
+                <div class="form-group"><label for="channel-logo-url">{{ t('editPanel.logoUrl') }}</label><input id="channel-logo-url" class="input" type="url" v-model="editForm.logo_url" :placeholder="t('editPanel.logoPlaceholder')" /></div>
                 <div class="form-group"><label for="channel-stream-url">{{ t('editPanel.streamUrl') }}</label><input id="channel-stream-url" class="input" type="url" v-model="editForm.stream_url" /></div>
                 <div class="form-group"><label for="channel-category">{{ t('common.category') }}</label>
                   <select id="channel-category" class="input" v-model="editForm.category_id">
@@ -748,7 +748,7 @@
               <div v-if="activeStreamType !== 'live'" class="ep-metadata-section">
                 <div class="ep-metadata-header">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                  <span>Metadata</span>
+                  <span>{{ t('metadata.title') }}</span>
                   <button class="btn btn-accent btn-xs" @click="fetchXtreamMetadata" :disabled="fetchingMetadata" style="margin-left:auto">
                     <span v-if="fetchingMetadata" class="spinner" style="width:11px;height:11px"></span>
                     {{ fetchingMetadata ? t('metadata.fetching') : (editingChannel.extras?.metadata_fetched ? t('metadata.refetch') : t('metadata.fetch')) }}
@@ -756,7 +756,7 @@
                 </div>
                 <div v-if="editingChannel.extras?.metadata_fetched" class="ep-metadata-body">
                   <div v-if="editingChannel.extras.backdrop_url" class="ep-meta-backdrop">
-                    <img :src="editingChannel.extras.backdrop_url" :alt="editingChannel.name + ' arka plan görseli'" @error="$event.target.style.display='none'" />
+                    <img :src="editingChannel.extras.backdrop_url" :alt="t('accessibility.backdropImage', { name: editingChannel.name })" @error="$event.target.style.display='none'" />
                   </div>
                   <div v-if="editingChannel.extras.overview" class="ep-meta-overview">{{ editingChannel.extras.overview }}</div>
                   <div class="ep-meta-grid">
@@ -791,8 +791,8 @@
                     <span class="ep-meta-label">{{ t('metadata.cast') }}:</span> {{ typeof editingChannel.extras.cast === 'string' ? editingChannel.extras.cast : editingChannel.extras.cast.slice(0, 5).join(', ') }}
                   </div>
                   <div v-if="editingChannel.extras.imdb_id" class="ep-meta-info ep-meta-ids">
-                    <span>IMDB: {{ editingChannel.extras.imdb_id }}</span>
-                    <span v-if="editingChannel.extras.tmdb_id">TMDB: {{ editingChannel.extras.tmdb_id }}</span>
+                    <span>{{ t('metadata.imdbId') }}: {{ editingChannel.extras.imdb_id }}</span>
+                    <span v-if="editingChannel.extras.tmdb_id">{{ t('metadata.tmdbId') }}: {{ editingChannel.extras.tmdb_id }}</span>
                   </div>
                 </div>
               </div>
@@ -828,7 +828,7 @@
           <div class="modal-header"><h3>{{ t('xtream.importTitle') }}</h3>
             <button class="btn btn-ghost btn-icon-sm" @click="showXtreamModal = false">✕</button>
           </div>
-          <div class="form-group"><label>{{ t('xtream.serverUrl') }}</label><input class="input" v-model="xtreamForm.serverUrl" placeholder="http://example.com:8080" /></div>
+          <div class="form-group"><label>{{ t('xtream.serverUrl') }}</label><input class="input" v-model="xtreamForm.serverUrl" :placeholder="t('xtream.serverPlaceholder')" /></div>
           <div class="form-group"><label>{{ t('xtream.username') }}</label><input class="input" v-model="xtreamForm.username" /></div>
           <div class="form-group"><label>{{ t('xtream.password') }}</label><input class="input" type="password" v-model="xtreamForm.password" /></div>
           <div class="form-group">
@@ -943,7 +943,7 @@
         <div class="modal epg-detail-modal">
           <div class="epg-detail-header">
             <div class="epg-detail-channel" v-if="selectedProgramChannel">
-              <img v-if="selectedProgramChannel.logo_url" :src="selectedProgramChannel.logo_url" class="epg-detail-ch-logo" :alt="selectedProgramChannel.name + ' logosu'" @error="$event.target.style.display='none'" />
+              <img v-if="selectedProgramChannel.logo_url" :src="selectedProgramChannel.logo_url" class="epg-detail-ch-logo" :alt="t('accessibility.channelLogo', { name: selectedProgramChannel.name })" @error="$event.target.style.display='none'" />
               <span>{{ selectedProgramChannel.name }}</span>
             </div>
             <button class="btn btn-ghost btn-icon-sm" @click="selectedProgram = null">

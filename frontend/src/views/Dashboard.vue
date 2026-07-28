@@ -128,9 +128,9 @@
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             {{ formatDate(pl.created_at) }}
           </span>
-          <span v-if="hasStreamType(pl, 'live')" class="badge badge-stream badge-live">Live</span>
-          <span v-if="hasStreamType(pl, 'vod')" class="badge badge-stream badge-vod">VOD</span>
-          <span v-if="hasStreamType(pl, 'series')" class="badge badge-stream badge-series">Series</span>
+          <span v-if="hasStreamType(pl, 'live')" class="badge badge-stream badge-live">{{ t('xtream.typeLive') }}</span>
+          <span v-if="hasStreamType(pl, 'vod')" class="badge badge-stream badge-vod">{{ t('xtream.typeVod') }}</span>
+          <span v-if="hasStreamType(pl, 'series')" class="badge badge-stream badge-series">{{ t('xtream.typeSeries') }}</span>
         </div>
 
         <div class="pl-card-footer">
@@ -154,7 +154,7 @@
             </div>
             <div class="form-group">
               <label for="new-playlist-name">{{ t('playlist.nameLabel') }}</label>
-              <input id="new-playlist-name" class="input" v-model="newName" placeholder="Örn: Ana Liste, Spor Kanalları..." maxlength="255" @keyup.enter="createPlaylist" autofocus />
+              <input id="new-playlist-name" class="input" v-model="newName" :placeholder="t('playlist.namePlaceholder')" maxlength="255" @keyup.enter="createPlaylist" autofocus />
             </div>
             <div class="modal-actions">
               <button class="btn btn-secondary" @click="showCreate = false">{{ t('common.cancel') }}</button>
@@ -226,7 +226,7 @@
             </div>
             <div class="form-group">
               <label for="xtream-autofill-url">{{ t('xtream.autoFillLabel') }} <span style="font-weight:400;color:var(--text-muted)">({{ t('common.optional') }})</span></label>
-              <input id="xtream-autofill-url" class="input" type="url" v-model="m3uUrlInput" @input="parseM3uUrl" placeholder="http://example.com:8080/get.php?username=xxx&password=yyy&type=m3u_plus" autocomplete="off" />
+              <input id="xtream-autofill-url" class="input" type="url" v-model="m3uUrlInput" @input="parseM3uUrl" :placeholder="t('xtream.autoFillPlaceholder')" autocomplete="off" />
               <div v-if="m3uUrlParsed" class="parse-success">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                 {{ t('xtream.autoFilled') }}
@@ -237,7 +237,7 @@
               </div>
             </div>
             <div class="url-divider"><span>{{ t('xtream.manualEntry') }}</span></div>
-            <div class="form-group"><label for="xtream-server-url">{{ t('xtream.serverUrl') }}</label><input id="xtream-server-url" class="input" type="url" v-model="xtreamForm.serverUrl" placeholder="http://example.com:8080" autocomplete="off" /></div>
+            <div class="form-group"><label for="xtream-server-url">{{ t('xtream.serverUrl') }}</label><input id="xtream-server-url" class="input" type="url" v-model="xtreamForm.serverUrl" :placeholder="t('xtream.serverPlaceholder')" autocomplete="off" /></div>
             <div class="form-group"><label for="xtream-username">{{ t('xtream.username') }}</label><input id="xtream-username" class="input" v-model="xtreamForm.username" autocomplete="off" /></div>
             <div class="form-group"><label for="xtream-password">{{ t('xtream.password') }}</label><input id="xtream-password" class="input" type="password" v-model="xtreamForm.password" autocomplete="new-password" /></div>
             <div class="form-group">
@@ -394,7 +394,7 @@ async function createPlaylist() {
     showCreate.value = false
     toast(t('toast.playlistCreated'), 'success')
     loadPlaylists()
-  } catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 
 function startEdit(pl) { editingPl.value = pl; editName.value = pl.name }
@@ -406,7 +406,7 @@ async function updatePlaylist() {
     editingPl.value = null
     toast(t('toast.updated'), 'success')
     loadPlaylists()
-  } catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 
 function confirmDelete(pl) { deletingPl.value = pl }
@@ -417,7 +417,7 @@ async function deletePlaylist() {
     deletingPl.value = null
     toast(t('toast.deleted'), 'success')
     loadPlaylists()
-  } catch (e) { toast(e.response?.data?.error?.message || 'Hata', 'error') }
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 
 function formatDate(d) {

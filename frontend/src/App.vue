@@ -2,7 +2,7 @@
   <div id="app-root">
     <!-- Public header (not logged in, on public pages) -->
     <header v-if="!auth.isLoggedIn && isPublicPage" class="app-header glass" :class="{ 'header-hidden': headerHidden }">
-      <router-link to="/" class="logo" aria-label="Ana sayfa">
+      <router-link to="/" class="logo" :aria-label="t('accessibility.home')">
         <div class="logo-mark">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
@@ -30,7 +30,7 @@
 
     <!-- Authenticated header -->
     <header v-else-if="auth.isLoggedIn" class="app-header">
-      <router-link to="/dashboard" class="logo" aria-label="Ana sayfa">
+      <router-link to="/dashboard" class="logo" :aria-label="t('accessibility.home')">
         <div class="logo-mark">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
@@ -41,18 +41,18 @@
 
       <div class="header-sep" aria-hidden="true"></div>
 
-      <nav class="header-nav" aria-label="Ana navigasyon">
+      <nav class="header-nav" :aria-label="t('accessibility.mainNavigation')">
         <router-link to="/dashboard" class="nav-link" active-class="active">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
           {{ t('nav.playlists') }}
         </router-link>
-        <router-link v-if="auth.user?.is_admin" to="/admin" class="nav-link" active-class="active">Yönetim</router-link>
+        <router-link v-if="auth.user?.is_admin" to="/admin" class="nav-link" active-class="active">{{ t('nav.admin') }}</router-link>
       </nav>
 
       <div class="header-right">
         <div class="header-status hide-mobile" aria-live="polite">
           <span class="status-dot" :class="{ offline: systemOnline === false }" aria-hidden="true"></span>
-          <span class="status-label">{{ systemOnline === false ? 'Bağlantı yok' : t('status.active') }}</span>
+          <span class="status-label">{{ systemOnline === false ? t('status.offline') : t('status.active') }}</span>
         </div>
 
         <div class="lang-switcher" v-if="langs.length > 1">
@@ -66,14 +66,14 @@
 
         <div class="header-sep hide-mobile" aria-hidden="true"></div>
 
-        <div class="user-menu" role="group" aria-label="Kullanici bilgisi">
+        <div class="user-menu" role="group" :aria-label="t('accessibility.userInfo')">
           <router-link to="/account" class="user-avatar" :title="auth.user?.email" style="text-decoration:none;color:inherit;">
             {{ auth.user?.email?.charAt(0).toUpperCase() }}
           </router-link>
           <router-link to="/account" class="user-email hide-mobile" style="text-decoration:none;color:inherit;">{{ auth.user?.email }}</router-link>
         </div>
 
-        <button class="btn btn-ghost btn-sm logout-btn" @click="handleLogout" aria-label="Cikis yap">
+        <button class="btn btn-ghost btn-sm logout-btn" @click="handleLogout" :aria-label="t('accessibility.logout')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           <span class="hide-mobile">{{ t('auth.logout') }}</span>
         </button>
@@ -95,7 +95,7 @@
           <svg v-else-if="t.type === 'error'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
           <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           <span>{{ t.message }}</span>
-          <button class="toast-dismiss" aria-label="Bildirimi kapat">
+          <button class="toast-dismiss" :aria-label="t('accessibility.dismissNotification')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -130,6 +130,7 @@ function handleScroll() {
 }
 onMounted(async () => {
   window.addEventListener('scroll', handleScroll, { passive: true })
+  if (auth.isLoggedIn) auth.getProfile().catch(() => {})
   try { systemOnline.value = (await fetch('/health', { cache: 'no-store' })).ok } catch { systemOnline.value = false }
 })
 onUnmounted(() => window.removeEventListener('scroll', handleScroll))

@@ -17,7 +17,7 @@
           <div class="profile-stats" v-if="profile">
             <div class="stat-item">
               <span class="stat-value">{{ profile.playlistCount }}</span>
-              <span class="stat-label">Playlist</span>
+              <span class="stat-label">{{ t('dashboard.statsPlaylist') }}</span>
             </div>
             <div class="stat-item">
               <span class="stat-value">{{ profile.channelCount }}</span>
