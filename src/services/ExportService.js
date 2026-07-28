@@ -52,6 +52,8 @@ class ExportService {
         'channels.stream_url',
         'channels.epg_channel_id',
         'channels.extras',
+        'channels.xtream_id',
+        'channels.stream_type',
         'categories.name as category_name',
         'categories.sort_order as category_sort_order',
         'channels.sort_order as channel_sort_order'
@@ -66,7 +68,39 @@ class ExportService {
       epgId: ch.epg_channel_id,
       group: ch.category_name || null,
       extras: ch.extras || {},
+      xtreamId: ch.xtream_id,
+      streamType: ch.stream_type,
     }));
+  }
+
+  _xtreamExtension(channel, liveOutput) {
+    if (channel.streamType === 'live') return liveOutput === 'm3u8' ? 'm3u8' : 'ts';
+    const explicit = channel.extras?.container_extension || channel.extras?.containerExtension;
+    if (typeof explicit === 'string' && /^[a-z0-9]{1,10}$/i.test(explicit)) return explicit.toLowerCase();
+    try {
+      return new URL(channel.url).pathname.match(/\.([a-z0-9]{1,10})$/i)?.[1]?.toLowerCase() || 'mp4';
+    } catch (_error) {
+      return 'mp4';
+    }
+  }
+
+  /**
+   * Format an already-authorized Xtream output playlist with local playback
+   * routes. Authentication is resolved by XtreamOutputService before this call.
+   */
+  async createXtreamPlaylist(playlist, username, password, output = 'ts') {
+    if (!playlist?.id) throw createAppError('NOT_FOUND');
+    const baseUrl = String(process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+    const channels = await this._getOrderedChannels(playlist.id);
+    const localChannels = channels.map((channel) => {
+      const pathType = channel.streamType === 'vod' ? 'movie' : channel.streamType === 'series' ? 'series' : 'live';
+      const extension = this._xtreamExtension(channel, output);
+      return {
+        ...channel,
+        url: `${baseUrl}/${pathType}/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${encodeURIComponent(channel.xtreamId)}.${encodeURIComponent(extension)}`,
+      };
+    });
+    return this.formatter.format(localChannels);
   }
 
   /**

@@ -133,6 +133,14 @@ NODE_MAX_OLD_SPACE_MB=1536
 
 Lower the concurrency values if a provider rate-limits parallel requests. Increase `MAX_XTREAM_BYTES` and `NODE_MAX_OLD_SPACE_MB` together only when a single provider response exceeds the defaults and the host has sufficient memory.
 
+## Xtream Codes çıkışı
+
+Bir playlist, kimlik doğrulamalı yönetim API'sindeki `POST /api/playlists/:id/xtream-output` isteğiyle Xtream Codes çıkışı olarak etkinleştirilebilir. Yanıtta player'a girilecek sunucu adresi, rastgele kullanıcı adı ve yalnızca bir kez gösterilen rastgele şifre bulunur. Yapılandırma daha sonra `GET` ile görüntülenebilir; şifre gösterilmez. `POST /api/playlists/:id/xtream-output/regenerate` eski şifreyi hemen geçersiz kılar, `DELETE /api/playlists/:id/xtream-output` ise player erişimini kapatır.
+
+TiviMate, IPTV Smarters ve benzeri istemcilerde sunucu adresi olarak `APP_URL`, kullanıcı adı ve şifre olarak etkinleştirme yanıtındaki değerler kullanılır. Uyumlu kök yollar `/player_api.php`, `/xmltv.php`, `/get.php`, `/live/`, `/movie/` ve `/series/` şeklindedir. Dizi verisi uygulamada bölüm bazında değil dizi bazında tutulduğu için Xtream yanıtı her dizi için oynatılabilir tek bir sentetik sezon/bölüm sunar.
+
+**Güvenlik notu:** Oynatma yolları akışı proxy'lemez; `302` ile kanalın kayıtlı yukarı akış adresine yönlendirir. Bu adres, Xtream protokolü gereği yukarı akış sağlayıcının kullanıcı adı ve şifresini içerebilir. Dolayısıyla Xtream çıkış bilgilerini paylaşmak, fiilen sağlayıcı hesabını ve düzenlenmiş playlist içindeki tüm akış adreslerini paylaşmak anlamına gelir. Yalnızca güvendiğiniz kişilerle paylaşın ve erişimi geri almak için çıkışı kapatın veya şifreyi yenileyin.
+
 ## Verification
 
 ```bash

@@ -233,6 +233,43 @@ describe('ExportService', () => {
     });
   });
 
+  describe('createXtreamPlaylist', () => {
+    it('reuses M3U formatting with local Xtream playback URLs', async () => {
+      const channelsChain = chainable();
+      channelsChain.orderBy = jest.fn().mockResolvedValue([{
+        name: 'Output Movie',
+        logo_url: null,
+        stream_url: 'https://provider.example/movie/u/p/1.mkv',
+        epg_channel_id: null,
+        extras: {},
+        xtream_id: '88',
+        stream_type: 'vod',
+        category_name: 'Movies',
+        category_sort_order: 0,
+        channel_sort_order: 0,
+      }]);
+      mockKnex.mockReturnValue(channelsChain);
+      const previousAppUrl = process.env.APP_URL;
+      process.env.APP_URL = 'https://editor.example';
+
+      try {
+        const result = await exportService.createXtreamPlaylist(
+          { id: 'pl-1' },
+          'output-user',
+          'output-password',
+          'ts'
+        );
+
+        expect(result).toContain('#EXTM3U');
+        expect(result).toContain('https://editor.example/movie/output-user/output-password/88.mkv');
+        expect(result).not.toContain('https://provider.example/movie/u/p/1.mkv');
+      } finally {
+        if (previousAppUrl === undefined) delete process.env.APP_URL;
+        else process.env.APP_URL = previousAppUrl;
+      }
+    });
+  });
+
   describe('getSharedPlaylist', () => {
     it('should return M3U content for a valid share token', async () => {
       const playlist = { id: 'pl-1', share_token: 'abc123' };

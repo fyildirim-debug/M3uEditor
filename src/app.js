@@ -85,6 +85,65 @@ const sharedPlaylistLimiter = rateLimit({
   },
 });
 
+const xtreamPlayerPaths = ['/player_api.php', '/xmltv.php', '/get.php', '/live', '/movie', '/series'];
+
+function xtreamUsername(req) {
+  if (typeof req.xtreamLimiterUsername === 'string') return req.xtreamLimiterUsername;
+  if (typeof req.query.username === 'string') return req.query.username;
+  const match = req.path.match(/^\/(?:live|movie|series)\/([^/]+)/);
+  if (!match) return '';
+  try { return decodeURIComponent(match[1]); } catch (_error) { return ''; }
+}
+
+function xtreamLimiterKey(req) {
+  const usernameHash = crypto.createHash('sha256').update(xtreamUsername(req)).digest('hex');
+  return `${ipKeyGenerator(req.ip)}:${usernameHash}`;
+}
+
+// IPTV players make several requests while loading a playlist, so the normal
+// credential limit is intentionally generous and isolated per username/IP.
+const xtreamPlayerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  message: { error: { code: 'RATE_LIMITED', message: 'Xtream istemcisi için çok fazla istek yapıldı. Lütfen daha sonra tekrar deneyin.' } },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: xtreamLimiterKey,
+});
+
+// Successful player traffic is removed from this stricter counter. The
+// controller marks protocol-level auth failures, including auth:0 HTTP 200.
+const xtreamFailureLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: { error: { code: 'RATE_LIMITED', message: 'Çok fazla başarısız Xtream kimlik doğrulama denemesi yapıldı.' } },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: xtreamLimiterKey,
+  skipSuccessfulRequests: true,
+  requestWasSuccessful(_req, res) {
+    return res.locals.xtreamAuthFailed !== true;
+  },
+});
+
+function redactXtreamCredentials(req, _res, next) {
+  try {
+    const url = new URL(req.originalUrl, 'http://local.invalid');
+    const pathUsername = url.pathname.match(/^\/(?:live|movie|series)\/([^/]+)/)?.[1];
+    req.xtreamLimiterUsername = url.searchParams.get('username') || (pathUsername ? decodeURIComponent(pathUsername) : '');
+    if (url.searchParams.has('username')) url.searchParams.set('username', '[REDACTED]');
+    if (url.searchParams.has('password')) url.searchParams.set('password', '[REDACTED]');
+    url.pathname = url.pathname.replace(
+      /^(\/(?:live|movie|series)\/)[^/]+\/[^/]+\//,
+      '$1[REDACTED]/[REDACTED]/'
+    );
+    req.originalUrl = `${url.pathname}${url.search}`;
+  } catch (_error) {
+    req.originalUrl = req.path;
+  }
+  next();
+}
+
 // General rate limiting
 const generalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
@@ -93,6 +152,7 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+app.use(xtreamPlayerPaths, redactXtreamCredentials, xtreamPlayerLimiter, xtreamFailureLimiter);
 app.use(generalLimiter);
 app.use('/api/auth/refresh', refreshLimiter);
 app.use('/api/shared/:token', sharedPlaylistLimiter);
@@ -132,6 +192,7 @@ app.use('/api', require('./routes/epg'));
 app.use('/api', require('./routes/export'));
 app.use('/api', require('./routes/playlists'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/', require('./routes/xtreamOutput'));
 
 // Client-side routing: serve index.html for non-API routes
 // 404 handler for unknown API routes
