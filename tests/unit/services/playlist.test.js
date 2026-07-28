@@ -1,7 +1,10 @@
 const mockDb = jest.fn();
 mockDb.fn = { now: jest.fn(() => 'NOW') };
 mockDb.raw = jest.fn((sql) => sql);
+mockDb.transaction = jest.fn();
 jest.mock('../../../src/config/database', () => mockDb);
+const mockRemoveChannelLogos = jest.fn().mockResolvedValue();
+jest.mock('../../../src/utils/logoStorage', () => ({ removeChannelLogos: mockRemoveChannelLogos }));
 
 const playlistService = require('../../../src/services/PlaylistService');
 
@@ -57,5 +60,34 @@ describe('PlaylistService', () => {
   test('does not reveal whether another user owns a playlist', async () => {
     mockDb.mockReturnValue(builder({ first: undefined }));
     await expect(playlistService.delete('user-1', 'foreign')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  test('removes playlist channel logos only after the delete transaction commits', async () => {
+    const playlist = builder({ first: { id: 'p1', user_id: 'user-1' } });
+    mockDb.mockReturnValue(playlist);
+    const channels = builder({ rows: [{ id: 'c1' }, { id: 'c2' }] });
+    const deletedPlaylist = builder();
+    const events = [];
+    const trx = jest.fn((table) => table === 'channels' ? channels : deletedPlaylist);
+    mockDb.transaction.mockImplementation(async (callback) => {
+      const result = await callback(trx);
+      events.push('commit');
+      return result;
+    });
+    mockRemoveChannelLogos.mockImplementationOnce(async (ids) => events.push(`remove:${ids.join(',')}`));
+
+    await playlistService.delete('user-1', 'p1');
+
+    expect(events).toEqual(['commit', 'remove:c1,c2']);
+    expect(deletedPlaylist.del).toHaveBeenCalled();
+  });
+
+  test('keeps playlist logos when the delete transaction rolls back', async () => {
+    mockDb.mockReturnValue(builder({ first: { id: 'p1', user_id: 'user-1' } }));
+    mockDb.transaction.mockRejectedValueOnce(new Error('rollback'));
+
+    await expect(playlistService.delete('user-1', 'p1')).rejects.toThrow('rollback');
+
+    expect(mockRemoveChannelLogos).not.toHaveBeenCalled();
   });
 });

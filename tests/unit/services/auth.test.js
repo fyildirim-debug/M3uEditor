@@ -9,6 +9,8 @@ const { hashToken } = require('../../../src/utils/crypto');
 const mockKnex = jest.fn();
 mockKnex.fn = { now: jest.fn(() => 'NOW') };
 jest.mock('../../../src/config/database', () => mockKnex);
+const mockRemoveChannelLogos = jest.fn().mockResolvedValue();
+jest.mock('../../../src/utils/logoStorage', () => ({ removeChannelLogos: mockRemoveChannelLogos }));
 
 // Require AuthService AFTER mocking database
 const authService = require('../../../src/services/AuthService');
@@ -158,6 +160,65 @@ describe('AuthService', () => {
       expect(pendingDelivery.catch).toHaveBeenCalledTimes(1);
       expect(pendingDelivery.then).not.toHaveBeenCalled();
       sendSpy.mockRestore();
+    });
+  });
+
+  describe('deleteAccount', () => {
+    function mockAccountDeletion(channelBatches, events = []) {
+      const passwordHash = bcrypt.hashSync('correct-password', 4);
+      mockKnex.mockImplementation((table) => {
+        if (table !== 'users') throw new Error(`Unexpected table outside transaction: ${table}`);
+        return { where: jest.fn().mockReturnThis(), first: jest.fn().mockResolvedValue({ id: 'user-1', password_hash: passwordHash }) };
+      });
+
+      const batches = [...channelBatches, []];
+      const trx = jest.fn((table) => {
+        if (table === 'channels') {
+          const query = {};
+          for (const method of ['join', 'where', 'select', 'orderBy', 'limit', 'andWhere']) query[method] = jest.fn(() => query);
+          query.then = (resolve, reject) => Promise.resolve(batches.shift()).then(resolve, reject);
+          return query;
+        }
+        if (table === 'playlists') {
+          const query = { where: jest.fn(), select: jest.fn(), forUpdate: jest.fn() };
+          query.where.mockReturnValue(query);
+          query.select.mockReturnValue(query);
+          query.forUpdate.mockResolvedValue([]);
+          return query;
+        }
+        const query = { where: jest.fn(), forUpdate: jest.fn(), first: jest.fn(), del: jest.fn() };
+        query.where.mockReturnValue(query);
+        query.forUpdate.mockReturnValue(query);
+        query.first.mockResolvedValue({ id: 'user-1' });
+        query.del.mockResolvedValue(1);
+        return query;
+      });
+      mockKnex.transaction = jest.fn(async (callback) => {
+        const result = await callback(trx);
+        events.push('commit');
+        return result;
+      });
+      return trx;
+    }
+
+    it('spools channel ids in bounded batches and cleans logos after commit', async () => {
+      const events = [];
+      const firstBatch = Array.from({ length: 1000 }, (_, index) => ({ id: `channel-${String(index).padStart(4, '0')}` }));
+      mockAccountDeletion([firstBatch, [{ id: 'channel-1000' }]], events);
+      mockRemoveChannelLogos.mockImplementation(async (ids) => events.push(`remove:${ids.length}`));
+
+      await expect(authService.deleteAccount('user-1', 'correct-password')).resolves.toEqual({ success: true });
+
+      expect(events).toEqual(['commit', 'remove:1000', 'remove:1']);
+    });
+
+    it('keeps account logos when the delete transaction rolls back', async () => {
+      mockAccountDeletion([]);
+      mockKnex.transaction.mockRejectedValueOnce(new Error('rollback'));
+
+      await expect(authService.deleteAccount('user-1', 'correct-password')).rejects.toThrow('rollback');
+
+      expect(mockRemoveChannelLogos).not.toHaveBeenCalled();
     });
   });
 

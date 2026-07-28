@@ -1,10 +1,18 @@
 const db = require('../config/database');
 const { createAppError } = require('../utils/AppError');
+const { removeChannelLogos } = require('../utils/logoStorage');
 
 const { validateRegex, validateChannelUpdates, CHANNEL_FIELD_LIMITS } = require('../utils/validation');
 
 // Yazilabilir alan listesi ve sinirlari validateChannelUpdates icinde tanimli.
 const MAX_RENAME_TERM_BYTES = 1000;
+
+function shouldRemoveLocalLogo(previousLogoUrl, nextLogoUrl) {
+  return typeof previousLogoUrl === 'string'
+    && previousLogoUrl.startsWith('/logos/')
+    && previousLogoUrl !== nextLogoUrl
+    && !(typeof nextLogoUrl === 'string' && nextLogoUrl.startsWith('/logos/'));
+}
 
 class ChannelService {
   /**
@@ -137,6 +145,10 @@ class ChannelService {
       await db('channels').where('id', channelId).update(filtered);
     }
 
+    if (filtered.logo_url !== undefined && shouldRemoveLocalLogo(ownedChannel.logo_url, filtered.logo_url)) {
+      await removeChannelLogos([ownedChannel.id]);
+    }
+
     const channel = await db('channels').where('id', channelId).first();
     return channel;
   }
@@ -237,7 +249,7 @@ class ChannelService {
       .join('playlists', 'channels.playlist_id', 'playlists.id')
       .whereIn('channels.id', channelIds)
       .andWhere('playlists.user_id', userId)
-      .select('channels.id', 'channels.playlist_id');
+      .select('channels.id', 'channels.playlist_id', 'channels.logo_url');
 
     if (ownedChannels.length !== channelIds.length) {
       throw createAppError('NOT_FOUND');
@@ -257,6 +269,12 @@ class ChannelService {
     const updated = await db('channels')
       .whereIn('id', channelIds)
       .update(filtered);
+
+    if (filtered.logo_url !== undefined) {
+      await removeChannelLogos(ownedChannels
+        .filter((channel) => shouldRemoveLocalLogo(channel.logo_url, filtered.logo_url))
+        .map((channel) => channel.id));
+    }
 
     return { updated };
   }
@@ -335,6 +353,7 @@ class ChannelService {
       await trx('channels').where('id', channelId).del();
       await this._compactSortOrder(trx, playlistId);
     });
+    await removeChannelLogos([channel.id]);
   }
 
   async bulkDelete(userId, channelIds) {
@@ -351,6 +370,7 @@ class ChannelService {
         await this._compactSortOrder(trx, playlistId);
       }
     });
+    await removeChannelLogos(owned.map((channel) => channel.id));
     return { deleted: channelIds.length };
   }
 

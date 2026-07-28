@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
 const { createAppError } = require('../utils/AppError');
+const { removeChannelLogos } = require('../utils/logoStorage');
 
 class PlaylistService {
   /**
@@ -103,7 +104,12 @@ class PlaylistService {
       throw createAppError('NOT_FOUND');
     }
 
-    await db('playlists').where('id', playlistId).del();
+    const channelIds = await db.transaction(async (trx) => {
+      const channels = await trx('channels').where({ playlist_id: playlist.id }).select('id');
+      await trx('playlists').where('id', playlist.id).del();
+      return channels.map((channel) => channel.id);
+    });
+    await removeChannelLogos(channelIds);
   }
 }
 

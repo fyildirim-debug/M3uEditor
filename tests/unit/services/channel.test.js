@@ -3,6 +3,8 @@ mockDb.fn = { now: jest.fn(() => 'NOW') };
 mockDb.transaction = jest.fn();
 mockDb.raw = jest.fn();
 jest.mock('../../../src/config/database', () => mockDb);
+const mockRemoveChannelLogos = jest.fn().mockResolvedValue();
+jest.mock('../../../src/utils/logoStorage', () => ({ removeChannelLogos: mockRemoveChannelLogos }));
 
 const channelService = require('../../../src/services/ChannelService');
 
@@ -38,6 +40,26 @@ describe('ChannelService', () => {
     expect(updatePayload).toEqual(expect.objectContaining({ name: 'New' }));
     expect(updatePayload).not.toHaveProperty('epg_channel_id');
     expect(updatePayload).not.toHaveProperty('epg_source_id');
+  });
+
+  test('removes a local logo after it is replaced by an external URL', async () => {
+    const owned = builder({ first: { id: 'c1', playlist_id: 'p1', logo_url: '/logos/c1.png' } });
+    mockDb.mockReturnValue(owned);
+
+    await channelService.update('user-1', 'c1', { logo_url: 'https://cdn.example/logo.png' });
+
+    expect(owned.update).toHaveBeenCalled();
+    expect(mockRemoveChannelLogos).toHaveBeenCalledWith(['c1']);
+    expect(owned.update.mock.invocationCallOrder[0]).toBeLessThan(mockRemoveChannelLogos.mock.invocationCallOrder[0]);
+  });
+
+  test('does not remove a newly uploaded local logo when its extension changes', async () => {
+    const owned = builder({ first: { id: 'c1', playlist_id: 'p1', logo_url: '/logos/c1.png' } });
+    mockDb.mockReturnValue(owned);
+
+    await channelService.update('user-1', 'c1', { logo_url: '/logos/c1.webp' });
+
+    expect(mockRemoveChannelLogos).not.toHaveBeenCalled();
   });
 
   test('rejects bulk moves across playlist boundaries', async () => {
@@ -100,6 +122,31 @@ describe('ChannelService', () => {
     expect(raw).toHaveBeenCalledTimes(1);
     expect(raw.mock.calls[0][0]).toContain('ROW_NUMBER() OVER');
     expect(raw.mock.calls[0][1]).toEqual(['p1']);
+    expect(mockRemoveChannelLogos).toHaveBeenCalledWith(['c1']);
+  });
+
+  test('does not remove channel logos when the delete transaction rolls back', async () => {
+    const owned = builder({ first: { id: 'c1', playlist_id: 'p1' } });
+    mockDb.mockReturnValue(owned);
+    mockDb.transaction.mockRejectedValueOnce(new Error('rollback'));
+
+    await expect(channelService.delete('user-1', 'c1')).rejects.toThrow('rollback');
+
+    expect(mockRemoveChannelLogos).not.toHaveBeenCalled();
+  });
+
+  test('bulk updates remove only local logos replaced by an external URL', async () => {
+    const channels = builder({ rows: [
+      { id: 'c1', playlist_id: 'p1', logo_url: '/logos/c1.png' },
+      { id: 'c2', playlist_id: 'p1', logo_url: 'https://cdn.example/old.png' },
+    ] });
+    channels.update.mockResolvedValue(2);
+    mockDb.mockReturnValue(channels);
+
+    await expect(channelService.bulkUpdate('user-1', ['c1', 'c2'], { logo_url: 'https://cdn.example/new.png' }))
+      .resolves.toEqual({ updated: 2 });
+
+    expect(mockRemoveChannelLogos).toHaveBeenCalledWith(['c1']);
   });
 
   describe('relative channel ordering', () => {

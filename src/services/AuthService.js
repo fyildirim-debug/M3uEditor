@@ -1,15 +1,21 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const readline = require('readline');
 const db = require('../config/database');
 const jwtConfig = require('../config/jwt');
 const logger = require('../config/logger');
 const { hashToken } = require('../utils/crypto');
 const { createAppError } = require('../utils/AppError');
+const { removeChannelLogos } = require('../utils/logoStorage');
 
 const SALT_ROUNDS = 12;
 const REFRESH_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('m3u-editor-dummy-password', SALT_ROUNDS);
+const ACCOUNT_LOGO_BATCH_SIZE = 1000;
 
 class AuthService {
   async register(email, password, metadata = {}) {
@@ -156,8 +162,60 @@ class AuthService {
     if (!(await bcrypt.compare(password, user.password_hash))) {
       throw createAppError('INVALID_CREDENTIALS', 'Şifre yanlış');
     }
-    await db('users').where({ id: userId }).del();
-    return { success: true };
+    const queuePath = path.join(os.tmpdir(), `m3u-logo-cleanup-${crypto.randomUUID()}.txt`);
+    let queueHandle;
+    try {
+      queueHandle = await fs.promises.open(queuePath, 'wx', 0o600);
+      await db.transaction(async (trx) => {
+        const lockedUser = await trx('users').where({ id: userId }).forUpdate().first();
+        if (!lockedUser) throw createAppError('NOT_FOUND');
+        await trx('playlists').where({ user_id: userId }).select('id').forUpdate();
+
+        let lastChannelId = null;
+        while (true) {
+          const query = trx('channels')
+            .join('playlists', 'channels.playlist_id', 'playlists.id')
+            .where('playlists.user_id', userId)
+            .select('channels.id')
+            .orderBy('channels.id', 'asc')
+            .limit(ACCOUNT_LOGO_BATCH_SIZE);
+          if (lastChannelId !== null) query.andWhere('channels.id', '>', lastChannelId);
+
+          const channels = await query;
+          if (channels.length === 0) break;
+          await queueHandle.write(`${channels.map((channel) => channel.id).join('\n')}\n`);
+          lastChannelId = channels[channels.length - 1].id;
+        }
+        await queueHandle.close();
+        queueHandle = null;
+        await trx('users').where({ id: userId }).del();
+      });
+
+      try {
+        const lines = readline.createInterface({
+          input: fs.createReadStream(queuePath, { encoding: 'utf8' }),
+          crlfDelay: Infinity,
+        });
+        let batch = [];
+        for await (const channelId of lines) {
+          if (!channelId) continue;
+          batch.push(channelId);
+          if (batch.length === ACCOUNT_LOGO_BATCH_SIZE) {
+            await removeChannelLogos(batch);
+            batch = [];
+          }
+        }
+        if (batch.length > 0) await removeChannelLogos(batch);
+      } catch (error) {
+        logger.warn({ err: error, userId }, 'Committed account logo cleanup could not be completed');
+      }
+      return { success: true };
+    } finally {
+      if (queueHandle) await queueHandle.close().catch(() => {});
+      await fs.promises.unlink(queuePath).catch((error) => {
+        if (error.code !== 'ENOENT') logger.warn({ err: error, userId }, 'Account logo cleanup queue could not be removed');
+      });
+    }
   }
 
   async getProfile(userId) {

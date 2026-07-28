@@ -1,5 +1,4 @@
 const fs = require('fs').promises;
-const path = require('path');
 const { v4: uuidv4, validate: validateUuid } = require('uuid');
 const db = require('../config/database');
 const config = require('../config');
@@ -9,6 +8,7 @@ const { createAppError } = require('../utils/AppError');
 const { decrypt } = require('../utils/crypto');
 const { requestBuffer } = require('../utils/safeFetch');
 const { parsePagination, validateIdArray } = require('../utils/validation');
+const { getChannelLogoFilename, getChannelLogoPath, removeChannelLogoVariants } = require('../utils/logoStorage');
 
 async function listChannels(req, res, next) {
   try {
@@ -101,16 +101,12 @@ async function uploadLogo(req, res, next) {
       throw createAppError('VALIDATION_ERROR', 'Dosya içeriği bildirilen resim türüyle eşleşmiyor');
     }
 
-    const channelId = req.params.id;
-    await channelService._verifyChannelOwnership(req.userId, channelId);
+    const ownedChannel = await channelService._verifyChannelOwnership(req.userId, req.params.id);
+    const channelId = ownedChannel.id;
     await fs.mkdir(config.uploadDir, { recursive: true });
-    const filename = `${channelId}.${detectedExt}`;
-    await fs.writeFile(path.join(config.uploadDir, filename), imageBuffer, { flag: 'w', mode: 0o640 });
-    await Promise.all(['png', 'jpg', 'gif', 'webp']
-      .filter((extension) => extension !== detectedExt)
-      .map((extension) => fs.unlink(path.join(config.uploadDir, `${channelId}.${extension}`)).catch((error) => {
-        if (error.code !== 'ENOENT') throw error;
-      })));
+    const filename = getChannelLogoFilename(channelId, detectedExt);
+    await fs.writeFile(getChannelLogoPath(channelId, detectedExt), imageBuffer, { flag: 'w', mode: 0o640 });
+    await removeChannelLogoVariants(channelId, detectedExt);
     res.json(await channelService.update(req.userId, channelId, { logo_url: `/logos/${filename}` }));
   } catch (error) { next(error); }
 }
