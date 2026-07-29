@@ -2,6 +2,14 @@
 
 A self-hosted IPTV playlist manager for importing, editing, organizing, exporting, and sharing M3U/Xtream playlists. It includes a responsive Vue interface, XMLTV guide support, multi-user isolation, and a production Docker stack.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-22%2B-43853d.svg)](https://nodejs.org/)
+[![Vue 3](https://img.shields.io/badge/Vue-3.5-42b883.svg)](https://vuejs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13%2B-336791.svg)](https://www.postgresql.org/)
+[![100% Free](https://img.shields.io/badge/100%25-FREE-success.svg)](#)
+
+![M3U Playlist Editor – Landing](screenshot/main.png)
+
 ## Release notes
 
 Every release is documented in [CHANGELOG.md](CHANGELOG.md), including the audit
@@ -16,6 +24,48 @@ finding each change closes.
 - Short-lived access tokens with rotating HttpOnly refresh sessions
 - Turkish and English interface, light/dark/system themes, keyboard navigation, and mobile layouts
 - PostgreSQL migrations, structured logs, health checks, CI, and hardened containers
+
+## Screenshots
+
+### Landing page
+Clean entry page with theme-aware hero, language switcher and direct GitHub link.
+
+![Landing page](screenshot/main.png)
+
+### My Playlists
+Dashboard showing all playlists with channel counts, stream-type badges (LIVE / VOD / SERIES), creation dates and quick actions for editing or deleting.
+
+![Playlists dashboard](screenshot/playlists.png)
+
+### Xtream Codes import
+One-step connect flow. Auto-fills server URL, username and password by parsing a regular `get.php?...` M3U URL, or fill the fields manually. Pick which content types to pull.
+
+![Xtream Codes import](screenshot/addplaylists.png)
+
+### Channel Editor (Live)
+Three-pane editor: stream-type sidebar, category list, channels table, and an edit panel for the selected channel (logo upload, EPG ID, stream URL, category).
+
+![Channel editor – Live channels](screenshot/editor.png)
+
+### Movie Editor (VOD)
+The same editor specialized for movies — separate categories, channel-count badges per category, and a metadata "Fetch Info" action that hydrates titles from external sources.
+
+![Movie editor](screenshot/movieeditor.png)
+
+### EPG Editor
+Multi-day TV-guide grid. Add XMLTV sources, auto-match channels by `tvg-id`, then visually inspect the programme schedule per channel.
+
+![EPG editor](screenshot/epgeditor.png)
+
+### Drag-and-drop sorting
+Reorder categories on the left, then drag channels on the right. Order is persisted instantly.
+
+![Sorting view](screenshot/shorting.png)
+
+### Account settings
+Profile summary, theme switcher (System / Dark / Light) and password change.
+
+![Account settings](screenshot/account.png)
 
 ## Requirements
 
@@ -201,6 +251,7 @@ src/
   services/           Authentication, import, EPG, and domain logic
   utils/              Encryption, SSRF-safe fetch, and validation
 frontend/src/         Vue application
+screenshot/           UI screenshots used in this README
 tests/                Jest unit and property tests
 ```
 
