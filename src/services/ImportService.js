@@ -10,6 +10,9 @@ const CHANNEL_BATCH_SIZE = 1000;
 const CATEGORY_BATCH_SIZE = 1000;
 const DELETE_BATCH_SIZE = 5000;
 const VALID_STREAM_TYPES = new Set(['live', 'vod', 'series']);
+const PROVIDER_EXTRA_KEYS_SQL = `ARRAY[
+  'stream_id', 'stream_type', 'rating', 'genre', 'plot', 'year', 'tmdb_id', 'container_extension'
+]::text[]`;
 
 function throwIfCancelled(jobContext) {
   const signal = jobContext?.signal;
@@ -60,6 +63,7 @@ class ImportService {
         ...(channel.plot && { plot: channel.plot }),
         ...(channel.year && { year: channel.year }),
         ...(channel.tmdb_id && { tmdb_id: channel.tmdb_id }),
+        container_extension: channel.container_extension || 'ts',
         metadata_fetched: false,
       }),
     };
@@ -394,17 +398,22 @@ class ImportService {
   async _bulkUpsertChannels(playlistId, channelRecords, onProgress, connection = db, jobContext) {
     throwIfCancelled(jobContext);
     const uniqueRecords = [...new Map(channelRecords.map((record) => [`${record.stream_type}:${record.source_id || record.stream_url}`, record])).values()];
+    // EXCLUDED carries the provider snapshot. Overlay only the existing non-provider keys so
+    // application metadata (including future keys) survives sync; replacing extras here used
+    // to silently reset metadata_fetched and discard fetched posters, cast, and similar data.
+    const mergedExtrasSql = `COALESCE(EXCLUDED.extras, '{}'::jsonb)
+          || (COALESCE(channels.extras, '{}'::jsonb) - ${PROVIDER_EXTRA_KEYS_SQL})`;
     const conflictClause = channelRecords.some((record) => record.source_id)
       ? `ON CONFLICT (playlist_id, stream_type, source_id) WHERE source_id IS NOT NULL DO UPDATE SET
           original_name = EXCLUDED.original_name, original_logo_url = EXCLUDED.original_logo_url,
           stream_url = EXCLUDED.stream_url, category_id = EXCLUDED.category_id, sort_order = EXCLUDED.sort_order,
-          extras = EXCLUDED.extras, updated_at = NOW(),
+          extras = ${mergedExtrasSql}, updated_at = NOW(),
           epg_channel_id = COALESCE(channels.epg_channel_id, EXCLUDED.epg_channel_id),
           name = CASE WHEN channels.name IS NOT DISTINCT FROM channels.original_name THEN EXCLUDED.name ELSE channels.name END,
           logo_url = CASE WHEN channels.logo_url IS NOT DISTINCT FROM channels.original_logo_url THEN EXCLUDED.logo_url ELSE channels.logo_url END`
       : `ON CONFLICT (playlist_id, stream_url) DO UPDATE SET
           original_name = EXCLUDED.original_name, original_logo_url = EXCLUDED.original_logo_url,
-          category_id = EXCLUDED.category_id, sort_order = EXCLUDED.sort_order, extras = EXCLUDED.extras, updated_at = NOW(),
+          category_id = EXCLUDED.category_id, sort_order = EXCLUDED.sort_order, extras = ${mergedExtrasSql}, updated_at = NOW(),
           name = CASE WHEN channels.name IS NOT DISTINCT FROM channels.original_name THEN EXCLUDED.name ELSE channels.name END,
           logo_url = CASE WHEN channels.logo_url IS NOT DISTINCT FROM channels.original_logo_url THEN EXCLUDED.logo_url ELSE channels.logo_url END`;
 

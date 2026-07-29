@@ -76,6 +76,9 @@ describe('ImportService', () => {
       playlist_id: 'playlist-1', source_id: '42', category_id: 'category-1', sort_order: 3,
     }));
     expect(client.buildStreamUrl).toHaveBeenCalledWith('live', 42, 'ts');
+    expect(JSON.parse(record.extras)).toEqual(expect.objectContaining({
+      stream_id: 42, stream_type: 'live', container_extension: 'ts', metadata_fetched: false,
+    }));
     expect(record.extras).not.toContain('password');
   });
 
@@ -297,6 +300,67 @@ describe('ImportService', () => {
     expect(insertedBatchSizes).toEqual([1000, 1000, 501]);
     expect(connection.raw).toHaveBeenCalledTimes(3);
     expect(onProgress).toHaveBeenLastCalledWith({ processed: 2501, total: 2501 });
+  });
+
+  test.each([
+    ['Xtream source identity', 'source-42'],
+    ['M3U stream URL identity', null],
+  ])('preserves application metadata while refreshing provider extras for %s', async (_label, sourceId) => {
+    const rawQueries = [];
+    const connection = jest.fn(() => ({
+      insert: jest.fn(() => ({
+        toSQL: () => ({ sql: 'insert into channels', bindings: [] }),
+      })),
+    }));
+    connection.raw = jest.fn(async (sql) => { rawQueries.push(sql); });
+    const incomingExtras = {
+      stream_id: 42,
+      stream_type: 'vod',
+      genre: 'Fresh provider genre',
+      container_extension: 'mkv',
+      metadata_fetched: false,
+    };
+
+    await service._bulkUpsertChannels('playlist-1', [{
+      id: 'channel-1',
+      playlist_id: 'playlist-1',
+      source_id: sourceId,
+      stream_type: 'vod',
+      stream_url: 'https://stream/42',
+      extras: JSON.stringify(incomingExtras),
+    }], null, connection);
+
+    const sql = rawQueries[0];
+    expect(sql).toContain("extras = COALESCE(EXCLUDED.extras, '{}'::jsonb)");
+    expect(sql).toContain("|| (COALESCE(channels.extras, '{}'::jsonb) - ARRAY[");
+    const providerKeys = new Set(sql.match(/ARRAY\[([\s\S]*?)\]::text\[\]/)[1]
+      .match(/'[^']+'/g)
+      .map((key) => key.slice(1, -1)));
+    const existingExtras = {
+      stream_id: 42,
+      stream_type: 'vod',
+      genre: 'Old provider genre',
+      metadata_fetched: true,
+      poster_url: 'https://images/poster.jpg',
+      cast: 'Actor One, Actor Two',
+      future_application_field: 'keep me',
+    };
+    // Mirrors PostgreSQL's EXCLUDED || (channels.extras - provider_keys) expression.
+    const preservedApplicationExtras = Object.fromEntries(
+      Object.entries(existingExtras).filter(([key]) => !providerKeys.has(key))
+    );
+    const mergedExtras = { ...incomingExtras, ...preservedApplicationExtras };
+
+    expect(mergedExtras).toEqual(expect.objectContaining({
+      genre: 'Fresh provider genre',
+      metadata_fetched: true,
+      poster_url: 'https://images/poster.jpg',
+      cast: 'Actor One, Actor Two',
+      future_application_field: 'keep me',
+    }));
+    expect(providerKeys).toEqual(new Set([
+      'stream_id', 'stream_type', 'rating', 'genre', 'plot', 'year', 'tmdb_id', 'container_extension',
+    ]));
   });
 
   test('sync rejects playlists with no saved provider credentials', async () => {
