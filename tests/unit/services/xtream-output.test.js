@@ -25,6 +25,7 @@ function resultQuery(value) {
     leftJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
     whereNull: jest.fn().mockReturnThis(),
+    orWhere: jest.fn().mockReturnThis(),
     distinct: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
@@ -138,7 +139,9 @@ describe('XtreamOutputService', () => {
       stream_type: 'vod',
       category_xtream_id: '41',
     }];
-    mockDb.mockReturnValueOnce(resultQuery(categoryRows)).mockReturnValueOnce(resultQuery(vodRows));
+    const categoriesQuery = resultQuery(categoryRows);
+    const streamsQuery = resultQuery(vodRows);
+    mockDb.mockReturnValueOnce(categoriesQuery).mockReturnValueOnce(streamsQuery);
 
     await expect(xtreamOutputService.getCategories('playlist-1', 'vod')).resolves.toEqual([
       { category_id: '41', category_name: 'Movies', parent_id: 0 },
@@ -155,6 +158,14 @@ describe('XtreamOutputService', () => {
         rating_5based: '4.2',
       }),
     ]);
+    expect(categoriesQuery.where).toHaveBeenCalledWith(expect.objectContaining({
+      'categories.is_hidden': false,
+    }));
+    const visibilityFilter = streamsQuery.where.mock.calls.find(([argument]) => typeof argument === 'function');
+    expect(visibilityFilter).toBeDefined();
+    visibilityFilter[0].call(streamsQuery);
+    expect(streamsQuery.whereNull).toHaveBeenCalledWith('channels.category_id');
+    expect(streamsQuery.orWhere).toHaveBeenCalledWith('categories.is_hidden', false);
   });
 
   test('returns one playable synthetic episode for a series row', async () => {

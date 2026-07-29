@@ -15,6 +15,9 @@ function chainable(overrides = {}) {
     join: jest.fn().mockReturnThis(),
     leftJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
+    whereNull: jest.fn().mockReturnThis(),
+    orWhere: jest.fn().mockReturnThis(),
+    orWhereNotIn: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
@@ -84,24 +87,23 @@ describe('ExportService', () => {
       expect(result.indexOf('Spor TV')).toBeLessThan(result.indexOf('Haber TV'));
     });
 
-    it('keeps uncategorized channels when other categories are excluded', async () => {
+    it('keeps uncategorized channels when hidden and explicitly excluded categories are filtered', async () => {
       const playlistChain = chainable({ first: jest.fn().mockResolvedValue({ id: 'pl-1', user_id: 'user-1' }) });
       const channelsChain = chainable();
       channelsChain.orderBy = jest.fn().mockResolvedValue([]);
-      channelsChain.whereNull = jest.fn().mockReturnThis();
-      channelsChain.orWhereNotIn = jest.fn().mockReturnThis();
       channelsChain.whereNotIn = jest.fn().mockReturnThis();
 
       mockKnex.mockImplementation((table) => (table === 'playlists' ? playlistChain : channelsChain));
 
       await exportService.exportAsM3U('user-1', 'pl-1', ['cat-1']);
 
-      // Haric tutma bir grup kosuluyla uygulanmali: tek basina NOT IN,
-      // category_id NULL olan (kategorisiz) satirlari da eler.
-      const grouped = channelsChain.where.mock.calls.find(([arg]) => typeof arg === 'function');
-      expect(grouped).toBeDefined();
-      grouped[0].call(channelsChain);
-      expect(channelsChain.whereNull).toHaveBeenCalledWith('channels.category_id');
+      // Both visibility and explicit exclusion must be grouped with a NULL arm;
+      // otherwise SQL's NULL semantics would remove uncategorized channels.
+      const grouped = channelsChain.where.mock.calls.filter(([arg]) => typeof arg === 'function');
+      expect(grouped).toHaveLength(2);
+      for (const [callback] of grouped) callback.call(channelsChain);
+      expect(channelsChain.whereNull).toHaveBeenCalledTimes(2);
+      expect(channelsChain.orWhere).toHaveBeenCalledWith('categories.is_hidden', false);
       expect(channelsChain.orWhereNotIn).toHaveBeenCalledWith('channels.category_id', ['cat-1']);
       expect(channelsChain.whereNotIn).not.toHaveBeenCalled();
     });

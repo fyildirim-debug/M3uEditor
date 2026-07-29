@@ -42,9 +42,11 @@ class XMLTVExportService {
           ec.id AS epg_channel_uuid
         FROM channels AS c
         JOIN playlists AS pl ON pl.id = c.playlist_id
+        LEFT JOIN categories AS cat ON cat.id = c.category_id
         JOIN epg_channels AS ec ON ec.channel_id = c.epg_channel_id
         JOIN epg_sources AS es ON es.id = ec.source_id AND es.user_id = pl.user_id
         WHERE c.playlist_id = ?
+          AND (c.category_id IS NULL OR cat.is_hidden = FALSE)
           AND c.epg_channel_id IS NOT NULL
           AND c.epg_channel_id <> ''
           AND (c.epg_source_id IS NULL OR ec.source_id = c.epg_source_id)

@@ -19,10 +19,12 @@ describe('CategoryService', () => {
 
   test('verifies playlist ownership before listing categories with counts', async () => {
     const playlist = builder({ first: { id: 'p1', user_id: 'user-1' } });
-    const categories = builder({ rows: [{ id: 'c1', name: 'News', channel_count: 3 }] });
+    const categories = builder({ rows: [{ id: 'c1', name: 'News', is_hidden: true, channel_count: 3 }] });
     mockDb.mockImplementation((table) => table === 'playlists' ? playlist : categories);
 
-    await expect(categoryService.list('user-1', 'p1')).resolves.toEqual([expect.objectContaining({ channel_count: 3 })]);
+    await expect(categoryService.list('user-1', 'p1')).resolves.toEqual([
+      expect.objectContaining({ is_hidden: true, channel_count: 3 }),
+    ]);
     expect(playlist.where).toHaveBeenCalledWith({ id: 'p1', user_id: 'user-1' });
     expect(categories.orderBy).toHaveBeenCalledWith('categories.sort_order', 'asc');
   });
@@ -37,7 +39,18 @@ describe('CategoryService', () => {
 
   test('rejects categories outside the authenticated tenant', async () => {
     mockDb.mockReturnValue(builder({ first: undefined }));
-    await expect(categoryService.update('user-1', 'foreign', 'Name')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(categoryService.update('user-1', 'foreign', { name: 'Name' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  test('persists category visibility after verifying ownership', async () => {
+    const ownership = builder({ first: { id: 'c1', playlist_id: 'p1', is_hidden: false } });
+    const update = builder();
+    const fetch = builder({ first: { id: 'c1', playlist_id: 'p1', is_hidden: true } });
+    mockDb.mockReturnValueOnce(ownership).mockReturnValueOnce(update).mockReturnValueOnce(fetch);
+
+    await expect(categoryService.update('user-1', 'c1', { is_hidden: true }))
+      .resolves.toMatchObject({ id: 'c1', is_hidden: true });
+    expect(update.update).toHaveBeenCalledWith({ is_hidden: true });
   });
 
   describe('relative category ordering', () => {

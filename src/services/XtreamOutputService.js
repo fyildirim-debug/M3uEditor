@@ -240,6 +240,7 @@ class XtreamOutputService {
       .join('channels', 'channels.category_id', 'categories.id')
       .where({
         'categories.playlist_id': playlistId,
+        'categories.is_hidden': false,
         'channels.playlist_id': playlistId,
         'channels.stream_type': streamType,
       })
@@ -257,7 +258,10 @@ class XtreamOutputService {
   async _streamRows(playlistId, streamType, requestedCategoryId) {
     let query = db('channels')
       .leftJoin('categories', 'channels.category_id', 'categories.id')
-      .where({ 'channels.playlist_id': playlistId, 'channels.stream_type': streamType });
+      .where({ 'channels.playlist_id': playlistId, 'channels.stream_type': streamType })
+      .where(function () {
+        this.whereNull('channels.category_id').orWhere('categories.is_hidden', false);
+      });
 
     if (requestedCategoryId !== undefined && requestedCategoryId !== null && requestedCategoryId !== '') {
       if (String(requestedCategoryId) === '0') query = query.whereNull('channels.category_id');
@@ -350,6 +354,9 @@ class XtreamOutputService {
         'channels.playlist_id': playlistId,
         'channels.stream_type': streamType,
         'channels.xtream_id': String(id),
+      })
+      .where(function () {
+        this.whereNull('channels.category_id').orWhere('categories.is_hidden', false);
       })
       .select(
         'channels.*',

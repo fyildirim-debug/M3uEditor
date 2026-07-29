@@ -85,12 +85,12 @@ class CategoryService {
   }
 
   /**
-   * Update a category's name.
+   * Update the editable fields of a category.
    */
-  async update(userId, categoryId, name) {
+  async update(userId, categoryId, updates) {
     await this._verifyCategoryOwnership(userId, categoryId);
 
-    await db('categories').where('id', categoryId).update({ name });
+    await db('categories').where('id', categoryId).update(updates);
 
     const category = await db('categories').where('id', categoryId).first();
     return category;

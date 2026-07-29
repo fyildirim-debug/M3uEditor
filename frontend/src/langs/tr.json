@@ -204,6 +204,8 @@
     "channelsAvailable": "{count} kanal mevcut",
     "showCategory": "Göster",
     "hideCategory": "Gizle",
+    "hiddenCategoryBadge": "Gizli",
+    "hiddenCategoryHint": "Bu kategori M3U, paylaşım bağlantısı, Xtream ve XMLTV çıktılarında gösterilmez.",
     "rename": "Yeniden Adlandır"
   },
   "editPanel": {

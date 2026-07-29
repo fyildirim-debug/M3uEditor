@@ -136,7 +136,7 @@
                       <span class="cat-sb-count">{{ totalChannelCount }}</span>
                     </div>
                     <div v-for="cat in categories" :key="cat.id" role="button" tabindex="0"
-                      :class="['cat-sb-item', { active: selectedCatId === cat.id, 'cat-sb-hidden': hiddenCats.has(cat.id) }]"
+                      :class="['cat-sb-item', { active: selectedCatId === cat.id, 'cat-sb-hidden': cat.is_hidden }]"
                       @click="selectCategory(cat.id)" @keydown.enter.space.self.prevent="selectCategory(cat.id)">
                       <input v-if="inlineEditCatId === cat.id"
                         class="cat-sb-input"
@@ -148,10 +148,11 @@
                         :aria-label="t('accessibility.editCategoryName', { name: cat.name })"
                         autofocus />
                       <span v-else class="cat-sb-name" @dblclick.stop="startInlineEdit(cat)">{{ cat.name }}</span>
+                      <span v-if="cat.is_hidden" class="cat-sb-hidden-badge" :title="t('editor.hiddenCategoryHint')">{{ t('editor.hiddenCategoryBadge') }}</span>
                       <span class="cat-sb-count">{{ cat.channel_count || 0 }}</span>
                       <div class="cat-sb-actions">
-                        <button class="cat-sb-btn" @click.stop="toggleCatHidden(cat.id)" :title="hiddenCats.has(cat.id) ? t('editor.showCategory') : t('editor.hideCategory')">
-                          <svg v-if="!hiddenCats.has(cat.id)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <button class="cat-sb-btn" @click.stop="toggleCatHidden(cat)" :title="cat.is_hidden ? t('editor.showCategory') : t('editor.hideCategory')" :aria-label="cat.is_hidden ? t('editor.showCategory') : t('editor.hideCategory')">
+                          <svg v-if="!cat.is_hidden" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                           <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                         </button>
                         <button class="cat-sb-btn" @click.stop="startInlineEdit(cat)" :title="t('editor.rename')">
@@ -1045,7 +1046,6 @@ const newCatName = ref('')
 const editingCat = ref(null)
 const editCatName = ref('')
 const deletingCat = ref(null)
-const hiddenCats = ref(new Set())
 const inlineEditCatId = ref(null)
 const inlineEditName = ref('')
 
@@ -1402,7 +1402,12 @@ async function updateCategory() {
   catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 function confirmDeleteCat(cat) { deletingCat.value = cat }
-function toggleCatHidden(catId) { const s = new Set(hiddenCats.value); s.has(catId) ? s.delete(catId) : s.add(catId); hiddenCats.value = s }
+async function toggleCatHidden(cat) {
+  try {
+    const { data } = await api.put(`/categories/${cat.id}`, { is_hidden: !cat.is_hidden })
+    categories.value = categories.value.map(item => item.id === cat.id ? { ...item, ...data } : item)
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+}
 function startInlineEdit(cat) { inlineEditCatId.value = cat.id; inlineEditName.value = cat.name }
 async function saveInlineEdit(cat) {
   if (!inlineEditName.value.trim() || inlineEditName.value === cat.name) { inlineEditCatId.value = null; return }
@@ -1632,11 +1637,9 @@ onUnmounted(() => { if (_nowTimer) clearInterval(_nowTimer) })
 
 async function doExport() {
   try {
-    const params = {}
-    if (hiddenCats.value.size > 0) params.excludeCategories = [...hiddenCats.value].join(',')
-    const { data } = await api.get(`/playlists/${playlistId}/export`, { responseType: 'blob', params })
+    const { data } = await api.get(`/playlists/${playlistId}/export`, { responseType: 'blob' })
     const url = URL.createObjectURL(new Blob([data])); const a = document.createElement('a'); a.href = url; a.download = 'playlist.m3u'; a.click(); URL.revokeObjectURL(url)
-    const hiddenCount = hiddenCats.value.size
+    const hiddenCount = categories.value.filter(cat => cat.is_hidden).length
     toast(hiddenCount > 0 ? t('toast.m3uDownloadedExcluded') : t('toast.m3uDownloaded'), 'success')
   } catch { toast(t('toast.downloadError'), 'error') }
 }
@@ -1805,8 +1808,9 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .cat-sb-item:hover { background: var(--bg-hover); color: var(--text-primary); }
 .cat-sb-item:hover .cat-sb-actions { opacity: 1; }
 .cat-sb-item.active { background: var(--accent-soft); color: var(--accent-hover); border-color: rgba(99,102,241,0.2); font-weight: 500; }
-.cat-sb-item.cat-sb-hidden { opacity: 0.45; }
+.cat-sb-item.cat-sb-hidden { opacity: 0.65; }
 .cat-sb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-sb-hidden-badge { font-size: 8px; color: var(--warning); background: var(--warning-soft); padding: 1px 4px; border-radius: 6px; flex-shrink: 0; }
 .cat-sb-count { font-size: 10px; color: var(--text-muted); background: var(--bg-tertiary); padding: 1px 6px; border-radius: 8px; flex-shrink: 0; }
 .cat-sb-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
 .cat-sb-btn {

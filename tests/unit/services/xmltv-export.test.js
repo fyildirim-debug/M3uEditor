@@ -57,6 +57,8 @@ describe('XMLTVExportService', () => {
     expect(xml).toContain('<programme start="20260728100000 +0000" stop="20260728110000 +0000" channel="guide.same.id">');
     expect(xml).toContain('Programme &lt;One&gt;');
     expect(mockDb().where).toHaveBeenCalledWith({ id: 'playlist-1', user_id: 'user-1' });
+    expect(mockDb.raw.mock.calls[0][0]).toContain('LEFT JOIN categories AS cat ON cat.id = c.category_id');
+    expect(mockDb.raw.mock.calls[0][0]).toContain('(c.category_id IS NULL OR cat.is_hidden = FALSE)');
     expect(mockDb.raw.mock.calls[1][0]).toContain('ANY(?::uuid[])');
   });
 

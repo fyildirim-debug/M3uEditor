@@ -204,6 +204,8 @@
     "channelsAvailable": "{count} channels available",
     "showCategory": "Show",
     "hideCategory": "Hide",
+    "hiddenCategoryBadge": "Hidden",
+    "hiddenCategoryHint": "This category is hidden from M3U, share-link, Xtream and XMLTV outputs.",
     "rename": "Rename"
   },
   "editPanel": {

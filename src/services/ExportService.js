@@ -34,7 +34,13 @@ class ExportService {
   async _getOrderedChannels(playlistId, excludeCategories = [], streamType = null) {
     let query = db('channels')
       .leftJoin('categories', 'channels.category_id', 'categories.id')
-      .where('channels.playlist_id', playlistId);
+      .where('channels.playlist_id', playlistId)
+      .where(function () {
+        // A NULL category remains output-visible. Writing this as a plain
+        // categories.is_hidden = false predicate would turn the LEFT JOIN into
+        // an effective INNER JOIN and silently drop uncategorized channels.
+        this.whereNull('channels.category_id').orWhere('categories.is_hidden', false);
+      });
 
     if (excludeCategories.length > 0) {
       // NOT IN, category_id NULL olan satirlar icin NULL dondurur; acik NULL

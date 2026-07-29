@@ -124,7 +124,20 @@ describe('Category Controller', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.name).toBe('Spor Kanalları');
-      expect(mockCategoryService.update).toHaveBeenCalledWith(USER_ID, CATEGORY_ID, 'Spor Kanalları');
+      expect(mockCategoryService.update).toHaveBeenCalledWith(USER_ID, CATEGORY_ID, { name: 'Spor Kanalları' });
+    });
+
+    it('should persist a category visibility change without requiring a name', async () => {
+      mockCategoryService.update.mockResolvedValue({ id: CATEGORY_ID, name: 'Spor', is_hidden: true });
+
+      const res = await request(app)
+        .put(`/api/categories/${CATEGORY_ID}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ is_hidden: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.is_hidden).toBe(true);
+      expect(mockCategoryService.update).toHaveBeenCalledWith(USER_ID, CATEGORY_ID, { is_hidden: true });
     });
 
     it('should return 400 for missing name', async () => {
@@ -135,6 +148,17 @@ describe('Category Controller', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should reject a non-boolean is_hidden value', async () => {
+      const res = await request(app)
+        .put(`/api/categories/${CATEGORY_ID}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ is_hidden: 'true' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(mockCategoryService.update).not.toHaveBeenCalled();
     });
 
     it('should return 401 without token', async () => {
