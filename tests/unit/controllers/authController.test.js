@@ -2,14 +2,50 @@ const request = require('supertest');
 
 // --- Mock the database module before requiring app ---
 const mockKnex = jest.fn();
+mockKnex.fn = { now: jest.fn(() => new Date()) };
 jest.mock('../../../src/config/database', () => mockKnex);
 
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const config = require('../../../src/config');
+const jwtConfig = require('../../../src/config/jwt');
 const app = require('../../../src/app');
+const authController = require('../../../src/controllers/authController');
+const authRouter = require('../../../src/routes/auth');
 
 describe('Auth Controller', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    config.allowRegistration = true;
+    delete mockKnex.transaction;
+  });
+
+  afterAll(() => { config.allowRegistration = true; });
+
+  describe('GET /api/auth/registration-status', () => {
+    it('is registered as a public GET route with no authentication middleware', () => {
+      const layer = authRouter.stack.find(candidate => candidate.route?.path === '/registration-status');
+
+      expect(layer.route.methods).toEqual({ get: true });
+      expect(layer.route.stack).toHaveLength(1);
+      expect(layer.route.stack[0].handle).toBe(authController.registrationStatus);
+    });
+
+    it('returns only allowed=false when registration is disabled and a user exists', async () => {
+      config.allowRegistration = false;
+      mockKnex.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        first: jest.fn().mockResolvedValue({ id: 'existing-user' }),
+      });
+
+      const res = { json: jest.fn() };
+      const next = jest.fn();
+      await authController.registrationStatus({}, res, next);
+
+      expect(res.json).toHaveBeenCalledWith({ allowed: false });
+      expect(Object.keys(res.json.mock.calls[0][0])).toEqual(['allowed']);
+      expect(next).not.toHaveBeenCalled();
+    });
   });
 
   describe('POST /api/auth/register', () => {
@@ -131,6 +167,66 @@ describe('Auth Controller', () => {
 
       expect(res.status).toBe(401);
       expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
+    });
+  });
+
+  describe('POST /api/auth/refresh', () => {
+    it('safely ignores malformed percent-encoding in the refresh cookie', async () => {
+      const res = await request(app)
+        .post('/api/auth/refresh')
+        .set('Cookie', 'm3u_refresh=%E0%A4%A')
+        .send({});
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('INVALID_CREDENTIALS');
+    });
+  });
+
+  describe('POST /api/auth/logout', () => {
+    it('revokes the sid session when no refresh cookie is present', async () => {
+      const query = {
+        where: jest.fn().mockReturnThis(),
+        first: jest.fn().mockResolvedValue({ id: 'logout-session-1' }),
+        update: jest.fn().mockResolvedValue(1),
+      };
+      mockKnex.mockReturnValue(query);
+      const token = jwt.sign({ userId: 'logout-user-1', sid: 'logout-session-1' }, jwtConfig.secret, {
+        algorithm: 'HS256',
+        expiresIn: '1h',
+        issuer: jwtConfig.issuer,
+        audience: jwtConfig.audience,
+      });
+
+      const res = await request(app)
+        .post('/api/auth/logout')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ success: true });
+      expect(query.update).toHaveBeenCalledWith(expect.objectContaining({ revoke_reason: 'logout' }));
+      expect(query.where).toHaveBeenCalledWith({ id: 'logout-session-1', user_id: 'logout-user-1' });
+    });
+
+    it('still returns 200 when the matching session disappears during logout', async () => {
+      const query = {
+        where: jest.fn().mockReturnThis(),
+        first: jest.fn().mockResolvedValue({ id: 'logout-session-2' }),
+        update: jest.fn().mockResolvedValue(0),
+      };
+      mockKnex.mockReturnValue(query);
+      const token = jwt.sign({ userId: 'logout-user-2', sid: 'logout-session-2' }, jwtConfig.secret, {
+        algorithm: 'HS256',
+        expiresIn: '1h',
+        issuer: jwtConfig.issuer,
+        audience: jwtConfig.audience,
+      });
+
+      const res = await request(app)
+        .post('/api/auth/logout')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ success: true });
     });
   });
 });

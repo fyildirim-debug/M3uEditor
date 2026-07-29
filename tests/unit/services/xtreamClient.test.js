@@ -36,6 +36,46 @@ describe('XtreamClient', () => {
     await expect(client.authenticate()).rejects.toMatchObject({ code });
   });
 
+  test('previews authentication and all category types without downloading streams', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'authenticate').mockResolvedValue({ serverInfo: { timezone: 'Europe/Istanbul' } });
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: 1, category_name: 'News' }]);
+    jest.spyOn(client, 'getVodCategories').mockResolvedValue([{ category_id: '20', category_name: 'Action' }]);
+    jest.spyOn(client, 'getSeriesCategories').mockResolvedValue([{ category_id: '40', category_name: 'Shows' }]);
+    const liveStreams = jest.spyOn(client, 'getLiveStreams');
+    const vodStreams = jest.spyOn(client, 'getVodStreams');
+    const seriesStreams = jest.spyOn(client, 'getSeriesStreams');
+
+    await expect(client.preview()).resolves.toEqual({
+      server: { url: 'https://example.com', timezone: 'Europe/Istanbul' },
+      types: {
+        live: { available: true, categories: [{ id: '1', name: 'News' }] },
+        vod: { available: true, categories: [{ id: '20', name: 'Action' }] },
+        series: { available: true, categories: [{ id: '40', name: 'Shows' }] },
+      },
+    });
+    expect(client.authenticate).toHaveBeenCalledTimes(1);
+    expect(client.getVodCategories).toHaveBeenCalledWith(false);
+    expect(client.getSeriesCategories).toHaveBeenCalledWith(false);
+    expect(liveStreams).not.toHaveBeenCalled();
+    expect(vodStreams).not.toHaveBeenCalled();
+    expect(seriesStreams).not.toHaveBeenCalled();
+  });
+
+  test('marks only the failing preview type unavailable', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'authenticate').mockResolvedValue({ serverInfo: {} });
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([]);
+    jest.spyOn(client, 'getVodCategories').mockRejectedValue(new Error('VOD unsupported'));
+    jest.spyOn(client, 'getSeriesCategories').mockResolvedValue([]);
+
+    const result = await client.preview();
+
+    expect(result.types.live).toEqual({ available: true, categories: [] });
+    expect(result.types.vod).toEqual({ available: false, categories: [], error: 'VOD unsupported' });
+    expect(result.types.series).toEqual({ available: true, categories: [] });
+  });
+
   test('retries transient failures and then succeeds', async () => {
     mockSafeFetchJson
       .mockRejectedValueOnce(new Error('reset'))
@@ -113,6 +153,69 @@ describe('XtreamClient', () => {
     expect(maxActive).toBe(2);
   });
 
+  test('fetches only explicitly selected categories and never calls the bulk stream endpoint', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([
+      { category_id: '1', category_name: 'One' },
+      { category_id: '2', category_name: 'Two' },
+      { category_id: '3', category_name: 'Three' },
+    ]);
+    const getStreams = jest.spyOn(client, 'getLiveStreams').mockImplementation(async (categoryId) => ([
+      { stream_id: Number(categoryId), name: categoryId, category_id: categoryId },
+      { stream_id: 200 + Number(categoryId), name: 'Provider ignored filter', category_id: '2' },
+    ]));
+
+    const result = await client.getAllChannels(['live'], { live: ['1', '3'] });
+
+    expect(getStreams.mock.calls.map(([categoryId]) => categoryId)).toEqual(['1', '3']);
+    expect(result.categories.map((category) => category.category_id)).toEqual(['1', '3']);
+    expect(result.channels.map((channel) => channel.stream_id)).toEqual([1, 3]);
+    expect(result.scopedCategories).toEqual({ live: ['1', '3'] });
+  });
+
+  test('keeps the bulk path when an explicit selection covers every category', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([
+      { category_id: '1', category_name: 'One' },
+      { category_id: '2', category_name: 'Two' },
+    ]);
+    const getStreams = jest.spyOn(client, 'getLiveStreams').mockResolvedValue([
+      { stream_id: 1, name: 'One', category_id: '1' },
+      { stream_id: 2, name: 'Two', category_id: '2' },
+      { stream_id: 3, name: 'Uncategorized', category_id: null },
+    ]);
+
+    const result = await client.getAllChannels(['live'], { live: ['1', '2'] });
+
+    expect(getStreams).toHaveBeenCalledTimes(1);
+    expect(getStreams).toHaveBeenCalledWith(undefined);
+    expect(result.channels.map((channel) => channel.stream_id)).toEqual([1, 2]);
+    expect(result.scopedCategories).toEqual({ live: ['1', '2'] });
+  });
+
+  test('rejects unknown selected category identifiers before downloading streams', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: '1', category_name: 'One' }]);
+    const getStreams = jest.spyOn(client, 'getLiveStreams');
+
+    await expect(client.getAllChannels(['live'], { live: ['999'] }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(getStreams).not.toHaveBeenCalled();
+  });
+
+  test('does not fetch content types omitted from streamTypes', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p');
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: '1', category_name: 'One' }]);
+    jest.spyOn(client, 'getLiveStreams').mockResolvedValue([{ stream_id: 1, name: 'One', category_id: '1' }]);
+    const vodCategories = jest.spyOn(client, 'getVodCategories');
+    const seriesCategories = jest.spyOn(client, 'getSeriesCategories');
+
+    await client.getAllChannels(['live'], { vod: ['20'], series: ['40'] });
+
+    expect(vodCategories).not.toHaveBeenCalled();
+    expect(seriesCategories).not.toHaveBeenCalled();
+  });
+
   test('rejects an incomplete category fallback instead of deleting unseen provider data', async () => {
     const client = new XtreamClient('https://example.com', 'u', 'p');
     jest.spyOn(client, 'getLiveCategories').mockResolvedValue([
@@ -126,6 +229,124 @@ describe('XtreamClient', () => {
     });
 
     await expect(client.getAllChannels(['live'])).rejects.toThrow('category unavailable');
+  });
+
+  test('does not retry a permanent 4xx response', async () => {
+    const permanent = Object.assign(new Error('Uzak sunucu HTTP 404 döndürdü'), {
+      code: 'XTREAM_CONNECTION_FAILED', remoteStatus: 404,
+    });
+    mockSafeFetchJson.mockRejectedValue(permanent);
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 3, baseDelay: 0 });
+
+    await expect(client.getLiveCategories()).rejects.toMatchObject({ code: 'XTREAM_CONNECTION_FAILED' });
+    expect(mockSafeFetchJson).toHaveBeenCalledTimes(1);
+  });
+
+  test('still retries a 429 throttling response', async () => {
+    const throttled = Object.assign(new Error('Uzak sunucu HTTP 429 döndürdü'), {
+      code: 'XTREAM_CONNECTION_FAILED', remoteStatus: 429,
+    });
+    mockSafeFetchJson
+      .mockRejectedValueOnce(throttled)
+      .mockResolvedValueOnce({ data: [{ category_id: '1', category_name: 'News' }] });
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 2, baseDelay: 0 });
+
+    await expect(client.getLiveCategories()).resolves.toHaveLength(1);
+    expect(mockSafeFetchJson).toHaveBeenCalledTimes(2);
+  });
+
+  test('shares one deadline and byte budget across authentication and category requests', async () => {
+    mockSafeFetchJson
+      .mockResolvedValueOnce({ data: { user_info: { auth: 1 }, server_info: {} } })
+      .mockResolvedValueOnce({ data: [{ category_id: '1', category_name: 'News' }] });
+    const client = new XtreamClient('https://example.com', 'u', 'p', {
+      timeout: 5000,
+      maxBytes: 2048,
+      maxRetries: 1,
+    });
+
+    await client.authenticate();
+    await client.getLiveCategories();
+
+    const firstOptions = mockSafeFetchJson.mock.calls[0][1];
+    const secondOptions = mockSafeFetchJson.mock.calls[1][1];
+    expect(secondOptions.deadline).toBe(firstOptions.deadline);
+    expect(secondOptions.byteBudget).toBe(firstOptions.byteBudget);
+    expect(firstOptions.byteBudget).toEqual({ remaining: 2048 });
+  });
+
+  test('does not retry after the shared absolute budget is exhausted', async () => {
+    const exhausted = Object.assign(new Error('budget exhausted'), {
+      code: 'XTREAM_CONNECTION_FAILED',
+      budgetExhausted: true,
+      budgetType: 'deadline',
+    });
+    mockSafeFetchJson.mockRejectedValue(exhausted);
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 3, baseDelay: 0 });
+
+    await expect(client.getLiveCategories()).rejects.toBe(exhausted);
+    expect(mockSafeFetchJson).toHaveBeenCalledTimes(1);
+  });
+
+  test('retries a remote 408 because it is not a deterministic client failure', async () => {
+    const timedOut = Object.assign(new Error('remote timeout'), {
+      code: 'XTREAM_CONNECTION_FAILED', remoteStatus: 408,
+    });
+    mockSafeFetchJson
+      .mockRejectedValueOnce(timedOut)
+      .mockResolvedValueOnce({ data: [] });
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 2, baseDelay: 0 });
+
+    await expect(client.getLiveCategories()).resolves.toEqual([]);
+    expect(mockSafeFetchJson).toHaveBeenCalledTimes(2);
+  });
+
+  test('does not start another remote request after cancellation', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const client = new XtreamClient('https://example.com', 'u', 'p', {
+      signal: controller.signal,
+      maxRetries: 3,
+    });
+
+    await expect(client.getLiveCategories()).rejects.toMatchObject({ code: 'IMPORT_CANCELLED' });
+    expect(mockSafeFetchJson).not.toHaveBeenCalled();
+  });
+
+  test('marks a transiently failing optional type as failed instead of returning it empty', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 1, baseDelay: 0 });
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: '1', category_name: 'Live' }]);
+    jest.spyOn(client, 'getLiveStreams').mockResolvedValue([{ stream_id: 1, name: 'CNN', category_id: '1' }]);
+    jest.spyOn(client, 'getVodCategories').mockRejectedValue(new Error('provider 502'));
+
+    const result = await client.getAllChannels(['live', 'vod']);
+
+    expect(result.types).toEqual([
+      { type: 'live', status: 'complete', error: null },
+      { type: 'vod', status: 'failed', error: 'provider 502' },
+    ]);
+    expect(result.channels.map((channel) => channel.stream_type)).toEqual(['live']);
+  });
+
+  test('throws when every selected content type fails', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 1, baseDelay: 0 });
+    jest.spyOn(client, 'getLiveCategories').mockRejectedValue(new Error('live down'));
+    jest.spyOn(client, 'getVodCategories').mockRejectedValue(new Error('vod down'));
+
+    await expect(client.getAllChannels(['live', 'vod'])).rejects.toThrow('live down');
+  });
+
+  test('reports every selected type as complete on a healthy fetch', async () => {
+    const client = new XtreamClient('https://example.com', 'u', 'p', { maxRetries: 1, baseDelay: 0 });
+    jest.spyOn(client, 'getLiveCategories').mockResolvedValue([{ category_id: '1', category_name: 'Live' }]);
+    jest.spyOn(client, 'getLiveStreams').mockResolvedValue([{ stream_id: 1, name: 'CNN', category_id: '1' }]);
+    jest.spyOn(client, 'getVodCategories').mockResolvedValue([{ category_id: '2', category_name: 'Films' }]);
+    jest.spyOn(client, 'getVodStreams').mockResolvedValue([{ stream_id: 20, name: 'Film', category_id: '2' }]);
+
+    const result = await client.getAllChannels(['live', 'vod']);
+
+    expect(result.types.every((entry) => entry.status === 'complete')).toBe(true);
+    expect(result.channels.map((channel) => channel.stream_type)).toEqual(['live', 'vod']);
   });
 
   test('loads content types with bounded parallelism while preserving result order', async () => {

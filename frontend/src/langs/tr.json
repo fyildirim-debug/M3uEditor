@@ -32,7 +32,9 @@
     "uncategorized": "Kategorisiz",
     "selected": "seçili",
     "showMore": "{count} kanal daha göster",
-    "permanently_delete": "Kalıcı Olarak Sil"
+    "permanently_delete": "Kalıcı Olarak Sil",
+    "previous": "Önceki",
+    "next": "Sonraki"
   },
   "nav": {
     "playlists": "Playlistler",
@@ -48,12 +50,15 @@
     "update": "Güncelle",
     "dashboard": "Dashboard",
     "downloadM3u": "M3U İndir",
-    "share": "Paylaş"
+    "share": "Paylaş",
+    "xtreamCredentials": "Xtream Codes bilgileri",
+    "admin": "Yönetim"
   },
   "status": {
     "systemActive": "Sistem aktif",
     "active": "Aktif",
-    "connected": "Bağlı"
+    "connected": "Bağlı",
+    "offline": "Bağlantı yok"
   },
   "auth": {
     "login": "Giriş Yap",
@@ -69,11 +74,13 @@
     "email": "E-posta Adresi",
     "emailPlaceholder": "ornek@email.com",
     "password": "Şifre",
-    "passwordPlaceholder": "En az 6 karakter",
+    "passwordPlaceholder": "En az 10 karakter",
     "confirmPassword": "Şifre Tekrar",
     "confirmPlaceholder": "Şifreyi tekrar gir",
     "passwordMismatch": "Şifreler eşleşmemiş",
-    "socialProof": "1.000+ kullanıcı güvenle kullanıyor"
+    "socialProof": "1.000+ kullanıcı güvenle kullanıyor",
+    "showPassword": "Şifreyi göster",
+    "hidePassword": "Şifreyi gizle"
   },
   "passwordStrength": {
     "weak": "Zayıf",
@@ -145,6 +152,43 @@
     "stageFinalizing": "Tamamlanıyor...",
     "progressHint": "Bu işlem hesabınızdaki içerik miktarına göre 10-60 saniye sürebilir."
   },
+  "xtreamWizard": {
+    "stepIndicator": "Adım {current} / {total}",
+    "stepProgressLabel": "Xtream içe aktarma ilerlemesi",
+    "credentialsTitle": "Xtream Codes bilgileri",
+    "liveTitle": "Canlı Kanallar",
+    "seriesTitle": "Diziler",
+    "moviesTitle": "Filmler",
+    "credentialsDescription": "Kullanılabilir içerik kategorilerini yüklemek için sağlayıcı bilgilerinizi girin.",
+    "continue": "Devam Et",
+    "loadingCategories": "Kategoriler yükleniyor...",
+    "includeType": "{type} içe aktarılsın",
+    "typeToggleDescription": "Bu içe aktarma için içerik tipini açın veya kapatın.",
+    "enabled": "Açık",
+    "disabled": "Kapalı",
+    "typeUnavailable": "Bu sağlayıcıda {type} kullanılamıyor.",
+    "categorySelectionLabel": "{type} kategorilerini seçin",
+    "searchLabel": "{type} kategorilerinde ara",
+    "searchPlaceholder": "Kategori adına göre ara...",
+    "selectAll": "Tümünü seç",
+    "deselectAll": "Tüm seçimleri kaldır",
+    "selectedCounter": "{selected} / {total} kategori seçili",
+    "filteredSelectHint": "Arama etkin. Tümünü seç yalnızca görünen {count} kategoriyi seçer; Tüm seçimleri kaldır tüm seçimleri temizler.",
+    "unnamedCategory": "Adsız kategori ({id})",
+    "noCategories": "Bu içerik tipi için kullanılabilir kategori yok.",
+    "summaryTitle": "İçe aktarma özeti",
+    "summaryCount": "{selected} / {total} seçili",
+    "enableOneType": "İçe aktarmadan önce kullanılabilir içerik tiplerinden en az birini açın.",
+    "selectOneCategory": "Açık olan her içerik tipi için en az bir kategori seçin veya içerik tipini kapatın.",
+    "authFailed": "Sunucu adresi, kullanıcı adı veya şifre hatalı. Bilgilerinizi kontrol edip tekrar deneyin.",
+    "validationError": "Bazı içe aktarma bilgileri geçersiz. Alanları ve seçimleri kontrol edip tekrar deneyin.",
+    "importInProgress": "Bu playlist için zaten bir içe aktarma çalışıyor. Tamamlanmasını bekleyip tekrar deneyin.",
+    "capacityReached": "İçe aktarma servisi şu anda kapasitesine ulaştı. Lütfen daha sonra tekrar deneyin.",
+    "previewUnavailable": "Kategori önizleme hizmeti henüz kullanılamıyor. Lütfen daha sonra tekrar deneyin.",
+    "previewNetworkError": "Kategori önizleme hizmetine ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.",
+    "previewError": "Kategoriler bu sağlayıcıdan yüklenemedi. Bilgileri kontrol edip tekrar deneyin.",
+    "importError": "Xtream içe aktarma tamamlanamadı. Lütfen tekrar deneyin."
+  },
   "editor": {
     "allChannels": "Tüm Kanallar",
     "allMovies": "Tüm Filmler",
@@ -160,6 +204,8 @@
     "channelsAvailable": "{count} kanal mevcut",
     "showCategory": "Göster",
     "hideCategory": "Gizle",
+    "hiddenCategoryBadge": "Gizli",
+    "hiddenCategoryHint": "Bu kategori M3U, paylaşım bağlantısı, Xtream ve XMLTV çıktılarında gösterilmez.",
     "rename": "Yeniden Adlandır"
   },
   "editPanel": {
@@ -173,14 +219,16 @@
     "streamUrl": "Stream URL",
     "broadcast": "Yayın Akışı",
     "resetToOriginal": "Xtream orijinaline sıfırla",
-    "noOriginal": "Orijinal yok"
+    "noOriginal": "Orijinal yok",
+    "logoPlaceholder": "https://..."
   },
   "sort": {
     "title": "Sıralama",
     "instruction": "Sol panelden kategori seç → sağda kanalları sürükle",
     "selectCategory": "Kategori seçin",
     "selectFromLeft": "Sol panelden bir kategori seçin",
-    "noChannels": "Bu kategoride kanal yok"
+    "noChannels": "Bu kategoride kanal yok",
+    "truncatedWarning": "İlk {limit} kanal gösteriliyor (toplam {total})."
   },
   "epg": {
     "guideTab": "TV Rehberi",
@@ -219,7 +267,61 @@
   },
   "share": {
     "title": "Paylaşım Linki",
-    "instruction": "Bu linki IPTV oynatıcına ekleyebilirsin."
+    "instruction": "Bu linki IPTV oynatıcına ekleyebilirsin.",
+    "optionsInstruction": "İstersen paylaşımı süreyle sınırla veya şifreyle koru.",
+    "expiresInDays": "Süre (gün)",
+    "noExpiry": "Süresiz",
+    "password": "Şifre",
+    "passwordPlaceholder": "Şifresiz paylaşım için boş bırak",
+    "passwordHint": "Şifre kullanacaksan 10-128 karakter gir.",
+    "m3uUrl": "M3U paylaşım adresi",
+    "xmltvUrl": "XMLTV paylaşım adresi",
+    "generating": "Link oluşturuluyor...",
+    "createLink": "Paylaşım linki oluştur"
+  },
+  "xtreamOutput": {
+    "title": "Xtream Codes bilgileri",
+    "disabledDescription": "Düzenlediğiniz playlist'i Xtream Codes bilgileriyle player'a eklemek için erişimi etkinleştirin.",
+    "enable": "Etkinleştir",
+    "enabling": "Etkinleştiriliyor...",
+    "active": "Xtream Codes bilgileri aktif",
+    "credentialsDescription": "Player'ınız bir Xtream Codes hesabı istediğinde bu bilgileri kullanın.",
+    "serverUrl": "Sunucu adresi",
+    "username": "Kullanıcı adı",
+    "password": "Şifre",
+    "passwordOneTime": "Bu şifre yalnızca bir kez gösterilir. Bu pencereyi kapatmadan önce kopyalayın.",
+    "passwordUnavailable": "Şifre yalnızca oluşturulduğu anda gösterilir. Yeni bir şifre almak için şifreyi yenileyin.",
+    "regenerate": "Şifreyi yenile",
+    "regenerating": "Şifre yenileniyor...",
+    "regenerateTitle": "Şifre yenilensin mi?",
+    "regenerateWarning": "Mevcut şifre çalışmayı durduracak ve bağlı player'lar bağlantısını kaybedecek.",
+    "confirmRegenerate": "Şifreyi yenile",
+    "disable": "Erişimi kapat",
+    "disabling": "Kapatılıyor...",
+    "disableTitle": "Xtream Codes erişimi kapatılsın mı?",
+    "disableWarning": "Bu bilgileri kullanan player'lar artık bağlanamayacak.",
+    "confirmDisable": "Erişimi kapat",
+    "alternativeUrls": "Alternatif playlist adresleri",
+    "m3uUrl": "M3U adresi",
+    "xmltvUrl": "XMLTV adresi",
+    "setupTitle": "TiviMate / IPTV Smarters kurulumu",
+    "setupStep1": "TiviMate veya IPTV Smarters'ı açın ve playlist ekleme seçeneğine gidin.",
+    "setupStep2": "Xtream Codes ile giriş seçeneğini seçin.",
+    "setupStep3": "Yukarıdaki sunucu adresini, kullanıcı adını ve şifreyi girin.",
+    "securityTitle": "Güvenlik uyarısı",
+    "securityWarning": "Bu bilgileri paylaşmak playlist'in tamamına erişim verir. Akış adresleri ayrıca yukarı akış sağlayıcınızın kimlik bilgilerini içerir.",
+    "manualCopyTitle": "Otomatik kopyalama başarısız oldu",
+    "manualCopyInstruction": "Aşağıdaki alandan değeri seçip elle kopyalayın.",
+    "copyFailed": "Otomatik kopyalanamadı. Değer elle kopyalamanız için seçildi.",
+    "retry": "Tekrar dene",
+    "notFound": "Bu playlist bulunamadı veya erişim yetkiniz yok.",
+    "loadError": "Xtream Codes erişim bilgileri yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin.",
+    "enableError": "Xtream Codes erişimi etkinleştirilemedi.",
+    "regenerateError": "Şifre yenilenemedi.",
+    "disableError": "Xtream Codes erişimi kapatılamadı.",
+    "enabledSuccess": "Xtream Codes erişimi etkinleştirildi",
+    "regeneratedSuccess": "Şifre yenilendi",
+    "disabledSuccess": "Xtream Codes erişimi kapatıldı"
   },
   "bulkMove": {
     "title": "Kanalları Taşı",
@@ -282,9 +384,11 @@
     "metadataFetched": "Metadata çekildi",
     "metadataError": "Metadata çekilemedi",
     "metadataNotFound": "TMDB'de bulunamadı",
-    "noXtreamSource": "Xtream Codes kaynağı bulunamadı"
+    "noXtreamSource": "Xtream Codes kaynağı bulunamadı",
+    "channelCreated": "Kanal oluşturuldu"
   },
   "metadata": {
+    "title": "Meta Veriler",
     "fetch": "Bilgi Çek",
     "refetch": "Tekrar Çek",
     "overview": "Özet",
@@ -303,6 +407,7 @@
   },
   "bulkRename": {
     "title": "Toplu Yeniden Adlandır",
+    "selection": "{count} seçili kanal için bul ve değiştir kuralı oluştur.",
     "find": "Bul",
     "replace": "Değiştir",
     "findPlaceholder": "Aranacak metin veya regex",
@@ -310,14 +415,21 @@
     "useRegex": "Regex kullan",
     "preview": "Önizle",
     "apply": "Uygula",
-    "result": "{renamed}/{total} kanal yeniden adlandırıldı"
+    "result": "{renamed}/{total} kanal yeniden adlandırıldı",
+    "affected": "{count} kanal etkilenecek",
+    "noChanges": "Bu kuralla değişecek kanal yok.",
+    "sampleLimit": "{affected} değişikliğin ilk {shown} tanesi gösteriliyor.",
+    "previewRequired": "Uygulamadan önce önizleme oluşturmalısın."
   },
   "streamTest": {
     "test": "Test Et",
     "testing": "Test ediliyor...",
     "reachable": "Erişilebilir",
     "unreachable": "Erişilemez",
-    "status": "Durum: {status}"
+    "status": "HTTP durumu: {status}",
+    "contentType": "İçerik tipi: {contentType}",
+    "error": "Hata: {error}",
+    "savedUrlHint": "Test, kaydedilmiş akış adresini kullanır."
   },
   "m3uImport": {
     "title": "M3U İçe Aktar",
@@ -330,10 +442,61 @@
   },
   "addChannel": {
     "title": "Kanal Ekle",
+    "description": "Kanala ait temel bilgileri girerek oynatma listesine manuel olarak ekle.",
     "name": "Kanal Adı",
     "streamUrl": "Stream URL",
+    "streamUrlPlaceholder": "https://ornek.com/stream.m3u8",
     "logoUrl": "Logo URL",
-    "streamType": "İçerik Tipi"
+    "logoUrlPlaceholder": "https://ornek.com/logo.png",
+    "streamType": "İçerik Tipi",
+    "testConnection": "Bağlantıyı test et",
+    "testSavesFirst": "Test uç noktası kanal kimliği gerektirdiği için bağlantı testi kanalı önce kaydeder, ardından akışı sınar.",
+    "savedForTesting": "Kanal kaydedildi. Akış sonucunu inceleyebilir veya testi tekrarlayabilirsin."
+  },
+  "bulkUpdate": {
+    "title": "Toplu Güncelle",
+    "selection": "{count} seçili kanalda değiştirmek istediğin alanları işaretle.",
+    "setName": "Adı değiştir",
+    "setLogoUrl": "Logo URL'sini değiştir",
+    "setStreamUrl": "Akış URL'sini değiştir",
+    "setCategory": "Kategoriyi değiştir",
+    "namePlaceholder": "Tüm seçili kanallar için yeni ad",
+    "logoPlaceholder": "Yeni logo URL'si",
+    "streamUrlPlaceholder": "Yeni akış URL'si",
+    "optionalFieldsHint": "İşaretlenmiş logo URL'sini boş bırakırsan logo alanı temizlenir; akış URL'si boş olamaz.",
+    "apply": "Değişiklikleri uygula",
+    "result": "{count} kanal güncellendi"
+  },
+  "admin": {
+    "title": "Yönetim Paneli",
+    "subtitle": "Sistem yönetimi ve kullanıcı işlemleri",
+    "totalUsers": "Toplam Kullanıcı",
+    "totalPlaylists": "Toplam Playlist",
+    "totalChannels": "Toplam Kanal",
+    "newThisWeek": "Bu Hafta Katılanlar",
+    "users": "Kullanıcılar",
+    "searchLabel": "E-posta adresine göre kullanıcı ara",
+    "searchPlaceholder": "E-posta ile ara...",
+    "administrator": "Yönetici",
+    "registeredAt": "Kayıt Tarihi",
+    "actions": "İşlemler",
+    "editUserAria": "{email} kullanıcısını düzenle",
+    "deleteUserAria": "{email} kullanıcısını sil",
+    "noUsers": "Kullanıcı bulunamadı",
+    "editUser": "Kullanıcıyı Düzenle",
+    "deleteUser": "Kullanıcıyı Sil",
+    "adminAccess": "Yönetici Yetkisi",
+    "saving": "Kaydediliyor...",
+    "deleting": "Siliniyor...",
+    "deleteConfirm": "{email} kullanıcısını silmek istediğinizden emin misiniz?",
+    "deleteWarning": "Bu işlem geri alınamaz. Kullanıcının tüm playlistleri ve kanalları silinecektir.",
+    "adminRequired": "Yönetici yetkisi gereklidir",
+    "statsLoadFailed": "İstatistikler yüklenemedi",
+    "usersLoadFailed": "Kullanıcı listesi yüklenemedi",
+    "userUpdated": "Kullanıcı güncellendi",
+    "updateFailed": "Güncelleme başarısız",
+    "userDeleted": "Kullanıcı silindi",
+    "deleteFailed": "Silme başarısız"
   },
   "account": {
     "title": "Hesap Ayarları",
@@ -399,6 +562,26 @@
     "dark": "Koyu Tema",
     "system": "Sistem"
   },
+  "accessibility": {
+    "home": "Ana sayfa",
+    "mainNavigation": "Ana navigasyon",
+    "userInfo": "Kullanıcı bilgisi",
+    "logout": "Çıkış yap",
+    "dismissNotification": "Bildirimi kapat",
+    "closeDialog": "Pencereyi kapat",
+    "editorSections": "Editör bölümleri",
+    "closeMenu": "Menüyü kapat",
+    "openEditorMenu": "Editör menüsünü aç",
+    "openCategories": "Kategorileri aç",
+    "editCategoryName": "{name} kategorisinin adını düzenle",
+    "closeCategories": "Kategorileri kapat",
+    "selectAllChannels": "Tüm kanalları seç",
+    "selectChannel": "{name} kanalını seç",
+    "closeEditPanel": "Düzenleme panelini kapat",
+    "selectedEpgLogo": "Seçilen EPG kanalının logosu",
+    "channelLogo": "{name} kanalının logosu",
+    "backdropImage": "{name} arka plan görseli"
+  },
   "forgotPw": {
     "title": "Şifremi Unuttum",
     "subtitle": "E-posta adresinizi girin, şifre sıfırlama linki gönderelim.",
@@ -410,7 +593,8 @@
   "resetPw": {
     "title": "Yeni Şifre Belirle",
     "submit": "Şifremi Değiştir",
-    "success": "Şifreniz başarıyla değiştirildi. Şimdi giriş yapabilirsiniz."
+    "success": "Şifreniz başarıyla değiştirildi. Şimdi giriş yapabilirsiniz.",
+    "tokenMissing": "Şifre sıfırlama bağlantısı geçersiz veya eksik."
   },
   "landing": {
     "badge": "Açık kaynak — MIT lisanslı",
@@ -423,7 +607,36 @@
   "legal": {
     "termsTitle": "Kullanım Şartları",
     "privacyTitle": "Gizlilik Politikası",
-    "lastUpdated": "Son güncelleme: 2026-03-26"
+    "lastUpdated": "Son güncelleme: 2026-03-26",
+    "home": "Ana Sayfa",
+    "terms": {
+      "generalTitle": "1. Genel Koşullar",
+      "generalBody": "Bu web sitesine erişerek ve hizmetlerimizi kullanarak aşağıdaki kullanım şartlarını kabul etmiş sayılırsınız. Bu şartları kabul etmiyorsanız hizmetlerimizi kullanmayın.",
+      "serviceTitle": "2. Hizmet Tanımı",
+      "serviceBody": "M3U Editor, IPTV playlistlerini yönetmek için web tabanlı bir araç sunar. Kullanıcılar M3U dosyalarını düzenleyebilir, Xtream Codes entegrasyonunu kullanabilir, EPG verileriyle çalışabilir ve playlistlerini paylaşabilir.",
+      "responsibilityTitle": "3. Kullanıcı Sorumluluğu",
+      "responsibilityBody": "Kullanıcılar platformu yasalara uygun biçimde kullanmakla yükümlüdür. Telif hakkı ihlali içeren içeriklerin yüklenmesi, paylaşılması veya dağıtılması kesinlikle yasaktır. Hesabınızın güvenliği sizin sorumluluğunuzdadır.",
+      "contentTitle": "4. İçerik ve Sorumluluk Reddi",
+      "contentBody": "M3U Editor, kullanıcıların yüklediği içeriklerden sorumlu değildir. Platform yalnızca bir düzenleme aracı sunar; içeriklerin yasallığı kullanıcının sorumluluğundadır.",
+      "terminationTitle": "5. Hesap Feshi",
+      "terminationBody": "Kullanım şartlarını ihlal eden hesaplar önceden bildirilmeksizin askıya alınabilir veya kalıcı olarak kapatılabilir. Hesabınızı istediğiniz zaman kendiniz de silebilirsiniz.",
+      "changesTitle": "6. Değişiklikler",
+      "changesBody": "Bu kullanım şartları önceden bildirilmeksizin güncellenebilir. Güncel sürümü düzenli olarak kontrol etmenizi öneririz."
+    },
+    "privacy": {
+      "collectionTitle": "Veri Toplama",
+      "collectionBody": "Hizmetlerimizi kullandığınızda e-posta adresiniz, güvenli bir özet olarak saklanan şifreniz ve kullanım verileriniz işlenir. Playlist ve kanal bilgileriniz hesabınıza bağlı olarak sunucunuzdaki veritabanında saklanır.",
+      "useTitle": "Kullanım",
+      "useBody": "Toplanan veriler yalnızca hizmet sunumu, hesap yönetimi ve platformun iyileştirilmesi amacıyla kullanılır. Verileriniz pazarlama amacıyla üçüncü taraflara satılmaz.",
+      "thirdPartiesTitle": "Üçüncü Taraflar",
+      "thirdPartiesBody": "Hizmetin çalışması için Xtream Codes sunucuları ve EPG kaynakları gibi üçüncü taraf servislerle iletişim kurulabilir. Bu bağlantıları siz başlatırsınız ve ilgili servislerin gizlilik politikaları geçerlidir.",
+      "storageTitle": "Tarayıcı Depolama",
+      "storageBody": "Oturum yönetimi ve dil tercihi gibi temel işlevler için tarayıcı depolaması kullanılır. Üçüncü taraf izleme çerezleri kullanılmaz.",
+      "rightsTitle": "Haklarınız",
+      "rightsBody": "Hesap ayarlarından verilerinizi görüntüleyebilir, düzenleyebilir ve hesabınızı tamamen silebilirsiniz. Hesabı silmek tüm verilerinizi kalıcı olarak kaldırır.",
+      "contactTitle": "İletişim",
+      "contactBody": "Gizlilik politikamızla ilgili sorularınız için info@m3ueditor.com adresinden bize ulaşabilirsiniz."
+    }
   },
   "notFound": {
     "title": "Sayfa Bulunamadı",

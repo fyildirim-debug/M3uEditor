@@ -1,5 +1,6 @@
 const categoryService = require('../services/CategoryService');
 const { createAppError } = require('../utils/AppError');
+const { validate: validateUuid } = require('uuid');
 
 /**
  * GET /api/playlists/:id/categories
@@ -40,13 +41,32 @@ async function createCategory(req, res, next) {
 async function updateCategory(req, res, next) {
   try {
     const { id: categoryId } = req.params;
-    const { name } = req.body;
-
-    if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 500) {
-      throw createAppError('VALIDATION_ERROR', 'name alanı zorunludur ve boş olamaz');
+    const body = req.body;
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir istek gövdesi gönderin');
     }
 
-    const category = await categoryService.update(req.userId, categoryId, name.trim());
+    const hasName = Object.prototype.hasOwnProperty.call(body, 'name');
+    const hasIsHidden = Object.prototype.hasOwnProperty.call(body, 'is_hidden');
+    if (!hasName && !hasIsHidden) {
+      throw createAppError('VALIDATION_ERROR', 'name veya is_hidden alanlarından biri zorunludur');
+    }
+
+    const updates = {};
+    if (hasName) {
+      if (!body.name || typeof body.name !== 'string' || body.name.trim().length === 0 || body.name.length > 500) {
+        throw createAppError('VALIDATION_ERROR', 'name alanı boş olamaz');
+      }
+      updates.name = body.name.trim();
+    }
+    if (hasIsHidden) {
+      if (typeof body.is_hidden !== 'boolean') {
+        throw createAppError('VALIDATION_ERROR', 'is_hidden alanı boolean olmalıdır');
+      }
+      updates.is_hidden = body.is_hidden;
+    }
+
+    const category = await categoryService.update(req.userId, categoryId, updates);
     res.json(category);
   } catch (err) {
     next(err);
@@ -72,13 +92,25 @@ async function deleteCategory(req, res, next) {
 async function updateCategoryOrder(req, res, next) {
   try {
     const { id: categoryId } = req.params;
-    const { newPosition } = req.body;
-
-    if (!Number.isInteger(newPosition) || newPosition < 0) {
-      throw createAppError('VALIDATION_ERROR', 'newPosition sayısal ve 0 veya daha büyük olmalıdır');
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir istek gövdesi gönderin');
+    }
+    if (!validateUuid(categoryId)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir kategori kimliği gönderin');
+    }
+    const { afterCategoryId, beforeCategoryId } = req.body;
+    const hasAfter = afterCategoryId !== undefined;
+    const hasBefore = beforeCategoryId !== undefined;
+    if (hasAfter === hasBefore) {
+      throw createAppError('VALIDATION_ERROR', 'afterCategoryId veya beforeCategoryId alanlarından yalnızca biri gönderilmelidir');
+    }
+    const referenceCategoryId = hasAfter ? afterCategoryId : beforeCategoryId;
+    if (typeof referenceCategoryId !== 'string' || !validateUuid(referenceCategoryId)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir referans kategori kimliği gönderin');
     }
 
-    await categoryService.updateOrder(req.userId, categoryId, newPosition);
+    const relativePosition = hasAfter ? { afterCategoryId } : { beforeCategoryId };
+    await categoryService.updateOrder(req.userId, categoryId, relativePosition);
     res.json({ success: true });
   } catch (err) {
     next(err);

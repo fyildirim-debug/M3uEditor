@@ -1,5 +1,7 @@
 node_modules/
 .env
+.env.*
+!.env.example
 coverage/
 dist/
 build/
@@ -25,3 +27,4 @@ public/logos/
 # Test
 test-output.txt
 test-result.txt
+.reports/

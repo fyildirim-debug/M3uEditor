@@ -1,6 +1,5 @@
 const fs = require('fs').promises;
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4, validate: validateUuid } = require('uuid');
 const db = require('../config/database');
 const config = require('../config');
 const channelService = require('../services/ChannelService');
@@ -9,6 +8,7 @@ const { createAppError } = require('../utils/AppError');
 const { decrypt } = require('../utils/crypto');
 const { requestBuffer } = require('../utils/safeFetch');
 const { parsePagination, validateIdArray } = require('../utils/validation');
+const { getChannelLogoFilename, getChannelLogoPath, removeChannelLogoVariants } = require('../utils/logoStorage');
 
 async function listChannels(req, res, next) {
   try {
@@ -31,11 +31,24 @@ async function deleteChannel(req, res, next) {
 
 async function updateChannelOrder(req, res, next) {
   try {
-    const { newPosition } = req.body;
-    if (!Number.isInteger(newPosition) || newPosition < 0) {
-      throw createAppError('VALIDATION_ERROR', 'Yeni sıra sıfır veya daha büyük bir tam sayı olmalı');
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir istek gövdesi gönderin');
     }
-    await channelService.updateOrder(req.userId, req.params.id, newPosition);
+    if (!validateUuid(req.params.id)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir kanal kimliği gönderin');
+    }
+    const { afterChannelId, beforeChannelId } = req.body;
+    const hasAfter = afterChannelId !== undefined;
+    const hasBefore = beforeChannelId !== undefined;
+    if (hasAfter === hasBefore) {
+      throw createAppError('VALIDATION_ERROR', 'afterChannelId veya beforeChannelId alanlarından yalnızca biri gönderilmelidir');
+    }
+    const referenceChannelId = hasAfter ? afterChannelId : beforeChannelId;
+    if (typeof referenceChannelId !== 'string' || !validateUuid(referenceChannelId)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir referans kanal kimliği gönderin');
+    }
+    const relativePosition = hasAfter ? { afterChannelId } : { beforeChannelId };
+    await channelService.updateOrder(req.userId, req.params.id, relativePosition);
     res.json({ success: true });
   } catch (error) { next(error); }
 }
@@ -88,16 +101,12 @@ async function uploadLogo(req, res, next) {
       throw createAppError('VALIDATION_ERROR', 'Dosya içeriği bildirilen resim türüyle eşleşmiyor');
     }
 
-    const channelId = req.params.id;
-    await channelService._verifyChannelOwnership(req.userId, channelId);
+    const ownedChannel = await channelService._verifyChannelOwnership(req.userId, req.params.id);
+    const channelId = ownedChannel.id;
     await fs.mkdir(config.uploadDir, { recursive: true });
-    const filename = `${channelId}.${detectedExt}`;
-    await fs.writeFile(path.join(config.uploadDir, filename), imageBuffer, { flag: 'w', mode: 0o640 });
-    await Promise.all(['png', 'jpg', 'gif', 'webp']
-      .filter((extension) => extension !== detectedExt)
-      .map((extension) => fs.unlink(path.join(config.uploadDir, `${channelId}.${extension}`)).catch((error) => {
-        if (error.code !== 'ENOENT') throw error;
-      })));
+    const filename = getChannelLogoFilename(channelId, detectedExt);
+    await fs.writeFile(getChannelLogoPath(channelId, detectedExt), imageBuffer, { flag: 'w', mode: 0o640 });
+    await removeChannelLogoVariants(channelId, detectedExt);
     res.json(await channelService.update(req.userId, channelId, { logo_url: `/logos/${filename}` }));
   } catch (error) { next(error); }
 }
@@ -156,8 +165,15 @@ async function bulkRename(req, res, next) {
   try {
     const { channelIds, find, replace, useRegex } = req.body;
     const uniqueIds = validateIdArray(channelIds);
-    if (typeof find !== 'string' || !find.length) throw createAppError('VALIDATION_ERROR', 'Aranacak metin gerekli');
-    res.json(await channelService.bulkRename(req.userId, uniqueIds, find, String(replace || ''), Boolean(useRegex)));
+    res.json(await channelService.bulkRename(req.userId, uniqueIds, find, String(replace ?? ''), Boolean(useRegex)));
+  } catch (error) { next(error); }
+}
+
+async function previewBulkRename(req, res, next) {
+  try {
+    const { channelIds, find, replace, useRegex } = req.body;
+    const uniqueIds = validateIdArray(channelIds);
+    res.json(await channelService.previewBulkRename(req.userId, uniqueIds, find, String(replace ?? ''), Boolean(useRegex)));
   } catch (error) { next(error); }
 }
 
@@ -216,4 +232,4 @@ async function createChannel(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { listChannels, updateChannel, deleteChannel, updateChannelOrder, bulkAction, resetChannel, uploadLogo, fetchMetadata, bulkRename, testStream, createChannel };
+module.exports = { listChannels, updateChannel, deleteChannel, updateChannelOrder, bulkAction, resetChannel, uploadLogo, fetchMetadata, bulkRename, previewBulkRename, testStream, createChannel };

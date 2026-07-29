@@ -52,6 +52,7 @@ class CategoryService {
       .where('categories.playlist_id', playlistId)
       .groupBy('categories.id')
       .orderBy('categories.sort_order', 'asc')
+      .orderBy('categories.id', 'asc')
       .select('categories.*', db.raw('count(channels.id)::int as channel_count'));
 
     if (streamType) {
@@ -84,47 +85,87 @@ class CategoryService {
   }
 
   /**
-   * Update a category's name.
+   * Update the editable fields of a category.
    */
-  async update(userId, categoryId, name) {
+  async update(userId, categoryId, updates) {
     await this._verifyCategoryOwnership(userId, categoryId);
 
-    await db('categories').where('id', categoryId).update({ name });
+    await db('categories').where('id', categoryId).update(updates);
 
     const category = await db('categories').where('id', categoryId).first();
     return category;
   }
 
   /**
-   * Move a category to a new position (0-based) and recompact sort_order.
-   * Uses a transaction for consistency.
+   * Move a category immediately before or after another category in the same
+   * playlist. This is safe when the category view is filtered by stream type.
    */
-  async updateOrder(userId, categoryId, newPosition) {
+  async updateOrder(userId, categoryId, relativePosition = {}) {
+    if (!relativePosition || typeof relativePosition !== 'object' || Array.isArray(relativePosition)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir göreli sıralama konumu gönderin');
+    }
+    const { afterCategoryId, beforeCategoryId } = relativePosition;
+    const hasAfter = afterCategoryId !== undefined;
+    const hasBefore = beforeCategoryId !== undefined;
+    if (hasAfter === hasBefore) {
+      throw createAppError('VALIDATION_ERROR', 'afterCategoryId veya beforeCategoryId alanlarından yalnızca biri gönderilmelidir');
+    }
+
+    const referenceCategoryId = hasAfter ? afterCategoryId : beforeCategoryId;
+    if (typeof referenceCategoryId !== 'string' || !referenceCategoryId.trim() || referenceCategoryId.length > 200) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir referans kategori kimliği gönderin');
+    }
+
     const category = await this._verifyCategoryOwnership(userId, categoryId);
+    if (referenceCategoryId === categoryId) {
+      throw createAppError('VALIDATION_ERROR', 'Bir kategori kendisine göre sıralanamaz');
+    }
+
+    const referenceCategory = await this._verifyCategoryOwnership(userId, referenceCategoryId);
     const playlistId = category.playlist_id;
+    if (referenceCategory.playlist_id !== playlistId) {
+      throw createAppError('VALIDATION_ERROR', 'Referans kategori aynı oynatma listesine ait olmalıdır');
+    }
 
-    await db.transaction(async (trx) => {
-      const allCategories = await trx('categories')
-        .where('playlist_id', playlistId)
-        .orderBy('sort_order', 'asc')
-        .select('id', 'sort_order');
-
-      // Remove the moving category from the list
-      const filtered = allCategories.filter((c) => c.id !== categoryId);
-
-      // Clamp newPosition
-      const clampedPos = Math.max(0, Math.min(newPosition, filtered.length));
-
-      // Insert at new position
-      filtered.splice(clampedPos, 0, { id: categoryId });
-
-      // Update sort_order for all categories
-      for (let i = 0; i < filtered.length; i++) {
-        await trx('categories')
-          .where('id', filtered[i].id)
-          .update({ sort_order: i });
+    await db.raw(
+      `WITH current AS (
+         SELECT id, (ROW_NUMBER() OVER (ORDER BY sort_order ASC, id ASC) - 1) AS idx
+           FROM categories
+          WHERE playlist_id = :playlistId
+       ),
+       positions AS (
+         SELECT (SELECT idx FROM current WHERE id = :categoryId) AS moving_idx,
+                (SELECT idx FROM current WHERE id = :referenceCategoryId) AS reference_idx
+       ),
+       target AS (
+         SELECT CASE
+                  WHEN :placement = 'before' THEN reference_idx - CASE WHEN moving_idx < reference_idx THEN 1 ELSE 0 END
+                  ELSE reference_idx + CASE WHEN moving_idx > reference_idx THEN 1 ELSE 0 END
+                END AS idx
+           FROM positions
+       ),
+       final AS (
+         SELECT c.id,
+                CASE
+                  WHEN c.id = :categoryId THEN (SELECT idx FROM target)
+                  WHEN c.idx < (SELECT moving_idx FROM positions) AND c.idx >= (SELECT idx FROM target) THEN c.idx + 1
+                  WHEN c.idx > (SELECT moving_idx FROM positions) AND c.idx <= (SELECT idx FROM target) THEN c.idx - 1
+                  ELSE c.idx
+                END AS position
+           FROM current c
+       )
+       UPDATE categories AS cat
+          SET sort_order = final.position
+         FROM final
+        WHERE cat.id = final.id
+          AND cat.sort_order IS DISTINCT FROM final.position`,
+      {
+        playlistId,
+        categoryId,
+        referenceCategoryId,
+        placement: hasAfter ? 'after' : 'before',
       }
-    });
+    );
   }
 
   /**

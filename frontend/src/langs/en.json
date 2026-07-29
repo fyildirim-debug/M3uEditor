@@ -32,7 +32,9 @@
     "uncategorized": "Uncategorized",
     "selected": "selected",
     "showMore": "Show {count} more channels",
-    "permanently_delete": "Permanently Delete"
+    "permanently_delete": "Permanently Delete",
+    "previous": "Previous",
+    "next": "Next"
   },
   "nav": {
     "playlists": "Playlists",
@@ -48,12 +50,15 @@
     "update": "Update",
     "dashboard": "Dashboard",
     "downloadM3u": "Download M3U",
-    "share": "Share"
+    "share": "Share",
+    "xtreamCredentials": "Xtream Codes credentials",
+    "admin": "Admin"
   },
   "status": {
     "systemActive": "System active",
     "active": "Active",
-    "connected": "Connected"
+    "connected": "Connected",
+    "offline": "Offline"
   },
   "auth": {
     "login": "Login",
@@ -69,11 +74,13 @@
     "email": "Email Address",
     "emailPlaceholder": "example@email.com",
     "password": "Password",
-    "passwordPlaceholder": "At least 6 characters",
+    "passwordPlaceholder": "At least 10 characters",
     "confirmPassword": "Confirm Password",
     "confirmPlaceholder": "Re-enter your password",
     "passwordMismatch": "Passwords do not match",
-    "socialProof": "Trusted by 1,000+ users"
+    "socialProof": "Trusted by 1,000+ users",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "passwordStrength": {
     "weak": "Weak",
@@ -145,6 +152,43 @@
     "stageFinalizing": "Finalizing...",
     "progressHint": "This may take 10-60 seconds depending on your account size."
   },
+  "xtreamWizard": {
+    "stepIndicator": "Step {current} / {total}",
+    "stepProgressLabel": "Xtream import progress",
+    "credentialsTitle": "Xtream Codes credentials",
+    "liveTitle": "Live Channels",
+    "seriesTitle": "Series",
+    "moviesTitle": "Movies",
+    "credentialsDescription": "Enter your provider details to load the available content categories.",
+    "continue": "Continue",
+    "loadingCategories": "Loading categories...",
+    "includeType": "Import {type}",
+    "typeToggleDescription": "Turn this content type on or off for this import.",
+    "enabled": "On",
+    "disabled": "Off",
+    "typeUnavailable": "{type} is not available from this provider.",
+    "categorySelectionLabel": "Choose {type} categories",
+    "searchLabel": "Search {type} categories",
+    "searchPlaceholder": "Search categories by name...",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "selectedCounter": "{selected} / {total} categories selected",
+    "filteredSelectHint": "Search is active. Select all affects only the {count} visible categories; Deselect all clears every selection.",
+    "unnamedCategory": "Unnamed category ({id})",
+    "noCategories": "No categories are available for this content type.",
+    "summaryTitle": "Import summary",
+    "summaryCount": "{selected} / {total} selected",
+    "enableOneType": "Turn on at least one available content type before importing.",
+    "selectOneCategory": "Select at least one category for every enabled content type, or turn that type off.",
+    "authFailed": "The server address, username, or password is incorrect. Check your credentials and try again.",
+    "validationError": "Some import details are invalid. Check the fields and selections, then try again.",
+    "importInProgress": "An import is already running for this playlist. Wait for it to finish, then try again.",
+    "capacityReached": "The import service is currently at capacity. Please try again later.",
+    "previewUnavailable": "Category preview is not available yet. Please try again later.",
+    "previewNetworkError": "The category preview could not be reached. Check your connection and try again.",
+    "previewError": "Categories could not be loaded from this provider. Check the details and try again.",
+    "importError": "The Xtream import could not be completed. Please try again."
+  },
   "editor": {
     "allChannels": "All Channels",
     "allMovies": "All Movies",
@@ -160,6 +204,8 @@
     "channelsAvailable": "{count} channels available",
     "showCategory": "Show",
     "hideCategory": "Hide",
+    "hiddenCategoryBadge": "Hidden",
+    "hiddenCategoryHint": "This category is hidden from M3U, share-link, Xtream and XMLTV outputs.",
     "rename": "Rename"
   },
   "editPanel": {
@@ -173,14 +219,16 @@
     "streamUrl": "Stream URL",
     "broadcast": "Broadcast Schedule",
     "resetToOriginal": "Reset to Xtream original",
-    "noOriginal": "No original"
+    "noOriginal": "No original",
+    "logoPlaceholder": "https://..."
   },
   "sort": {
     "title": "Sorting",
     "instruction": "Select category from left panel → drag channels on the right",
     "selectCategory": "Select a category",
     "selectFromLeft": "Select a category from the left panel",
-    "noChannels": "No channels in this category"
+    "noChannels": "No channels in this category",
+    "truncatedWarning": "Showing the first {limit} channels ({total} total)."
   },
   "epg": {
     "guideTab": "TV Guide",
@@ -219,7 +267,61 @@
   },
   "share": {
     "title": "Share Link",
-    "instruction": "You can add this link to your IPTV player."
+    "instruction": "You can add this link to your IPTV player.",
+    "optionsInstruction": "Optionally limit the share duration or protect it with a password.",
+    "expiresInDays": "Duration (days)",
+    "noExpiry": "No expiration",
+    "password": "Password",
+    "passwordPlaceholder": "Leave blank to share without a password",
+    "passwordHint": "Enter 10-128 characters if you use a password.",
+    "m3uUrl": "M3U share URL",
+    "xmltvUrl": "XMLTV share URL",
+    "generating": "Creating link...",
+    "createLink": "Create share link"
+  },
+  "xtreamOutput": {
+    "title": "Xtream Codes credentials",
+    "disabledDescription": "Enable access to add this edited playlist to a player using Xtream Codes credentials.",
+    "enable": "Enable",
+    "enabling": "Enabling...",
+    "active": "Xtream Codes credentials are active",
+    "credentialsDescription": "Use these credentials when your player asks for an Xtream Codes account.",
+    "serverUrl": "Server address",
+    "username": "Username",
+    "password": "Password",
+    "passwordOneTime": "This password is shown only once. Copy it before closing this window.",
+    "passwordUnavailable": "The password is shown only when it is created. Regenerate it to get a new password.",
+    "regenerate": "Regenerate password",
+    "regenerating": "Regenerating...",
+    "regenerateTitle": "Regenerate password?",
+    "regenerateWarning": "The current password will stop working and existing players will lose their connection.",
+    "confirmRegenerate": "Regenerate password",
+    "disable": "Disable access",
+    "disabling": "Disabling...",
+    "disableTitle": "Disable Xtream Codes access?",
+    "disableWarning": "Players using these credentials will no longer be able to connect.",
+    "confirmDisable": "Disable access",
+    "alternativeUrls": "Alternative playlist addresses",
+    "m3uUrl": "M3U address",
+    "xmltvUrl": "XMLTV address",
+    "setupTitle": "TiviMate / IPTV Smarters setup",
+    "setupStep1": "Open TiviMate or IPTV Smarters and choose to add a playlist.",
+    "setupStep2": "Select the Xtream Codes login option.",
+    "setupStep3": "Enter the server address, username and password shown above.",
+    "securityTitle": "Security warning",
+    "securityWarning": "Sharing these credentials gives access to the entire playlist. Stream addresses also contain credentials from your upstream provider.",
+    "manualCopyTitle": "Automatic copying failed",
+    "manualCopyInstruction": "Select and copy the value manually from the field below.",
+    "copyFailed": "Could not copy automatically. The value is selected for manual copying.",
+    "retry": "Try again",
+    "notFound": "This playlist could not be found or you do not have access to it.",
+    "loadError": "Xtream Codes access details could not be loaded. Check your connection and try again.",
+    "enableError": "Xtream Codes access could not be enabled.",
+    "regenerateError": "The password could not be regenerated.",
+    "disableError": "Xtream Codes access could not be disabled.",
+    "enabledSuccess": "Xtream Codes access enabled",
+    "regeneratedSuccess": "Password regenerated",
+    "disabledSuccess": "Xtream Codes access disabled"
   },
   "bulkMove": {
     "title": "Move Channels",
@@ -282,9 +384,11 @@
     "metadataFetched": "Metadata fetched",
     "metadataError": "Could not fetch metadata",
     "metadataNotFound": "Not found on TMDB",
-    "noXtreamSource": "Xtream Codes source not found"
+    "noXtreamSource": "Xtream Codes source not found",
+    "channelCreated": "Channel created"
   },
   "metadata": {
+    "title": "Metadata",
     "fetch": "Fetch Info",
     "refetch": "Refetch",
     "overview": "Overview",
@@ -303,6 +407,7 @@
   },
   "bulkRename": {
     "title": "Bulk Rename",
+    "selection": "Create a find and replace rule for {count} selected channels.",
     "find": "Find",
     "replace": "Replace",
     "findPlaceholder": "Text or regex to find",
@@ -310,14 +415,21 @@
     "useRegex": "Use regex",
     "preview": "Preview",
     "apply": "Apply",
-    "result": "{renamed}/{total} channels renamed"
+    "result": "{renamed}/{total} channels renamed",
+    "affected": "{count} channels will be affected",
+    "noChanges": "No channels will change with this rule.",
+    "sampleLimit": "Showing the first {shown} of {affected} changes.",
+    "previewRequired": "You must generate a preview before applying changes."
   },
   "streamTest": {
     "test": "Test",
     "testing": "Testing...",
     "reachable": "Reachable",
     "unreachable": "Unreachable",
-    "status": "Status: {status}"
+    "status": "HTTP status: {status}",
+    "contentType": "Content type: {contentType}",
+    "error": "Error: {error}",
+    "savedUrlHint": "The test uses the saved stream URL."
   },
   "m3uImport": {
     "title": "Import M3U",
@@ -330,10 +442,61 @@
   },
   "addChannel": {
     "title": "Add Channel",
+    "description": "Enter the channel details to add it to the playlist manually.",
     "name": "Channel Name",
     "streamUrl": "Stream URL",
+    "streamUrlPlaceholder": "https://example.com/stream.m3u8",
     "logoUrl": "Logo URL",
-    "streamType": "Content Type"
+    "logoUrlPlaceholder": "https://example.com/logo.png",
+    "streamType": "Content Type",
+    "testConnection": "Test connection",
+    "testSavesFirst": "The test endpoint requires a channel ID, so testing first saves the channel and then checks its stream.",
+    "savedForTesting": "The channel is saved. Review the stream result or run the test again."
+  },
+  "bulkUpdate": {
+    "title": "Bulk Update",
+    "selection": "Choose the fields to change on {count} selected channels.",
+    "setName": "Change name",
+    "setLogoUrl": "Change logo URL",
+    "setStreamUrl": "Change stream URL",
+    "setCategory": "Change category",
+    "namePlaceholder": "New name for all selected channels",
+    "logoPlaceholder": "New logo URL",
+    "streamUrlPlaceholder": "New stream URL",
+    "optionalFieldsHint": "Leaving an enabled logo URL empty clears the logo; a stream URL cannot be empty.",
+    "apply": "Apply changes",
+    "result": "{count} channels updated"
+  },
+  "admin": {
+    "title": "Admin Panel",
+    "subtitle": "System administration and user management",
+    "totalUsers": "Total Users",
+    "totalPlaylists": "Total Playlists",
+    "totalChannels": "Total Channels",
+    "newThisWeek": "New This Week",
+    "users": "Users",
+    "searchLabel": "Search users by email address",
+    "searchPlaceholder": "Search by email...",
+    "administrator": "Administrator",
+    "registeredAt": "Registered",
+    "actions": "Actions",
+    "editUserAria": "Edit user {email}",
+    "deleteUserAria": "Delete user {email}",
+    "noUsers": "No users found",
+    "editUser": "Edit User",
+    "deleteUser": "Delete User",
+    "adminAccess": "Administrator Access",
+    "saving": "Saving...",
+    "deleting": "Deleting...",
+    "deleteConfirm": "Are you sure you want to delete {email}?",
+    "deleteWarning": "This action cannot be undone. All of this user's playlists and channels will be deleted.",
+    "adminRequired": "Administrator access is required",
+    "statsLoadFailed": "Could not load statistics",
+    "usersLoadFailed": "Could not load the user list",
+    "userUpdated": "User updated",
+    "updateFailed": "Could not update the user",
+    "userDeleted": "User deleted",
+    "deleteFailed": "Could not delete the user"
   },
   "account": {
     "title": "Account Settings",
@@ -399,6 +562,26 @@
     "dark": "Dark Theme",
     "system": "System"
   },
+  "accessibility": {
+    "home": "Home",
+    "mainNavigation": "Main navigation",
+    "userInfo": "User information",
+    "logout": "Log out",
+    "dismissNotification": "Dismiss notification",
+    "closeDialog": "Close dialog",
+    "editorSections": "Editor sections",
+    "closeMenu": "Close menu",
+    "openEditorMenu": "Open editor menu",
+    "openCategories": "Open categories",
+    "editCategoryName": "Edit the name of {name}",
+    "closeCategories": "Close categories",
+    "selectAllChannels": "Select all channels",
+    "selectChannel": "Select {name}",
+    "closeEditPanel": "Close edit panel",
+    "selectedEpgLogo": "Logo for the selected EPG channel",
+    "channelLogo": "Logo for {name}",
+    "backdropImage": "Backdrop image for {name}"
+  },
   "forgotPw": {
     "title": "Forgot Password",
     "subtitle": "Enter your email and we'll send you a password reset link.",
@@ -410,7 +593,8 @@
   "resetPw": {
     "title": "Set New Password",
     "submit": "Change Password",
-    "success": "Your password has been changed successfully. You can now log in."
+    "success": "Your password has been changed successfully. You can now log in.",
+    "tokenMissing": "The password reset link is invalid or incomplete."
   },
   "landing": {
     "badge": "Open source — MIT licensed",
@@ -423,7 +607,36 @@
   "legal": {
     "termsTitle": "Terms of Service",
     "privacyTitle": "Privacy Policy",
-    "lastUpdated": "Last updated: 2026-03-26"
+    "lastUpdated": "Last updated: 2026-03-26",
+    "home": "Home",
+    "terms": {
+      "generalTitle": "1. General Terms",
+      "generalBody": "By accessing this website or using the service, you agree to these terms. If you do not agree, please do not use the service.",
+      "serviceTitle": "2. Service Description",
+      "serviceBody": "M3U Editor is a web-based tool for managing IPTV playlists. You can edit M3U files, connect Xtream Codes accounts, work with EPG data, and share playlists.",
+      "responsibilityTitle": "3. User Responsibilities",
+      "responsibilityBody": "You must use the platform in accordance with applicable law. Uploading, sharing, or distributing content that infringes copyright is strictly prohibited. You are responsible for keeping your account secure.",
+      "contentTitle": "4. Content Disclaimer",
+      "contentBody": "M3U Editor is not responsible for content uploaded by users. The platform provides editing tools only; users are responsible for ensuring that their content is lawful.",
+      "terminationTitle": "5. Account Termination",
+      "terminationBody": "Accounts that violate these terms may be suspended or permanently closed without prior notice. You may also delete your account at any time.",
+      "changesTitle": "6. Changes to These Terms",
+      "changesBody": "These terms may be updated without prior notice. We recommend checking this page periodically for the latest version."
+    },
+    "privacy": {
+      "collectionTitle": "Information We Collect",
+      "collectionBody": "When you use the service, we process your email address, your securely hashed password, and usage data. Playlist and channel information is stored in the database on your server and linked to your account.",
+      "useTitle": "How We Use Information",
+      "useBody": "Information is used only to provide the service, manage accounts, and improve the platform. Your data is never sold to third parties for marketing.",
+      "thirdPartiesTitle": "Third-Party Services",
+      "thirdPartiesBody": "The service may connect to third parties such as Xtream Codes servers and EPG sources. You initiate these connections, and each service's own privacy policy applies.",
+      "storageTitle": "Browser Storage",
+      "storageBody": "Browser storage is used for essential features such as session management and language preferences. We do not use third-party tracking cookies.",
+      "rightsTitle": "Your Rights",
+      "rightsBody": "You can view and update your information in account settings, or delete your account entirely. Deleting your account permanently removes all of its data.",
+      "contactTitle": "Contact",
+      "contactBody": "If you have questions about this privacy policy, contact us at info@m3ueditor.com."
+    }
   },
   "notFound": {
     "title": "Page Not Found",

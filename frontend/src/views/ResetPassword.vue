@@ -45,7 +45,7 @@ async function handleSubmit() {
   loading.value = true; error.value = ''
   try {
     const token = route.query.token
-    if (!token) { error.value = 'Token bulunamadi'; return }
+    if (!token) { error.value = t('resetPw.tokenMissing'); return }
     await api.post('/auth/reset-password', { token, password: password.value })
     success.value = true
   } catch (e) {

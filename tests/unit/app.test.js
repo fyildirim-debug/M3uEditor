@@ -35,4 +35,27 @@ describe('Express App', () => {
     const res = await request(app).get('/nonexistent');
     expect(res.status).toBe(404);
   });
+
+  test('refresh endpoint has a dedicated rate limit', async () => {
+    let response;
+    for (let attempt = 0; attempt < 11; attempt += 1) {
+      response = await request(app).post('/api/auth/refresh').send({});
+    }
+
+    expect(response.status).toBe(429);
+    expect(response.body.error.code).toBe('RATE_LIMITED');
+  });
+
+  test('shared playlist limit is isolated by a hashed route token', async () => {
+    let response;
+    for (let attempt = 0; attempt < 31; attempt += 1) {
+      response = await request(app).get('/api/shared/rate-limit-token-a');
+    }
+
+    expect(response.status).toBe(429);
+    expect(response.body.error.code).toBe('RATE_LIMITED');
+
+    const differentTokenResponse = await request(app).get('/api/shared/rate-limit-token-b');
+    expect(differentTokenResponse.status).not.toBe(429);
+  });
 });

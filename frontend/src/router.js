@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { useAuthStore } from './stores/auth'
 
 const routes = [
   { path: '/', component: () => import('./views/Landing.vue') },
@@ -16,12 +17,15 @@ const routes = [
 
 const router = createRouter({ history: createWebHashHistory(), routes })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const token = sessionStorage.getItem('token')
-  let user = null
-  try { user = JSON.parse(sessionStorage.getItem('user') || 'null') } catch {}
   if (to.meta.auth && !token) return { path: '/login', query: { redirect: to.fullPath } }
-  if (to.meta.admin && !user?.is_admin) return '/dashboard'
+  if (to.meta.admin && token) {
+    const auth = useAuthStore()
+    try { await auth.getProfile() } catch {}
+    if (!sessionStorage.getItem('token')) return { path: '/login', query: { redirect: to.fullPath } }
+    if (!auth.user?.is_admin) return '/dashboard'
+  }
   if (to.meta.guest && token) return '/dashboard'
 })
 

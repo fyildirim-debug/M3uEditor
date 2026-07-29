@@ -14,7 +14,13 @@ function metadata(req) {
 function parseCookies(req) {
   return String(req.headers.cookie || '').split(';').reduce((cookies, pair) => {
     const separator = pair.indexOf('=');
-    if (separator > -1) cookies[pair.slice(0, separator).trim()] = decodeURIComponent(pair.slice(separator + 1));
+    if (separator > -1) {
+      try {
+        cookies[pair.slice(0, separator).trim()] = decodeURIComponent(pair.slice(separator + 1));
+      } catch (_error) {
+        // Ignore malformed percent-encoding instead of turning a bad cookie into a 500 response.
+      }
+    }
     return cookies;
   }, {});
 }
@@ -54,6 +60,12 @@ async function register(req, res, next) {
     const result = await authService.register(email, password, metadata(req));
     setRefreshCookie(res, result.refreshToken);
     res.status(201).json(publicAuthResult(result));
+  } catch (error) { next(error); }
+}
+
+async function registrationStatus(_req, res, next) {
+  try {
+    res.json({ allowed: await authService.isRegistrationAllowed() });
   } catch (error) { next(error); }
 }
 
@@ -146,4 +158,16 @@ async function resetPassword(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { register, login, refreshToken, logout, changePassword, changeEmail, deleteAccount, getProfile, forgotPassword, resetPassword };
+module.exports = {
+  register,
+  registrationStatus,
+  login,
+  refreshToken,
+  logout,
+  changePassword,
+  changeEmail,
+  deleteAccount,
+  getProfile,
+  forgotPassword,
+  resetPassword,
+};

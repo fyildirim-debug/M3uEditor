@@ -2,7 +2,7 @@
   <div class="editor" v-if="!pageLoading">
     <div class="editor-body">
       <!-- Left nav sidebar -->
-      <nav class="nav-sidebar" :class="{ 'mobile-open': mobileNavOpen }" aria-label="Editör bölümleri">
+      <nav class="nav-sidebar" :class="{ 'mobile-open': mobileNavOpen }" :aria-label="t('accessibility.editorSections')">
         <!-- Canli Kanallar -->
         <div class="nav-section">
           <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'live' }]" role="button" tabindex="0" :aria-expanded="activeStreamType === 'live'" @click="toggleStreamSection('live')" @keydown.enter.space.prevent="toggleStreamSection('live')">
@@ -79,29 +79,36 @@
           <div class="nav-item" role="button" tabindex="0" @click="doShare" @keydown.enter.space.prevent="doShare">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> {{ t('nav.share') }}
           </div>
+          <div class="nav-item" role="button" tabindex="0" @click="showXtreamOutput = true" @keydown.enter.space.prevent="showXtreamOutput = true">
+            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m8 12 2.5 2.5L16 9"/></svg> {{ t('nav.xtreamCredentials') }}
+          </div>
         </div>
       </nav>
-      <button v-if="mobileNavOpen" class="mobile-scrim" aria-label="Menüyü kapat" @click="mobileNavOpen = false"></button>
+      <button v-if="mobileNavOpen" class="mobile-scrim" :aria-label="t('accessibility.closeMenu')" @click="mobileNavOpen = false"></button>
 
       <!-- Main content area -->
       <div class="main-area">
         <!-- Top bar -->
         <div class="top-bar">
           <div class="top-bar-left">
-            <button class="mobile-menu-btn" aria-label="Editör menüsünü aç" @click="mobileNavOpen = true">
+            <button class="mobile-menu-btn" :aria-label="t('accessibility.openEditorMenu')" @click="mobileNavOpen = true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
             </button>
             <h2 class="playlist-title">{{ playlistName }}</h2>
             <span class="channel-count-badge">{{ totalChannelCount }} {{ streamTypeLabel.unit }}</span>
           </div>
           <div class="top-bar-right">
-            <button v-if="activeView === 'basic'" class="mobile-menu-btn" aria-label="Kategorileri aç" @click="mobileCategoriesOpen = true">
+            <button v-if="activeView === 'basic'" class="mobile-menu-btn" :aria-label="t('accessibility.openCategories')" @click="mobileCategoriesOpen = true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
             </button>
             <div class="search-box">
               <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input class="search-input" v-model="search" :aria-label="streamTypeLabel.search" :placeholder="streamTypeLabel.search" @input="debouncedSearch" />
             </div>
+            <button v-if="activeView === 'basic'" class="btn btn-secondary btn-sm add-channel-btn" :aria-label="t('addChannel.title')" @click="showAddChannel = true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span class="add-channel-label">{{ t('addChannel.title') }}</span>
+            </button>
             <button class="btn btn-secondary btn-sm" @click="openXtream">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> {{ t('xtream.importTitle') }}
             </button>
@@ -129,7 +136,7 @@
                       <span class="cat-sb-count">{{ totalChannelCount }}</span>
                     </div>
                     <div v-for="cat in categories" :key="cat.id" role="button" tabindex="0"
-                      :class="['cat-sb-item', { active: selectedCatId === cat.id, 'cat-sb-hidden': hiddenCats.has(cat.id) }]"
+                      :class="['cat-sb-item', { active: selectedCatId === cat.id, 'cat-sb-hidden': cat.is_hidden }]"
                       @click="selectCategory(cat.id)" @keydown.enter.space.self.prevent="selectCategory(cat.id)">
                       <input v-if="inlineEditCatId === cat.id"
                         class="cat-sb-input"
@@ -138,13 +145,14 @@
                         @keyup.enter="saveInlineEdit(cat)"
                         @keyup.escape="inlineEditCatId = null"
                         @click.stop
-                        :aria-label="`${cat.name} kategori adını düzenle`"
+                        :aria-label="t('accessibility.editCategoryName', { name: cat.name })"
                         autofocus />
                       <span v-else class="cat-sb-name" @dblclick.stop="startInlineEdit(cat)">{{ cat.name }}</span>
+                      <span v-if="cat.is_hidden" class="cat-sb-hidden-badge" :title="t('editor.hiddenCategoryHint')">{{ t('editor.hiddenCategoryBadge') }}</span>
                       <span class="cat-sb-count">{{ cat.channel_count || 0 }}</span>
                       <div class="cat-sb-actions">
-                        <button class="cat-sb-btn" @click.stop="toggleCatHidden(cat.id)" :title="hiddenCats.has(cat.id) ? t('editor.showCategory') : t('editor.hideCategory')">
-                          <svg v-if="!hiddenCats.has(cat.id)" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <button class="cat-sb-btn" @click.stop="toggleCatHidden(cat)" :title="cat.is_hidden ? t('editor.showCategory') : t('editor.hideCategory')" :aria-label="cat.is_hidden ? t('editor.showCategory') : t('editor.hideCategory')">
+                          <svg v-if="!cat.is_hidden" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                           <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
                         </button>
                         <button class="cat-sb-btn" @click.stop="startInlineEdit(cat)" :title="t('editor.rename')">
@@ -157,13 +165,15 @@
                     </div>
                   </div>
                 </div>
-                <button v-if="mobileCategoriesOpen" class="mobile-scrim category-scrim" aria-label="Kategorileri kapat" @click="mobileCategoriesOpen = false"></button>
+                <button v-if="mobileCategoriesOpen" class="mobile-scrim category-scrim" :aria-label="t('accessibility.closeCategories')" @click="mobileCategoriesOpen = false"></button>
 
                 <!-- Sağ: Kanal Listesi -->
                 <div class="channel-main">
                   <div v-if="selectedIds.size > 0" class="bulk-bar">
                     <span class="badge badge-accent">{{ selectedIds.size }} {{ t('common.selected') }}</span>
                     <button class="btn btn-secondary btn-xs" @click="showBulkMove = true">{{ t('common.move') }}</button>
+                    <button class="btn btn-secondary btn-xs" @click="showBulkUpdate = true">{{ t('bulkUpdate.title') }}</button>
+                    <button class="btn btn-secondary btn-xs" @click="showBulkRename = true">{{ t('bulkRename.title') }}</button>
                     <button class="btn btn-danger btn-xs" @click="bulkDelete">{{ t('common.delete') }}</button>
                   </div>
                   <div v-if="channelsLoading" class="center-loading"><span class="spinner"></span></div>
@@ -265,7 +275,7 @@
                     <table class="ch-table">
                       <thead>
                         <tr>
-                          <th class="th-check"><input type="checkbox" aria-label="Tüm kanalları seç" @change="toggleSelectAll" :checked="allSelected" /></th>
+                          <th class="th-check"><input type="checkbox" :aria-label="t('accessibility.selectAllChannels')" @change="toggleSelectAll" :checked="allSelected" /></th>
                           <th class="th-num">#</th>
                           <th class="th-name">{{ t('table.name') }}</th>
                           <th class="th-url">{{ t('table.url') }}</th>
@@ -276,11 +286,11 @@
                         <tr v-for="(ch, idx) in channels" :key="ch.id" tabindex="0"
                           :class="{ selected: selectedIds.has(ch.id), editing: editingChannel?.id === ch.id }"
                           @click="startEditChannel(ch)" @keydown.enter.space.prevent="startEditChannel(ch)">
-                          <td class="td-check" @click.stop><input type="checkbox" :aria-label="`${ch.name} kanalını seç`" :checked="selectedIds.has(ch.id)" @change="toggleSelect(ch.id)" /></td>
+                          <td class="td-check" @click.stop><input type="checkbox" :aria-label="t('accessibility.selectChannel', { name: ch.name })" :checked="selectedIds.has(ch.id)" @change="toggleSelect(ch.id)" /></td>
                           <td class="td-num">{{ (page - 1) * 50 + idx + 1 }}</td>
                           <td class="td-name">
                             <div class="ch-name-cell">
-                              <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" loading="lazy" :alt="ch.name + ' logosu'" @error="$event.target.style.display='none'" />
+                              <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="$event.target.style.display='none'" />
                               <span v-else class="row-logo-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
                               <span>{{ ch.name }}</span>
                               <span v-if="activeStreamType !== 'live' && (ch.extras?.year || ch.extras?.rating)" class="ch-meta-badges">
@@ -296,9 +306,9 @@
                       </tbody>
                     </table>
                     <div v-if="totalPages > 1" class="ch-pagination">
-                      <button class="btn btn-secondary btn-sm" :disabled="page <= 1" @click="page--; loadChannels()">←</button>
+                      <button class="btn btn-secondary btn-sm" :disabled="page <= 1" @click="goToPage(page - 1)">←</button>
                       <span class="page-info">{{ page }} / {{ totalPages }}</span>
-                      <button class="btn btn-secondary btn-sm" :disabled="page >= totalPages" @click="page++; loadChannels()">→</button>
+                      <button class="btn btn-secondary btn-sm" :disabled="page >= totalPages" @click="goToPage(page + 1)">→</button>
                     </div>
                   </div>
                 </div>
@@ -334,6 +344,9 @@
                   <div class="sort-panel-title">
                     {{ sortSelectedCat ? sortSelectedCat.name + ' ' + t('common.channels') : t('sort.selectCategory') }}
                   </div>
+                  <div v-if="sortCatTotal > sortCatChannels.length" class="sort-truncated-warning">
+                    {{ t('sort.truncatedWarning', { limit: SORT_FETCH_LIMIT, total: sortCatTotal }) }}
+                  </div>
                   <div v-if="!sortSelectedCat" class="sort-empty">
                     <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
                     <span>{{ t('sort.selectFromLeft') }}</span>
@@ -347,7 +360,7 @@
                       @dragover.prevent
                       @drop="chanDrop(idx)">
                       <svg class="sort-handle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
-                      <img v-if="ch.logo_url" :src="ch.logo_url" class="sort-ch-logo" loading="lazy" :alt="ch.name + ' logosu'" @error="$event.target.style.display='none'" />
+                      <img v-if="ch.logo_url" :src="ch.logo_url" class="sort-ch-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="$event.target.style.display='none'" />
                       <span class="sort-name">{{ ch.name }}</span>
                       <span class="sort-count">#{{ idx + 1 }}</span>
                     </div>
@@ -433,7 +446,7 @@
                   <!-- Channel Rows -->
                   <div class="epg-channel-col" ref="epgChannelColRef">
                     <div v-for="ch in guideChannels" :key="ch.id" class="epg-ch-row-label">
-                      <img v-if="ch.logo_url" :src="ch.logo_url" class="epg-ch-logo" loading="lazy" :alt="ch.name + ' logosu'" @error="$event.target.style.display='none'" />
+                      <img v-if="ch.logo_url" :src="ch.logo_url" class="epg-ch-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="$event.target.style.display='none'" />
                       <div v-else class="epg-ch-logo-fb">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
                       </div>
@@ -477,7 +490,7 @@
                     <div class="epg-add-card-title">{{ t('epg.addSourceTitle') }}</div>
                     <div class="epg-add-card-desc">{{ t('epg.addSourceDesc') }}</div>
                     <div class="epg-add-input-row">
-                      <input class="input" type="url" v-model="newEpgUrl" :aria-label="t('epg.addSourceTitle')" placeholder="https://epg-source.com/guide.xml" @keyup.enter="addEpgSource" />
+                      <input class="input" type="url" v-model="newEpgUrl" :aria-label="t('epg.addSourceTitle')" :placeholder="t('epg.urlPlaceholder')" @keyup.enter="addEpgSource" />
                       <button class="btn btn-primary btn-sm" @click="addEpgSource" :disabled="addingEpg || !newEpgUrl.trim()">
                         <span v-if="addingEpg" class="spinner" style="width:13px;height:13px"></span>
                         <span v-else>{{ t('common.add') }}</span>
@@ -649,12 +662,12 @@
           <aside class="edit-panel" v-if="editingChannel">
             <div class="ep-header">
               <h3>{{ t('editPanel.title') }}</h3>
-              <button class="btn btn-ghost btn-icon-sm" aria-label="Düzenleme panelini kapat" @click="editingChannel = null">✕</button>
+              <button class="btn btn-ghost btn-icon-sm" :aria-label="t('accessibility.closeEditPanel')" @click="editingChannel = null">✕</button>
             </div>
             <div class="ep-body">
               <div class="ep-logo-area">
                 <div v-if="editForm.logo_url" class="ep-logo-preview" role="button" tabindex="0" @click="triggerLogoUpload" @keydown.enter.space.prevent="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
-                  <img :src="editForm.logo_url" :alt="editingChannel.name + ' logosu'" @error="$event.target.style.display='none'" />
+                  <img :src="editForm.logo_url" :alt="t('accessibility.channelLogo', { name: editingChannel.name })" @error="$event.target.style.display='none'" />
                   <div class="ep-logo-overlay">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   </div>
@@ -704,7 +717,7 @@
                 <!-- EPG Logo Çekme Seçeneği -->
                 <div v-if="epgSelectedIcon" class="epg-logo-offer">
                   <div class="epg-logo-offer-preview">
-                    <img :src="epgSelectedIcon" class="epg-logo-offer-img" alt="Seçilen EPG kanal logosu" @error="epgSelectedIcon = null" />
+                    <img :src="epgSelectedIcon" class="epg-logo-offer-img" :alt="t('accessibility.selectedEpgLogo')" @error="epgSelectedIcon = null" />
                   </div>
                   <div class="epg-logo-offer-info">
                     <span class="epg-logo-offer-label">{{ t('editPanel.epgLogoAvailable') }}</span>
@@ -714,8 +727,12 @@
                     </button>
                   </div>
                 </div>
-                <div class="form-group"><label for="channel-logo-url">{{ t('editPanel.logoUrl') }}</label><input id="channel-logo-url" class="input" type="url" v-model="editForm.logo_url" placeholder="https://..." /></div>
+                <div class="form-group"><label for="channel-logo-url">{{ t('editPanel.logoUrl') }}</label><input id="channel-logo-url" class="input" type="url" v-model="editForm.logo_url" :placeholder="t('editPanel.logoPlaceholder')" /></div>
                 <div class="form-group"><label for="channel-stream-url">{{ t('editPanel.streamUrl') }}</label><input id="channel-stream-url" class="input" type="url" v-model="editForm.stream_url" /></div>
+                <StreamTestControl
+                  :channel-id="editingChannel.id"
+                  :has-unsaved-url="(editForm.stream_url || '') !== (editingChannel.stream_url || '')"
+                />
                 <div class="form-group"><label for="channel-category">{{ t('common.category') }}</label>
                   <select id="channel-category" class="input" v-model="editForm.category_id">
                     <option :value="null">{{ t('common.uncategorized') }}</option>
@@ -745,7 +762,7 @@
               <div v-if="activeStreamType !== 'live'" class="ep-metadata-section">
                 <div class="ep-metadata-header">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                  <span>Metadata</span>
+                  <span>{{ t('metadata.title') }}</span>
                   <button class="btn btn-accent btn-xs" @click="fetchXtreamMetadata" :disabled="fetchingMetadata" style="margin-left:auto">
                     <span v-if="fetchingMetadata" class="spinner" style="width:11px;height:11px"></span>
                     {{ fetchingMetadata ? t('metadata.fetching') : (editingChannel.extras?.metadata_fetched ? t('metadata.refetch') : t('metadata.fetch')) }}
@@ -753,7 +770,7 @@
                 </div>
                 <div v-if="editingChannel.extras?.metadata_fetched" class="ep-metadata-body">
                   <div v-if="editingChannel.extras.backdrop_url" class="ep-meta-backdrop">
-                    <img :src="editingChannel.extras.backdrop_url" :alt="editingChannel.name + ' arka plan görseli'" @error="$event.target.style.display='none'" />
+                    <img :src="editingChannel.extras.backdrop_url" :alt="t('accessibility.backdropImage', { name: editingChannel.name })" @error="$event.target.style.display='none'" />
                   </div>
                   <div v-if="editingChannel.extras.overview" class="ep-meta-overview">{{ editingChannel.extras.overview }}</div>
                   <div class="ep-meta-grid">
@@ -788,8 +805,8 @@
                     <span class="ep-meta-label">{{ t('metadata.cast') }}:</span> {{ typeof editingChannel.extras.cast === 'string' ? editingChannel.extras.cast : editingChannel.extras.cast.slice(0, 5).join(', ') }}
                   </div>
                   <div v-if="editingChannel.extras.imdb_id" class="ep-meta-info ep-meta-ids">
-                    <span>IMDB: {{ editingChannel.extras.imdb_id }}</span>
-                    <span v-if="editingChannel.extras.tmdb_id">TMDB: {{ editingChannel.extras.tmdb_id }}</span>
+                    <span>{{ t('metadata.imdbId') }}: {{ editingChannel.extras.imdb_id }}</span>
+                    <span v-if="editingChannel.extras.tmdb_id">{{ t('metadata.tmdbId') }}: {{ editingChannel.extras.tmdb_id }}</span>
                   </div>
                 </div>
               </div>
@@ -818,38 +835,38 @@
       </div>
     </div>
 
-    <!-- Modals -->
-    <Teleport to="body">
-      <div v-if="showXtreamModal" v-focus-trap class="modal-overlay" @click.self="showXtreamModal = false">
-        <div class="modal" style="max-width:500px">
-          <div class="modal-header"><h3>{{ t('xtream.importTitle') }}</h3>
-            <button class="btn btn-ghost btn-icon-sm" @click="showXtreamModal = false">✕</button>
-          </div>
-          <div class="form-group"><label>{{ t('xtream.serverUrl') }}</label><input class="input" v-model="xtreamForm.serverUrl" placeholder="http://example.com:8080" /></div>
-          <div class="form-group"><label>{{ t('xtream.username') }}</label><input class="input" v-model="xtreamForm.username" /></div>
-          <div class="form-group"><label>{{ t('xtream.password') }}</label><input class="input" type="password" v-model="xtreamForm.password" /></div>
-          <div class="form-group">
-            <label>{{ t('xtream.streamTypes') }}</label>
-            <div class="stream-type-group">
-              <label class="stream-type-label"><input type="checkbox" value="live" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeLive') }}</label>
-              <label class="stream-type-label"><input type="checkbox" value="vod" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeVod') }}</label>
-              <label class="stream-type-label"><input type="checkbox" value="series" v-model="xtreamForm.streamTypes" /> {{ t('xtream.typeSeries') }}</label>
-            </div>
-          </div>
-          <div v-if="importResult" class="result-box success">
-            {{ t('toast.importSuccess', { channels: importResult.totalChannels, categories: importResult.totalCategories, duration: (importResult.duration / 1000).toFixed(1) }) }}
-          </div>
-          <div v-if="importError" class="result-box error">{{ importError }}</div>
-          <div class="modal-actions">
-            <button class="btn btn-secondary" @click="showXtreamModal = false">{{ t('common.close') }}</button>
-            <button class="btn btn-primary" @click="doXtreamImport" :disabled="importing || !xtreamForm.serverUrl || !xtreamForm.username || !xtreamForm.password || !xtreamForm.streamTypes.length">
-              <span v-if="importing" class="spinner" style="width:14px;height:14px"></span>
-              {{ importing ? t('common.importing') : t('common.import') }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <!-- Feature modals -->
+    <AddChannelModal
+      v-if="showAddChannel"
+      :playlist-id="playlistId"
+      :categories="categories"
+      :initial-stream-type="activeStreamType"
+      @created="handleChannelCreated"
+      @close="showAddChannel = false"
+    />
+    <BulkRenameModal
+      v-if="showBulkRename"
+      :channel-ids="selectedChannelIds"
+      @applied="handleBulkApplied"
+      @close="showBulkRename = false"
+    />
+    <BulkUpdateModal
+      v-if="showBulkUpdate"
+      :channel-ids="selectedChannelIds"
+      :categories="categories"
+      @applied="handleBulkApplied"
+      @close="showBulkUpdate = false"
+    />
+    <SharePlaylistModal v-if="showShare" :playlist-id="playlistId" @close="showShare = false" />
+    <XtreamOutputModal v-if="showXtreamOutput" :playlist-id="playlistId" @close="showXtreamOutput = false" />
+    <XtreamImportWizard
+      v-if="showXtreamModal"
+      :playlist-id="playlistId"
+      @close="showXtreamModal = false"
+      @imported="handleXtreamImported"
+    />
+
+    <!-- Existing modals -->
     <!-- M3U Import Modal (Editor) -->
     <Teleport to="body">
       <div v-if="showM3uImportInEditor" v-focus-trap class="modal-overlay" @click.self="showM3uImportInEditor = false">
@@ -924,23 +941,13 @@
         </div>
       </div>
     </Teleport>
-    <Teleport to="body">
-      <div v-if="shareUrl" v-focus-trap class="modal-overlay" @click.self="shareUrl = null">
-        <div class="modal">
-          <div class="modal-header"><h3>{{ t('share.title') }}</h3><button class="btn btn-ghost btn-icon-sm" @click="shareUrl = null">✕</button></div>
-          <div class="form-group"><label for="share-url" class="sr-only">{{ t('share.title') }}</label><input id="share-url" class="input" :value="shareUrl" readonly @click="$event.target.select()" /></div>
-          <p style="font-size:12px;color:var(--text-muted)">{{ t('share.instruction') }}</p>
-          <div class="modal-actions"><button class="btn btn-primary" @click="copyShare">{{ t('common.copy') }}</button><button class="btn btn-secondary" @click="shareUrl = null">{{ t('common.close') }}</button></div>
-        </div>
-      </div>
-    </Teleport>
     <!-- EPG Program Detail Modal -->
     <Teleport to="body">
       <div v-if="selectedProgram" v-focus-trap class="modal-overlay" @click.self="selectedProgram = null">
         <div class="modal epg-detail-modal">
           <div class="epg-detail-header">
             <div class="epg-detail-channel" v-if="selectedProgramChannel">
-              <img v-if="selectedProgramChannel.logo_url" :src="selectedProgramChannel.logo_url" class="epg-detail-ch-logo" :alt="selectedProgramChannel.name + ' logosu'" @error="$event.target.style.display='none'" />
+              <img v-if="selectedProgramChannel.logo_url" :src="selectedProgramChannel.logo_url" class="epg-detail-ch-logo" :alt="t('accessibility.channelLogo', { name: selectedProgramChannel.name })" @error="$event.target.style.display='none'" />
               <span>{{ selectedProgramChannel.name }}</span>
             </div>
             <button class="btn btn-ghost btn-icon-sm" @click="selectedProgram = null">
@@ -979,6 +986,13 @@ import { ref, reactive, onMounted, onUnmounted, inject, watch, computed } from '
 import { useRoute } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
+import AddChannelModal from '../components/AddChannelModal.vue'
+import BulkRenameModal from '../components/BulkRenameModal.vue'
+import BulkUpdateModal from '../components/BulkUpdateModal.vue'
+import SharePlaylistModal from '../components/SharePlaylistModal.vue'
+import StreamTestControl from '../components/StreamTestControl.vue'
+import XtreamImportWizard from '../components/XtreamImportWizard.vue'
+import XtreamOutputModal from '../components/XtreamOutputModal.vue'
 
 const route = useRoute()
 const toast = inject('toast')
@@ -1018,9 +1032,11 @@ const accChannels = reactive({})
 let sortDragIdx = null
 const sortSelectedCat = ref(null)
 const sortCatChannels = ref([])
+const sortCatTotal = ref(0)
 const sortCatLoading = ref(false)
 let sortChanDragIdx = null
 const SORT_RENDER_LIMIT = 100
+const SORT_FETCH_LIMIT = 500
 const sortRenderCount = ref(SORT_RENDER_LIMIT)
 const sortVisibleChannels = computed(() => sortCatChannels.value.slice(0, sortRenderCount.value))
 
@@ -1030,16 +1046,11 @@ const newCatName = ref('')
 const editingCat = ref(null)
 const editCatName = ref('')
 const deletingCat = ref(null)
-const hiddenCats = ref(new Set())
 const inlineEditCatId = ref(null)
 const inlineEditName = ref('')
 
 // Xtream
 const showXtreamModal = ref(false)
-const xtreamForm = ref({ serverUrl: '', username: '', password: '', streamTypes: ['live'] })
-const importing = ref(false)
-const importResult = ref(null)
-const importError = ref('')
 const savedXtream = ref(null) // { serverUrl, username, lastSynced }
 const savedXtreamTypes = ref(['live'])
 const syncing = ref(false)
@@ -1095,11 +1106,16 @@ const guideDateOptions = computed(() => {
 // Bulk
 const showBulkMove = ref(false)
 const bulkTargetCat = ref(null)
-const shareUrl = ref(null)
+const showAddChannel = ref(false)
+const showBulkRename = ref(false)
+const showBulkUpdate = ref(false)
+const showShare = ref(false)
+const showXtreamOutput = ref(false)
 
 let searchTimer = null
 
 const allSelected = computed(() => channels.value.length > 0 && channels.value.every(ch => selectedIds.value.has(ch.id)))
+const selectedChannelIds = computed(() => [...selectedIds.value])
 
 const streamTypeLabel = computed(() => {
   switch (activeStreamType.value) {
@@ -1127,6 +1143,7 @@ function toggleStreamSection(type) {
   editingChannel.value = null
   page.value = 1
   search.value = ''
+  selectedIds.value = new Set()
   loadChannels()
   loadTotalCount()
   loadCategories()
@@ -1176,19 +1193,27 @@ watch(activeView, v => {
 // Load EPG data when editing channel changes
 watch(editingChannel, ch => { if (ch) loadEditChannelEpg() })
 
+// Sayfa/tur/arama degistiginde onceki istek hala ucabilir. Yalnizca en son
+// istegin yaniti duruma yazilir; gecikmis yanit guncel gorunumu ezmez.
+let channelsRequestId = 0
+
 async function loadChannels() {
+  const requestId = ++channelsRequestId
   channelsLoading.value = true
   try {
     const params = { page: page.value, limit: 50, streamType: activeStreamType.value }
     if (search.value) params.search = search.value
     if (selectedCatId.value) params.categoryId = selectedCatId.value
     const { data } = await api.get(`/playlists/${playlistId}/channels`, { params })
+    if (requestId !== channelsRequestId) return
     channels.value = data.channels || data
     totalPages.value = data.totalPages || 1
     tableTotal.value = data.total || channels.value.length
     if (!selectedCatId.value && !search.value) totalChannelCount.value = data.total || channels.value.length
-  } catch { toast(t('toast.channelsLoadError'), 'error') }
-  finally { channelsLoading.value = false }
+  } catch {
+    if (requestId === channelsRequestId) toast(t('toast.channelsLoadError'), 'error')
+  }
+  finally { if (requestId === channelsRequestId) channelsLoading.value = false }
 }
 
 async function loadTotalCount() {
@@ -1213,7 +1238,22 @@ function selectCategory(id) {
   selectedCatId.value = id; page.value = 1; selectedIds.value = new Set(); editingChannel.value = null; mobileCategoriesOpen.value = false; loadChannels()
 }
 
-function debouncedSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => { page.value = 1; loadChannels() }, 300) }
+// Secim yalnizca goruntulenen sorgu baglamina aittir. Sayfa/tur/arama
+// degistiginde temizlenmezse gorunmeyen kanallar toplu islemlere dahil olur.
+function clearSelection() { selectedIds.value = new Set() }
+
+function goToPage(target) {
+  const next = Math.max(1, Math.min(target, totalPages.value))
+  if (next === page.value) return
+  page.value = next
+  clearSelection()
+  loadChannels()
+}
+
+function debouncedSearch() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => { page.value = 1; clearSelection(); loadChannels() }, 300)
+}
 function toggleSelect(id) { const s = new Set(selectedIds.value); if (s.has(id)) s.delete(id); else s.add(id); selectedIds.value = s }
 function toggleSelectAll() { if (allSelected.value) selectedIds.value = new Set(); else selectedIds.value = new Set(channels.value.map(ch => ch.id)) }
 function shortenUrl(url) { if (!url) return '-'; try { return url.length > 60 ? '...' + url.slice(-50) : url } catch { return url } }
@@ -1332,6 +1372,24 @@ async function doBulkMove() {
   } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 
+function refreshFeatureData({ clearSelected = false } = {}) {
+  if (clearSelected) selectedIds.value = new Set()
+  for (const catId of Object.keys(accChannels)) delete accChannels[catId]
+  loadChannels()
+  loadCategories()
+  loadTotalCount()
+  loadStreamTypeCounts()
+  for (const catId of openAccordions.value) loadAccChannels(catId)
+}
+
+function handleChannelCreated() {
+  refreshFeatureData()
+}
+
+function handleBulkApplied() {
+  refreshFeatureData({ clearSelected: true })
+}
+
 async function createCategory() {
   if (!newCatName.value.trim()) return
   try { await api.post(`/playlists/${playlistId}/categories`, { name: newCatName.value.trim() }); newCatName.value = ''; showCatCreate.value = false; toast(t('toast.created'), 'success'); loadCategories() }
@@ -1344,7 +1402,12 @@ async function updateCategory() {
   catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 function confirmDeleteCat(cat) { deletingCat.value = cat }
-function toggleCatHidden(catId) { const s = new Set(hiddenCats.value); s.has(catId) ? s.delete(catId) : s.add(catId); hiddenCats.value = s }
+async function toggleCatHidden(cat) {
+  try {
+    const { data } = await api.put(`/categories/${cat.id}`, { is_hidden: !cat.is_hidden })
+    categories.value = categories.value.map(item => item.id === cat.id ? { ...item, ...data } : item)
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+}
 function startInlineEdit(cat) { inlineEditCatId.value = cat.id; inlineEditName.value = cat.name }
 async function saveInlineEdit(cat) {
   if (!inlineEditName.value.trim() || inlineEditName.value === cat.name) { inlineEditCatId.value = null; return }
@@ -1358,51 +1421,74 @@ async function doDeleteCat() {
 }
 
 async function catDrop(idx) {
-  if (sortDragIdx === null || sortDragIdx === idx) return
-  const cat = categories.value[sortDragIdx]
-  try { await api.put(`/categories/${cat.id}/order`, { newPosition: idx }); loadCategories() }
-  catch { toast(t('toast.sortingError'), 'error') }
+  if (sortDragIdx === null || sortDragIdx === idx) { sortDragIdx = null; return }
+  const previousOrder = [...categories.value]
+  const moved = categories.value.splice(sortDragIdx, 1)[0]
+  categories.value.splice(idx, 0, moved)
+  const movedIndex = categories.value.findIndex(cat => cat.id === moved.id)
+  const payload = movedIndex === 0
+    ? { beforeCategoryId: categories.value[1]?.id }
+    : { afterCategoryId: categories.value[movedIndex - 1]?.id }
   sortDragIdx = null
+
+  try { await api.put(`/categories/${moved.id}/order`, payload) }
+  catch {
+    categories.value = previousOrder
+    toast(t('toast.sortingError'), 'error')
+  }
 }
 
 async function selectSortCat(cat) {
   sortSelectedCat.value = cat
   sortCatLoading.value = true
+  sortCatChannels.value = []
+  sortCatTotal.value = 0
   sortRenderCount.value = SORT_RENDER_LIMIT
   try {
-    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { categoryId: cat.id, limit: 1000 } })
+    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { categoryId: cat.id, limit: SORT_FETCH_LIMIT } })
     sortCatChannels.value = data.channels || data
+    sortCatTotal.value = data.total ?? sortCatChannels.value.length
   } catch { toast(t('toast.channelsLoadError'), 'error') }
   finally { sortCatLoading.value = false }
 }
 
 async function chanDrop(idx) {
-  if (sortChanDragIdx === null || sortChanDragIdx === idx) return
-  const ch = sortCatChannels.value[sortChanDragIdx]
+  if (sortChanDragIdx === null || sortChanDragIdx === idx) { sortChanDragIdx = null; return }
+  const previousOrder = [...sortCatChannels.value]
   const moved = sortCatChannels.value.splice(sortChanDragIdx, 1)[0]
   sortCatChannels.value.splice(idx, 0, moved)
+  const movedIndex = sortCatChannels.value.findIndex(ch => ch.id === moved.id)
+  const payload = movedIndex === 0
+    ? { beforeChannelId: sortCatChannels.value[1]?.id }
+    : { afterChannelId: sortCatChannels.value[movedIndex - 1]?.id }
   sortChanDragIdx = null
-  try { await api.put(`/channels/${ch.id}/order`, { newPosition: idx }) }
-  catch { toast(t('toast.sortingError'), 'error') }
+
+  try { await api.put(`/channels/${moved.id}/order`, payload) }
+  catch {
+    sortCatChannels.value = previousOrder
+    toast(t('toast.sortingError'), 'error')
+  }
 }
 
-function openXtream() { showXtreamModal.value = true; importResult.value = null; importError.value = '' }
-async function doXtreamImport() {
-  importing.value = true; importResult.value = null; importError.value = ''
+function openXtream() { showXtreamModal.value = true }
+async function handleXtreamImported(data) {
+  toast(t('toast.importSuccess', {
+    channels: data.totalChannels ?? 0,
+    categories: data.totalCategories ?? 0,
+    duration: ((Number(data.duration) || 0) / 1000).toFixed(1)
+  }), 'success')
   try {
-    const { data } = await api.post(`/playlists/${playlistId}/import/xtream`, xtreamForm.value)
-    importResult.value = data; toast(t('toast.importSuccess', { channels: data.totalChannels, categories: data.totalCategories, duration: (data.duration / 1000).toFixed(1) }), 'success')
-    // Refresh saved xtream info
     const plRes = await api.get('/playlists')
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
     if (pl?.xtream_server_url) {
       savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
       savedXtreamTypes.value = pl.xtream_stream_types ? JSON.parse(pl.xtream_stream_types) : ['live']
     }
-    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
-    for (const catId of openAccordions.value) loadAccChannels(catId)
-  } catch (e) { importError.value = e.response?.data?.error?.message || t('toast.connectionError') }
-  finally { importing.value = false }
+  } catch {
+    toast(t('toast.playlistsLoadError'), 'error')
+  }
+  loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
+  for (const catId of openAccordions.value) loadAccChannels(catId)
 }
 async function doSync() {
   syncing.value = true
@@ -1551,19 +1637,15 @@ onUnmounted(() => { if (_nowTimer) clearInterval(_nowTimer) })
 
 async function doExport() {
   try {
-    const params = {}
-    if (hiddenCats.value.size > 0) params.excludeCategories = [...hiddenCats.value].join(',')
-    const { data } = await api.get(`/playlists/${playlistId}/export`, { responseType: 'blob', params })
+    const { data } = await api.get(`/playlists/${playlistId}/export`, { responseType: 'blob' })
     const url = URL.createObjectURL(new Blob([data])); const a = document.createElement('a'); a.href = url; a.download = 'playlist.m3u'; a.click(); URL.revokeObjectURL(url)
-    const hiddenCount = hiddenCats.value.size
+    const hiddenCount = categories.value.filter(cat => cat.is_hidden).length
     toast(hiddenCount > 0 ? t('toast.m3uDownloadedExcluded') : t('toast.m3uDownloaded'), 'success')
   } catch { toast(t('toast.downloadError'), 'error') }
 }
-async function doShare() {
-  try { const { data } = await api.post(`/playlists/${playlistId}/share`); shareUrl.value = window.location.origin + '/api/shared/' + data.token }
-  catch (e) { toast(e.response?.data?.error?.message || t('toast.shareError'), 'error') }
+function doShare() {
+  showShare.value = true
 }
-function copyShare() { navigator.clipboard.writeText(shareUrl.value); toast(t('toast.copied'), 'success') }
 // EPG Autocomplete functions
 function onNameInput() {
   clearTimeout(epgAcTimer)
@@ -1726,8 +1808,9 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .cat-sb-item:hover { background: var(--bg-hover); color: var(--text-primary); }
 .cat-sb-item:hover .cat-sb-actions { opacity: 1; }
 .cat-sb-item.active { background: var(--accent-soft); color: var(--accent-hover); border-color: rgba(99,102,241,0.2); font-weight: 500; }
-.cat-sb-item.cat-sb-hidden { opacity: 0.45; }
+.cat-sb-item.cat-sb-hidden { opacity: 0.65; }
 .cat-sb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-sb-hidden-badge { font-size: 8px; color: var(--warning); background: var(--warning-soft); padding: 1px 4px; border-radius: 6px; flex-shrink: 0; }
 .cat-sb-count { font-size: 10px; color: var(--text-muted); background: var(--bg-tertiary); padding: 1px 6px; border-radius: 8px; flex-shrink: 0; }
 .cat-sb-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; flex-shrink: 0; }
 .cat-sb-btn {
@@ -1790,7 +1873,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .acc-empty { padding: 16px 20px; font-size: 12px; color: var(--text-muted); text-align: center; }
 
 /* Bulk bar */
-.bulk-bar { display: flex; align-items: center; gap: 6px; padding: 8px 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
+.bulk-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
 
 /* Channel table */
 .ch-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -1834,6 +1917,10 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
   background: var(--bg-secondary); flex-shrink: 0;
 }
 .sort-list { padding: 8px; overflow-y: auto; flex: 1; }
+.sort-truncated-warning {
+  padding: 8px 16px; color: var(--warning); background: var(--warning-soft);
+  border-bottom: 1px solid var(--border); font-size: 12px; flex-shrink: 0;
+}
 .load-more-btn { width: 100%; margin-top: 8px; }
 .sort-item {
   display: flex; align-items: center; gap: 10px; padding: 8px 10px;
@@ -2404,6 +2491,8 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
   .top-bar-left, .top-bar-right { gap: 6px; min-width: 0; }
   .playlist-title { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .channel-count-badge, .top-bar-right > .btn { display: none; }
+  .top-bar-right > .add-channel-btn { display: inline-flex; width: 40px; height: 40px; justify-content: center; padding: 0; }
+  .add-channel-label { display: none; }
   .search-input { width: min(34vw, 160px); height: 40px; }
   .cat-sidebar {
     position: fixed; z-index: 704; top: var(--header-height, 52px); bottom: 0; left: 0;

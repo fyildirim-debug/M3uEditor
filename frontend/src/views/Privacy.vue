@@ -5,39 +5,39 @@
       <p class="legal-date">{{ t('legal.lastUpdated') }}</p>
 
       <section>
-        <h2>Veri Toplama</h2>
-        <p>Hizmetlerimizi kullandiginizda e-posta adresiniz, sifreniz (sifreli olarak saklanir) ve kullanim verileriniz toplanir. Playlist ve kanal bilgileriniz hesabiniza bagli olarak sunucularimizda saklanir.</p>
+        <h2>{{ t('legal.privacy.collectionTitle') }}</h2>
+        <p>{{ t('legal.privacy.collectionBody') }}</p>
       </section>
 
       <section>
-        <h2>Kullanim</h2>
-        <p>Toplanan veriler yalnizca hizmet sunumu, hesap yonetimi ve platform iyilestirmeleri amaciyla kullanilir. Verileriniz hicbir kosulda ucuncu taraflara pazarlama amaciyla satilmaz.</p>
+        <h2>{{ t('legal.privacy.useTitle') }}</h2>
+        <p>{{ t('legal.privacy.useBody') }}</p>
       </section>
 
       <section>
-        <h2>Ucuncu Taraflar</h2>
-        <p>Hizmetlerimizin islevi geregi bazi ucuncu taraf servisleriyle (Xtream Codes sunuculari, EPG kaynaklari) iletisim kurulabilir. Bu baglantilari siz baslatirsiniz ve ilgili sunucularin gizlilik politikalari gecerlidir.</p>
+        <h2>{{ t('legal.privacy.thirdPartiesTitle') }}</h2>
+        <p>{{ t('legal.privacy.thirdPartiesBody') }}</p>
       </section>
 
       <section>
-        <h2>Cerezler</h2>
-        <p>Oturum yonetimi ve dil tercihi gibi temel islevler icin yerel depolama (localStorage) kullanilmaktadir. Ucuncu taraf izleme cerezleri kullanilmamaktadir.</p>
+        <h2>{{ t('legal.privacy.storageTitle') }}</h2>
+        <p>{{ t('legal.privacy.storageBody') }}</p>
       </section>
 
       <section>
-        <h2>Haklariniz</h2>
-        <p>Hesap ayarlarindan verilerinizi goruntuleyebilir, duzenleyebilir ve hesabinizi tamamen silebilirsiniz. Hesap silme islemi tum verilerinizi kalici olarak kaldiriyor.</p>
+        <h2>{{ t('legal.privacy.rightsTitle') }}</h2>
+        <p>{{ t('legal.privacy.rightsBody') }}</p>
       </section>
 
       <section>
-        <h2>Iletisim</h2>
-        <p>Gizlilik politikamiz hakkinda sorulariniz icin info@m3ueditor.com adresinden bize ulasabilirsiniz.</p>
+        <h2>{{ t('legal.privacy.contactTitle') }}</h2>
+        <p>{{ t('legal.privacy.contactBody') }}</p>
       </section>
 
       <div class="legal-back">
         <router-link to="/" class="btn btn-ghost">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-          Ana Sayfa
+          {{ t('legal.home') }}
         </router-link>
       </div>
     </div>

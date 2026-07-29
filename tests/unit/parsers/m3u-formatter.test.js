@@ -121,6 +121,22 @@ describe('M3UFormatter', () => {
       expect(result).toContain('catchup="default"');
       expect(result).not.toContain('Injected name');
     });
+
+    it('adds an escaped url-tvg attribute only when requested', () => {
+      const result = formatter.format([], { urlTvg: 'https://app.example/api/shared/a&b/xmltv?x="1"' });
+      expect(result).toBe('#EXTM3U url-tvg="https://app.example/api/shared/a&amp;b/xmltv?x=&quot;1&quot;"\n');
+      expect(formatter.format([])).toBe('#EXTM3U\n');
+    });
+
+    it('uses exactly the same guide id as XMLTV channel ids', () => {
+      const XMLTVFormatter = require('../../../src/parsers/XMLTVFormatter');
+      const epgId = 'provider.channel.same-id';
+      const m3u = formatter.format([{ name: 'Channel', epgId, url: 'https://stream.example/1' }]);
+      const xmltv = new XMLTVFormatter().formatChannel({ id: epgId, name: 'Channel' });
+
+      expect(m3u).toContain(`tvg-id="${epgId}"`);
+      expect(xmltv).toContain(`id="${epgId}"`);
+    });
   });
 
   describe('formatStream()', () => {

@@ -5,14 +5,26 @@ const forbiddenSecrets = new Set([
   'dev-refresh-secret-key',
   'change-this-secret-in-production',
   'change-me',
+  'replace-with-a-long-random-secret',
+  'replace-with-another-long-random-secret',
 ]);
+
+function isLowEntropySecret(value) {
+  const compact = value.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const dictionaryPattern = /^(?:admin|another|change|credential|default|development|encryption|example|jwt|key|long|password|production|random|replace|secret|test|with)+$/;
+  const repeatedPattern = /^(.{1,16})\1+$/;
+
+  return new Set(value).size < 8 || repeatedPattern.test(value) || dictionaryPattern.test(compact);
+}
 
 function requireProductionSecret(name, value, minimumLength = 32) {
   if (!isProduction) return value;
-  if (!value || value.length < minimumLength || forbiddenSecrets.has(value)) {
-    throw new Error(`${name} must be set to a unique secret of at least ${minimumLength} characters in production`);
+  const normalizedValue = String(value || '').trim();
+  const isPlaceholder = /^(?:replace-with-|BURAYI_DEGISTIR_)/i.test(normalizedValue);
+  if (!normalizedValue || normalizedValue.length < minimumLength || forbiddenSecrets.has(normalizedValue) || isPlaceholder || isLowEntropySecret(normalizedValue)) {
+    throw new Error(`${name} production ortamında en az ${minimumLength} karakterli, yüksek entropili ve benzersiz bir secret olmalı. Yeni bir değer üretmek için: openssl rand -hex 32`);
   }
-  return value;
+  return normalizedValue;
 }
 
 function parsePositiveInteger(value, fallback) {
@@ -25,6 +37,9 @@ const encryptionKey = requireProductionSecret(
   'CREDENTIAL_ENCRYPTION_KEY',
   process.env.CREDENTIAL_ENCRYPTION_KEY || (isProduction ? '' : 'development-only-credential-key')
 );
+if (isProduction && jwtSecret === encryptionKey) {
+  throw new Error('JWT_SECRET ile CREDENTIAL_ENCRYPTION_KEY farklı olmalı. İki bağımsız değer üretmek için her biri adına ayrı ayrı: openssl rand -hex 32');
+}
 
 const config = {
   port: parsePositiveInteger(process.env.PORT, 3000),
@@ -44,6 +59,7 @@ const config = {
     audience: process.env.JWT_AUDIENCE || 'm3u-editor-web',
   },
   credentialEncryptionKey: encryptionKey,
+  allowRegistration: process.env.ALLOW_REGISTRATION !== 'false',
   allowPrivateNetworkUrls: process.env.ALLOW_PRIVATE_NETWORK_URLS === 'true',
   corsOrigins: (process.env.CORS_ORIGIN || process.env.APP_URL || '')
     .split(',')
@@ -56,10 +72,28 @@ const config = {
     epgBytes: parsePositiveInteger(process.env.MAX_EPG_BYTES, 100 * 1024 * 1024),
     xtreamBytes: parsePositiveInteger(process.env.MAX_XTREAM_BYTES, 256 * 1024 * 1024),
   },
+  imports: {
+    maxConcurrent: Math.min(parsePositiveInteger(process.env.MAX_CONCURRENT_IMPORTS, 4), 64),
+    jobTtlMs: parsePositiveInteger(process.env.IMPORT_JOB_TTL_MS, 10 * 60_000),
+  },
   xtream: {
+    totalTimeoutMs: parsePositiveInteger(process.env.XTREAM_TOTAL_TIMEOUT_MS, 120_000),
     categoryConcurrency: Math.min(parsePositiveInteger(process.env.XTREAM_CATEGORY_CONCURRENCY, 8), 32),
     typeConcurrency: Math.min(parsePositiveInteger(process.env.XTREAM_TYPE_CONCURRENCY, 2), 3),
   },
 };
+
+/**
+ * Dışarıya verilen her mutlak adresin (paylaşım linki, yüklenen logo, XMLTV
+ * ikonu, Xtream çıkışı) tek kaynağı. Sondaki eğik çizgi normalize edilir.
+ * Okuma anında değerlendirilir, böylece çalışma anında değişen ortam
+ * değişkenini de yansıtır.
+ */
+Object.defineProperty(config, 'appUrl', {
+  enumerable: true,
+  get() {
+    return String(process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+  },
+});
 
 module.exports = config;

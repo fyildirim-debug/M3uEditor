@@ -15,6 +15,9 @@ function chainable(overrides = {}) {
     join: jest.fn().mockReturnThis(),
     leftJoin: jest.fn().mockReturnThis(),
     where: jest.fn().mockReturnThis(),
+    whereNull: jest.fn().mockReturnThis(),
+    orWhere: jest.fn().mockReturnThis(),
+    orWhereNotIn: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
@@ -82,6 +85,27 @@ describe('ExportService', () => {
       expect(result).toContain('group-title="Haber"');
       // Spor (category_sort_order=0) should appear before Haber (category_sort_order=1)
       expect(result.indexOf('Spor TV')).toBeLessThan(result.indexOf('Haber TV'));
+    });
+
+    it('keeps uncategorized channels when hidden and explicitly excluded categories are filtered', async () => {
+      const playlistChain = chainable({ first: jest.fn().mockResolvedValue({ id: 'pl-1', user_id: 'user-1' }) });
+      const channelsChain = chainable();
+      channelsChain.orderBy = jest.fn().mockResolvedValue([]);
+      channelsChain.whereNotIn = jest.fn().mockReturnThis();
+
+      mockKnex.mockImplementation((table) => (table === 'playlists' ? playlistChain : channelsChain));
+
+      await exportService.exportAsM3U('user-1', 'pl-1', ['cat-1']);
+
+      // Both visibility and explicit exclusion must be grouped with a NULL arm;
+      // otherwise SQL's NULL semantics would remove uncategorized channels.
+      const grouped = channelsChain.where.mock.calls.filter(([arg]) => typeof arg === 'function');
+      expect(grouped).toHaveLength(2);
+      for (const [callback] of grouped) callback.call(channelsChain);
+      expect(channelsChain.whereNull).toHaveBeenCalledTimes(2);
+      expect(channelsChain.orWhere).toHaveBeenCalledWith('categories.is_hidden', false);
+      expect(channelsChain.orWhereNotIn).toHaveBeenCalledWith('channels.category_id', ['cat-1']);
+      expect(channelsChain.whereNotIn).not.toHaveBeenCalled();
     });
 
     it('should throw NOT_FOUND when playlist does not belong to user', async () => {
@@ -189,6 +213,7 @@ describe('ExportService', () => {
       expect(result).toHaveProperty('url');
       expect(result.token).toHaveLength(64); // 32 bytes = 64 hex chars
       expect(result.url).toBe(`/api/shared/${result.token}`);
+      expect(result.xmltvUrl).toBe(`/api/shared/${result.token}/xmltv`);
     });
 
     it('should throw NOT_FOUND when playlist does not belong to user', async () => {
@@ -206,6 +231,43 @@ describe('ExportService', () => {
         await exportService.generateShareUrl('user-1', 'nonexistent');
       } catch (err) {
         expect(err.code).toBe('NOT_FOUND');
+      }
+    });
+  });
+
+  describe('createXtreamPlaylist', () => {
+    it('reuses M3U formatting with local Xtream playback URLs', async () => {
+      const channelsChain = chainable();
+      channelsChain.orderBy = jest.fn().mockResolvedValue([{
+        name: 'Output Movie',
+        logo_url: null,
+        stream_url: 'https://provider.example/movie/u/p/1.mkv',
+        epg_channel_id: null,
+        extras: {},
+        xtream_id: '88',
+        stream_type: 'vod',
+        category_name: 'Movies',
+        category_sort_order: 0,
+        channel_sort_order: 0,
+      }]);
+      mockKnex.mockReturnValue(channelsChain);
+      const previousAppUrl = process.env.APP_URL;
+      process.env.APP_URL = 'https://editor.example';
+
+      try {
+        const result = await exportService.createXtreamPlaylist(
+          { id: 'pl-1' },
+          'output-user',
+          'output-password',
+          'ts'
+        );
+
+        expect(result).toContain('#EXTM3U');
+        expect(result).toContain('https://editor.example/movie/output-user/output-password/88.mkv');
+        expect(result).not.toContain('https://provider.example/movie/u/p/1.mkv');
+      } finally {
+        if (previousAppUrl === undefined) delete process.env.APP_URL;
+        else process.env.APP_URL = previousAppUrl;
       }
     });
   });
@@ -245,6 +307,8 @@ describe('ExportService', () => {
       expect(result).toContain('Shared Channel');
       expect(result).toContain('http://stream.com/shared');
       expect(result).toContain('group-title="Genel"');
+      const appUrl = String(process.env.APP_URL || 'http://localhost:3000').replace(/\/+$/, '');
+      expect(result).toContain(`url-tvg="${appUrl}/api/shared/abc123/xmltv"`);
     });
 
     it('should throw NOT_FOUND for invalid share token', async () => {
@@ -263,6 +327,36 @@ describe('ExportService', () => {
       } catch (err) {
         expect(err.code).toBe('NOT_FOUND');
       }
+    });
+
+    it('rejects expired shares in the common resolver used by M3U and XMLTV', async () => {
+      const playlistChain = chainable({
+        first: jest.fn().mockResolvedValue({
+          id: 'pl-1',
+          share_token: 'stored',
+          share_expires_at: new Date(Date.now() - 60_000),
+        }),
+      });
+      mockKnex.mockReturnValue(playlistChain);
+
+      await expect(exportService.resolveSharedPlaylist('expired', null))
+        .rejects.toMatchObject({ code: 'FORBIDDEN' });
+      await expect(exportService.getSharedPlaylist('expired', null))
+        .rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+
+    it('applies the same bcrypt password check through the common resolver', async () => {
+      const bcrypt = require('bcryptjs');
+      const passwordHash = await bcrypt.hash('correct-password', 4);
+      const playlistChain = chainable({
+        first: jest.fn().mockResolvedValue({ id: 'pl-1', share_token: 'stored', share_password: passwordHash }),
+      });
+      mockKnex.mockReturnValue(playlistChain);
+
+      await expect(exportService.resolveSharedPlaylist('protected', 'wrong-password'))
+        .rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+      await expect(exportService.resolveSharedPlaylist('protected', 'correct-password'))
+        .resolves.toMatchObject({ id: 'pl-1' });
     });
   });
 });

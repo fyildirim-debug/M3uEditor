@@ -5,39 +5,39 @@
       <p class="legal-date">{{ t('legal.lastUpdated') }}</p>
 
       <section>
-        <h2>1. Genel Kosullar</h2>
-        <p>Bu web sitesine erisim saglayarak ve hizmetlerimizi kullanarak, asagida belirtilen kullanim sartlarini kabul etmis sayilirsiniz. Bu sartlari kabul etmiyorsaniz, hizmetlerimizi kullanmayiniz.</p>
+        <h2>{{ t('legal.terms.generalTitle') }}</h2>
+        <p>{{ t('legal.terms.generalBody') }}</p>
       </section>
 
       <section>
-        <h2>2. Hizmet Tanimi</h2>
-        <p>M3U Editor, IPTV playlist yonetimi icin web tabanli bir arac sunmaktadir. Kullanicilar M3U dosyalarini duzenleyebilir, Xtream Codes entegrasyonu yapabilir, EPG verileri ile calisabilir ve playlistlerini paylasabilir.</p>
+        <h2>{{ t('legal.terms.serviceTitle') }}</h2>
+        <p>{{ t('legal.terms.serviceBody') }}</p>
       </section>
 
       <section>
-        <h2>3. Kullanici Sorumlulugu</h2>
-        <p>Kullanicilar, platformu yasalara uygun sekilde kullanmakla yukumludur. Telif hakki ihlali iceren iceriklerin yuklenmesi, paylasimi veya dagitimi kesinlikle yasaktir. Hesabinizin guvenligi sizin sorumluluginizdadir.</p>
+        <h2>{{ t('legal.terms.responsibilityTitle') }}</h2>
+        <p>{{ t('legal.terms.responsibilityBody') }}</p>
       </section>
 
       <section>
-        <h2>4. Icerik ve Sorumluluk Reddi</h2>
-        <p>M3U Editor, kullanicilarin yukledigi iceriklerden sorumlu degildir. Platform yalnizca bir duzenleme araci sunar; iceriklerin yasalligi kullanicinin sorumlulugundadir.</p>
+        <h2>{{ t('legal.terms.contentTitle') }}</h2>
+        <p>{{ t('legal.terms.contentBody') }}</p>
       </section>
 
       <section>
-        <h2>5. Hesap Feshi</h2>
-        <p>Kullanim sartlarini ihlal eden hesaplar onceden bildirilmeksizin askiya alinabilir veya kalici olarak kapatilabilir. Hesabinizi istediginiz zaman kendiniz de silebilirsiniz.</p>
+        <h2>{{ t('legal.terms.terminationTitle') }}</h2>
+        <p>{{ t('legal.terms.terminationBody') }}</p>
       </section>
 
       <section>
-        <h2>6. Degisiklikler</h2>
-        <p>Bu kullanim sartlari onceden bildirilmeksizin guncellenebilir. Guncel versiyonu duzenli olarak kontrol etmeniz oneriliyor.</p>
+        <h2>{{ t('legal.terms.changesTitle') }}</h2>
+        <p>{{ t('legal.terms.changesBody') }}</p>
       </section>
 
       <div class="legal-back">
         <router-link to="/" class="btn btn-ghost">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-          Ana Sayfa
+          {{ t('legal.home') }}
         </router-link>
       </div>
     </div>

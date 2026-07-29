@@ -13,20 +13,24 @@ const mockChannelService = {
   updateOrder: jest.fn(),
   bulkUpdate: jest.fn(),
   bulkMove: jest.fn(),
+  bulkRename: jest.fn(),
+  previewBulkRename: jest.fn(),
   search: jest.fn(),
 };
 jest.mock('../../../src/services/ChannelService', () => mockChannelService);
 
 const app = require('../../../src/app');
 const jwtConfig = require('../../../src/config/jwt');
+const { signTestToken, stubActiveSession } = require('../../helpers/authToken');
 
 function generateToken(userId) {
-  return jwt.sign({ userId }, jwtConfig.secret, { expiresIn: '1h' });
+  return signTestToken(userId);
 }
 
 const USER_ID = 'user-uuid-1';
 const PLAYLIST_ID = 'playlist-uuid-1';
-const CHANNEL_ID = 'channel-uuid-1';
+const CHANNEL_ID = '11111111-1111-4111-8111-111111111111';
+const REFERENCE_CHANNEL_ID = '22222222-2222-4222-8222-222222222222';
 
 describe('Channel Controller', () => {
   let token;
@@ -37,6 +41,7 @@ describe('Channel Controller', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    stubActiveSession();
   });
 
   describe('GET /api/playlists/:id/channels', () => {
@@ -137,40 +142,62 @@ describe('Channel Controller', () => {
   });
 
   describe('PUT /api/channels/:id/order', () => {
-    it('should update channel order', async () => {
+    it('should place a channel after its reference', async () => {
       mockChannelService.updateOrder.mockResolvedValue();
 
       const res = await request(app)
         .put(`/api/channels/${CHANNEL_ID}/order`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ newPosition: 3 });
+        .send({ afterChannelId: REFERENCE_CHANNEL_ID });
 
       expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(mockChannelService.updateOrder).toHaveBeenCalledWith(USER_ID, CHANNEL_ID, 3);
+      expect(res.body).toEqual({ success: true });
+      expect(mockChannelService.updateOrder).toHaveBeenCalledWith(
+        USER_ID,
+        CHANNEL_ID,
+        { afterChannelId: REFERENCE_CHANNEL_ID }
+      );
     });
 
-    it('should return 400 for negative newPosition', async () => {
+    it('should place a channel before its reference', async () => {
+      mockChannelService.updateOrder.mockResolvedValue();
+
       const res = await request(app)
         .put(`/api/channels/${CHANNEL_ID}/order`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ newPosition: -1 });
+        .send({ beforeChannelId: REFERENCE_CHANNEL_ID });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.status).toBe(200);
+      expect(mockChannelService.updateOrder).toHaveBeenCalledWith(
+        USER_ID,
+        CHANNEL_ID,
+        { beforeChannelId: REFERENCE_CHANNEL_ID }
+      );
     });
 
-    it('should return 400 for non-numeric newPosition', async () => {
+    it('should return 400 when both relative positions are sent', async () => {
       const res = await request(app)
         .put(`/api/channels/${CHANNEL_ID}/order`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ newPosition: 'abc' });
+        .send({ afterChannelId: REFERENCE_CHANNEL_ID, beforeChannelId: REFERENCE_CHANNEL_ID });
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(mockChannelService.updateOrder).not.toHaveBeenCalled();
     });
 
-    it('should return 400 when newPosition is missing', async () => {
+    it('should return 400 for a malformed reference id', async () => {
+      const res = await request(app)
+        .put(`/api/channels/${CHANNEL_ID}/order`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ afterChannelId: 'not-a-uuid' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(mockChannelService.updateOrder).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when the relative position is missing', async () => {
       const res = await request(app)
         .put(`/api/channels/${CHANNEL_ID}/order`)
         .set('Authorization', `Bearer ${token}`)
@@ -183,7 +210,7 @@ describe('Channel Controller', () => {
     it('should return 401 without token', async () => {
       const res = await request(app)
         .put(`/api/channels/${CHANNEL_ID}/order`)
-        .send({ newPosition: 0 });
+        .send({ afterChannelId: REFERENCE_CHANNEL_ID });
 
       expect(res.status).toBe(401);
     });
@@ -268,6 +295,50 @@ describe('Channel Controller', () => {
         .send({ action: 'update', channelIds: ['ch-1'] });
 
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('POST /api/channels/bulk-rename/preview', () => {
+    it('returns a non-mutating rename preview for unique channel ids', async () => {
+      mockChannelService.previewBulkRename.mockResolvedValue({
+        affected: 1,
+        samples: [{ id: 'ch-1', before: 'News HD', after: 'News' }],
+      });
+
+      const res = await request(app)
+        .post('/api/channels/bulk-rename/preview')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          channelIds: ['ch-1', 'ch-1'],
+          find: ' HD$',
+          replace: null,
+          useRegex: true,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({
+        affected: 1,
+        samples: [{ id: 'ch-1', before: 'News HD', after: 'News' }],
+      });
+      expect(mockChannelService.previewBulkRename).toHaveBeenCalledWith(
+        USER_ID,
+        ['ch-1'],
+        ' HD$',
+        '',
+        true
+      );
+      expect(mockChannelService.bulkRename).not.toHaveBeenCalled();
+    });
+
+    it('rejects an empty channel selection before calling the service', async () => {
+      const res = await request(app)
+        .post('/api/channels/bulk-rename/preview')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ channelIds: [], find: 'News', replace: 'Live' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(mockChannelService.previewBulkRename).not.toHaveBeenCalled();
     });
   });
 });

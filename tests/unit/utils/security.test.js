@@ -67,6 +67,39 @@ describe('security utilities', () => {
     expect(() => validateRegex('(a+)+$')).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
   });
 
+  test('bounds channel text fields so one request cannot write megabytes per row', () => {
+    const { validateChannelUpdates, CHANNEL_FIELD_LIMITS } = require('../../../src/utils/validation');
+
+    expect(validateChannelUpdates({ name: '  Haber TV  ' })).toEqual({ name: 'Haber TV' });
+    expect(validateChannelUpdates({ name: 'x'.repeat(CHANNEL_FIELD_LIMITS.name) })).toBeTruthy();
+    expect(() => validateChannelUpdates({ name: 'x'.repeat(CHANNEL_FIELD_LIMITS.name + 1) }))
+      .toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
+    expect(() => validateChannelUpdates({ logo_url: 'x'.repeat(CHANNEL_FIELD_LIMITS.logo_url + 1) }))
+      .toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
+    expect(() => validateChannelUpdates({ stream_url: 'x'.repeat(CHANNEL_FIELD_LIMITS.stream_url + 1) }))
+      .toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
+  });
+
+  test('rejects non-string and control-character channel field values', () => {
+    const { validateChannelUpdates } = require('../../../src/utils/validation');
+
+    for (const value of [123, true, {}, []]) {
+      expect(() => validateChannelUpdates({ name: value })).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
+    }
+    for (const value of ['a\nb', 'a\rb', 'a\u0000b', 'a\u007fb', 'a\tb']) {
+      expect(() => validateChannelUpdates({ name: value })).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
+    }
+    expect(() => validateChannelUpdates('not-an-object')).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
+    expect(() => validateChannelUpdates({ category_id: { evil: true } })).toThrow(expect.objectContaining({ code: 'VALIDATION_ERROR' }));
+  });
+
+  test('drops fields that are not writable through channel updates', () => {
+    const { validateChannelUpdates } = require('../../../src/utils/validation');
+
+    expect(validateChannelUpdates({ name: 'Safe', epg_channel_id: 'foreign', is_admin: true, sort_order: 5 }))
+      .toEqual({ name: 'Safe' });
+  });
+
   test('builds timezone-aware date ranges and rejects impossible dates', () => {
     const { start, end } = buildDateRange('2026-07-27', '-180');
     expect(end.getTime() - start.getTime()).toBe(86_400_000);

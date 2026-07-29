@@ -1,30 +1,63 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const readline = require('readline');
 const db = require('../config/database');
+const config = require('../config');
 const jwtConfig = require('../config/jwt');
 const logger = require('../config/logger');
 const { hashToken } = require('../utils/crypto');
 const { createAppError } = require('../utils/AppError');
+const { removeChannelLogos } = require('../utils/logoStorage');
 
 const SALT_ROUNDS = 12;
 const REFRESH_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync('m3u-editor-dummy-password', SALT_ROUNDS);
+const ACCOUNT_LOGO_BATCH_SIZE = 1000;
 
 class AuthService {
+  async isRegistrationAllowed(connection = db) {
+    if (config.allowRegistration) return true;
+    const firstUser = await connection('users').select('id').first();
+    return !firstUser;
+  }
+
   async register(email, password, metadata = {}) {
     const normalizedEmail = email.trim().toLowerCase();
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    let user;
-    try {
-      [user] = await db('users')
-        .insert({ email: normalizedEmail, password_hash: passwordHash })
-        .returning(['id', 'email', 'is_admin']);
-    } catch (error) {
-      if (error.code === '23505') throw createAppError('VALIDATION_ERROR', 'Bu e-posta adresi zaten kayıtlı');
-      throw error;
+    const createRegistration = async (connection) => {
+      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+      let user;
+      try {
+        [user] = await connection('users')
+          .insert({ email: normalizedEmail, password_hash: passwordHash })
+          .returning(['id', 'email', 'is_admin']);
+      } catch (error) {
+        if (error.code === '23505') throw createAppError('VALIDATION_ERROR', 'Bu e-posta adresi zaten kayıtlı');
+        throw error;
+      }
+
+      const session = await this._createSession(user.id, metadata, connection);
+      return { user, session };
+    };
+
+    let registration;
+    if (config.allowRegistration) {
+      registration = await createRegistration(db);
+    } else {
+      registration = await db.transaction(async (trx) => {
+        // Serialize the empty-install exception so only one concurrent request can become the first user.
+        await trx.raw('LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE');
+        if (!(await this.isRegistrationAllowed(trx))) {
+          throw createAppError('FORBIDDEN', 'Yeni kullanıcı kaydı devre dışı');
+        }
+        return createRegistration(trx);
+      });
     }
 
-    const session = await this._createSession(user.id, metadata);
+    const { user, session } = registration;
     const token = this._generateToken(user.id, session.id);
 
     const emailService = require('./EmailService');
@@ -38,7 +71,8 @@ class AuthService {
   async login(email, password, metadata = {}) {
     const normalizedEmail = email.trim().toLowerCase();
     const user = await db('users').where({ email: normalizedEmail }).first();
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    const passwordMatches = await bcrypt.compare(password, user?.password_hash || DUMMY_PASSWORD_HASH);
+    if (!user || !passwordMatches) {
       throw createAppError('INVALID_CREDENTIALS');
     }
 
@@ -54,9 +88,9 @@ class AuthService {
     if (!refreshToken) throw createAppError('INVALID_CREDENTIALS', 'Oturum yenileme belirteci gerekli');
     const tokenHash = hashToken(refreshToken);
 
-    return db.transaction(async (trx) => {
+    const result = await db.transaction(async (trx) => {
       let session = await trx('sessions')
-        .where({ token_hash: tokenHash, revoked_at: null })
+        .where({ token_hash: tokenHash })
         .forUpdate()
         .first();
 
@@ -69,6 +103,13 @@ class AuthService {
         }
       }
 
+      if (session?.revoked_at && session.replaced_by_id) {
+        await trx('sessions')
+          .where({ family_id: session.family_id, revoked_at: null })
+          .update({ revoked_at: trx.fn.now(), revoke_reason: 'reuse' });
+        return { reuseDetected: true };
+      }
+
       if (!session || session.revoked_at || new Date(session.expires_at) <= new Date()) {
         throw createAppError('INVALID_CREDENTIALS', 'Geçersiz veya süresi dolmuş oturum');
       }
@@ -76,8 +117,13 @@ class AuthService {
       const user = await trx('users').where({ id: session.user_id }).first();
       if (!user) throw createAppError('INVALID_CREDENTIALS');
 
-      await trx('sessions').where({ id: session.id }).update({ revoked_at: trx.fn.now(), last_used_at: trx.fn.now() });
-      const rotated = await this._createSession(user.id, metadata, trx);
+      const rotated = await this._createSession(user.id, metadata, trx, session.family_id || session.id);
+      await trx('sessions').where({ id: session.id }).update({
+        revoked_at: trx.fn.now(),
+        last_used_at: trx.fn.now(),
+        replaced_by_id: rotated.id,
+        revoke_reason: 'rotated',
+      });
 
       return {
         user: this._publicUser(user),
@@ -85,15 +131,24 @@ class AuthService {
         refreshToken: rotated.rawToken,
       };
     });
+
+    if (result.reuseDetected) {
+      throw createAppError('INVALID_CREDENTIALS', 'Yenileme belirteci yeniden kullanıldı; oturum ailesi iptal edildi');
+    }
+    return result;
   }
 
   async logout({ userId, sessionId, refreshToken } = {}) {
     if (sessionId && userId) {
-      await db('sessions').where({ id: sessionId, user_id: userId }).update({ revoked_at: db.fn.now() });
+      await db('sessions').where({ id: sessionId, user_id: userId }).update({
+        revoked_at: db.fn.now(), revoke_reason: 'logout',
+      });
       return;
     }
     if (refreshToken) {
-      await db('sessions').where({ token_hash: hashToken(refreshToken) }).update({ revoked_at: db.fn.now() });
+      await db('sessions').where({ token_hash: hashToken(refreshToken) }).update({
+        revoked_at: db.fn.now(), revoke_reason: 'logout',
+      });
     }
   }
 
@@ -104,12 +159,23 @@ class AuthService {
       throw createAppError('INVALID_CREDENTIALS', 'Mevcut şifre yanlış');
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-    await db.transaction(async (trx) => {
-      await trx('users').where({ id: userId }).update({ password_hash: passwordHash, updated_at: trx.fn.now() });
-      await trx('sessions').where({ user_id: userId, revoked_at: null }).update({ revoked_at: trx.fn.now() });
-    });
+    await this._replacePassword(userId, newPassword, 'password_change');
     return { success: true, reauthenticationRequired: true };
+  }
+
+  async resetPasswordByEmail(email, newPassword) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (typeof newPassword !== 'string' || newPassword.length < 10 || newPassword.length > 128) {
+      throw createAppError('VALIDATION_ERROR', 'Şifre 10-128 karakter arasında olmalı');
+    }
+    const user = await db('users').where({ email: normalizedEmail }).select('id', 'email').first();
+    if (!user) throw createAppError('NOT_FOUND', `Kullanıcı bulunamadı: ${normalizedEmail}`);
+
+    await this._replacePassword(user.id, newPassword, 'password_reset', {
+      password_reset_token: null,
+      password_reset_expires: null,
+    });
+    return { success: true, email: user.email };
   }
 
   async changeEmail(userId, password, newEmail) {
@@ -131,8 +197,60 @@ class AuthService {
     if (!(await bcrypt.compare(password, user.password_hash))) {
       throw createAppError('INVALID_CREDENTIALS', 'Şifre yanlış');
     }
-    await db('users').where({ id: userId }).del();
-    return { success: true };
+    const queuePath = path.join(os.tmpdir(), `m3u-logo-cleanup-${crypto.randomUUID()}.txt`);
+    let queueHandle;
+    try {
+      queueHandle = await fs.promises.open(queuePath, 'wx', 0o600);
+      await db.transaction(async (trx) => {
+        const lockedUser = await trx('users').where({ id: userId }).forUpdate().first();
+        if (!lockedUser) throw createAppError('NOT_FOUND');
+        await trx('playlists').where({ user_id: userId }).select('id').forUpdate();
+
+        let lastChannelId = null;
+        while (true) {
+          const query = trx('channels')
+            .join('playlists', 'channels.playlist_id', 'playlists.id')
+            .where('playlists.user_id', userId)
+            .select('channels.id')
+            .orderBy('channels.id', 'asc')
+            .limit(ACCOUNT_LOGO_BATCH_SIZE);
+          if (lastChannelId !== null) query.andWhere('channels.id', '>', lastChannelId);
+
+          const channels = await query;
+          if (channels.length === 0) break;
+          await queueHandle.write(`${channels.map((channel) => channel.id).join('\n')}\n`);
+          lastChannelId = channels[channels.length - 1].id;
+        }
+        await queueHandle.close();
+        queueHandle = null;
+        await trx('users').where({ id: userId }).del();
+      });
+
+      try {
+        const lines = readline.createInterface({
+          input: fs.createReadStream(queuePath, { encoding: 'utf8' }),
+          crlfDelay: Infinity,
+        });
+        let batch = [];
+        for await (const channelId of lines) {
+          if (!channelId) continue;
+          batch.push(channelId);
+          if (batch.length === ACCOUNT_LOGO_BATCH_SIZE) {
+            await removeChannelLogos(batch);
+            batch = [];
+          }
+        }
+        if (batch.length > 0) await removeChannelLogos(batch);
+      } catch (error) {
+        logger.warn({ err: error, userId }, 'Committed account logo cleanup could not be completed');
+      }
+      return { success: true };
+    } finally {
+      if (queueHandle) await queueHandle.close().catch(() => {});
+      await fs.promises.unlink(queuePath).catch((error) => {
+        if (error.code !== 'ENOENT') logger.warn({ err: error, userId }, 'Account logo cleanup queue could not be removed');
+      });
+    }
   }
 
   async getProfile(userId) {
@@ -153,16 +271,25 @@ class AuthService {
   }
 
   async forgotPassword(email) {
-    const user = await db('users').where({ email: email.trim().toLowerCase() }).first();
-    if (!user) return { success: true };
-
+    const normalizedEmail = email.trim().toLowerCase();
     const resetToken = crypto.randomBytes(32).toString('base64url');
-    await db('users').where({ id: user.id }).update({
+    const user = await db('users').where({ email: normalizedEmail }).first();
+    await db('users').where({ id: user?.id || '00000000-0000-0000-0000-000000000000' }).update({
       password_reset_token: hashToken(resetToken),
       password_reset_expires: new Date(Date.now() + 60 * 60 * 1000),
     });
-    const emailService = require('./EmailService');
-    await emailService.sendPasswordReset(user.email, resetToken);
+    if (user) {
+      const emailService = require('./EmailService');
+      setImmediate(() => {
+        try {
+          emailService.sendPasswordReset(user.email, resetToken).catch((error) => {
+            logger.warn({ err: error, userId: user.id }, 'Password reset email could not be sent');
+          });
+        } catch (error) {
+          logger.warn({ err: error, userId: user.id }, 'Password reset email could not be started');
+        }
+      });
+    }
     return { success: true };
   }
 
@@ -176,40 +303,52 @@ class AuthService {
       throw createAppError('TOKEN_EXPIRED', 'Şifre sıfırlama bağlantısının süresi dolmuş');
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-    await db.transaction(async (trx) => {
-      await trx('users').where({ id: user.id }).update({
-        password_hash: passwordHash,
-        password_reset_token: null,
-        password_reset_expires: null,
-        updated_at: trx.fn.now(),
-      });
-      await trx('sessions').where({ user_id: user.id, revoked_at: null }).update({ revoked_at: trx.fn.now() });
+    await this._replacePassword(user.id, newPassword, 'password_reset', {
+      password_reset_token: null,
+      password_reset_expires: null,
     });
     return { success: true };
   }
 
+  async _replacePassword(userId, newPassword, revokeReason, additionalChanges = {}) {
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await db.transaction(async (trx) => {
+      await trx('users').where({ id: userId }).update({
+        ...additionalChanges,
+        password_hash: passwordHash,
+        updated_at: trx.fn.now(),
+      });
+      await trx('sessions').where({ user_id: userId, revoked_at: null }).update({
+        revoked_at: trx.fn.now(), revoke_reason: revokeReason,
+      });
+    });
+  }
+
   verifyToken(token) {
     try {
-      let decoded;
-      try {
-        decoded = jwt.verify(token, jwtConfig.secret, {
-          algorithms: ['HS256'], issuer: jwtConfig.issuer, audience: jwtConfig.audience,
-        });
-      } catch (strictError) {
-        // Access tokens issued before the hardening release remain valid until their short expiry.
-        decoded = jwt.verify(token, jwtConfig.secret, { algorithms: ['HS256'] });
-        if (decoded.iss || decoded.aud) throw strictError;
+      const decoded = jwt.verify(token, jwtConfig.secret, {
+        algorithms: ['HS256'], issuer: jwtConfig.issuer, audience: jwtConfig.audience,
+      });
+      if (
+        typeof decoded !== 'object'
+        || typeof decoded.userId !== 'string'
+        || decoded.userId.length === 0
+        || typeof decoded.sid !== 'string'
+        || decoded.sid.length === 0
+        || typeof decoded.exp !== 'number'
+        || !Number.isFinite(decoded.exp)
+      ) {
+        throw createAppError('INVALID_CREDENTIALS');
       }
-      return decoded.sid ? { userId: decoded.userId, sessionId: decoded.sid } : { userId: decoded.userId };
+      return { userId: decoded.userId, sessionId: decoded.sid };
     } catch (error) {
       if (error.name === 'TokenExpiredError') throw createAppError('TOKEN_EXPIRED');
+      if (error.code === 'INVALID_CREDENTIALS') throw error;
       throw createAppError('INVALID_CREDENTIALS');
     }
   }
 
   async verifySession(userId, sessionId) {
-    if (!sessionId) return;
     const session = await db('sessions')
       .where({ id: sessionId, user_id: userId, revoked_at: null })
       .where('expires_at', '>', db.fn.now())
@@ -226,15 +365,18 @@ class AuthService {
     });
   }
 
-  async _createSession(userId, metadata = {}, connection = db) {
+  async _createSession(userId, metadata = {}, connection = db, familyId = null) {
     const rawToken = crypto.randomBytes(48).toString('base64url');
+    const sessionId = crypto.randomUUID();
     const [session] = await connection('sessions').insert({
+      id: sessionId,
       user_id: userId,
+      family_id: familyId || sessionId,
       token_hash: hashToken(rawToken),
       expires_at: new Date(Date.now() + REFRESH_LIFETIME_MS),
       user_agent: String(metadata.userAgent || '').slice(0, 500) || null,
       ip_address: String(metadata.ipAddress || '').slice(0, 64) || null,
-    }).returning(['id', 'user_id', 'expires_at']);
+    }).returning(['id', 'user_id', 'family_id', 'expires_at']);
     return { ...session, rawToken };
   }
 

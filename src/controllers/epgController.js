@@ -5,15 +5,24 @@ const { createAppError } = require('../utils/AppError');
 
 const epgService = new EPGService();
 
+function forceOptions(body) {
+  const force = body?.force;
+  if (force !== undefined && typeof force !== 'boolean') {
+    throw createAppError('VALIDATION_ERROR', 'force alanı boolean olmalı');
+  }
+  return { force: force === true };
+}
+
 async function addSource(req, res, next) {
   try {
     const { url, async: asyncMode } = req.body || {};
+    const options = forceOptions(req.body);
     const source = await epgService.addSource(req.userId, url);
     if (asyncMode) {
-      epgService.parseAndStore(source.id).catch((error) => logger.warn({ err: error, sourceId: source.id }, 'Async EPG import failed'));
+      epgService.parseAndStore(source.id, options).catch((error) => logger.warn({ err: error, sourceId: source.id }, 'Async EPG import failed'));
       return res.status(202).json({ source, channelCount: 0, programCount: 0 });
     }
-    const result = await epgService.parseAndStore(source.id);
+    const result = await epgService.parseAndStore(source.id, options);
     const [updated] = await epgService.listSources(req.userId).then((sources) => sources.filter((item) => item.id === source.id));
     return res.status(201).json({ source: updated, ...result });
   } catch (error) { return next(error); }
@@ -72,7 +81,7 @@ async function deleteSource(req, res, next) {
 }
 
 async function refreshSource(req, res, next) {
-  try { res.json(await epgService.refreshSource(req.userId, req.params.id)); } catch (error) { next(error); }
+  try { res.json(await epgService.refreshSource(req.userId, req.params.id, forceOptions(req.body))); } catch (error) { next(error); }
 }
 
 async function getGuide(req, res, next) {

@@ -30,6 +30,7 @@ router.post('/channels/:id/test', authMiddleware, channelController.testStream);
 router.post('/playlists/:id/channels', authMiddleware, channelController.createChannel);
 
 // Bulk rename
+router.post('/channels/bulk-rename/preview', authMiddleware, channelController.previewBulkRename);
 router.post('/channels/bulk-rename', authMiddleware, channelController.bulkRename);
 
 // Bulk operations (must be after :id routes to avoid conflict)

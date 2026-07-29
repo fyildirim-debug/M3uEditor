@@ -73,9 +73,18 @@ describe('ERROR_CODES', () => {
       'VALIDATION_ERROR', 'INVALID_CREDENTIALS', 'TOKEN_EXPIRED',
       'FORBIDDEN', 'NOT_FOUND', 'XTREAM_CONNECTION_FAILED',
       'XTREAM_AUTH_FAILED', 'EPG_FETCH_FAILED', 'IMPORT_FAILED',
+      'IMPORT_IN_PROGRESS', 'IMPORT_CANCELLED', 'IMPORT_CAPACITY_REACHED',
       'INTERNAL_ERROR',
     ];
     expect(Object.keys(ERROR_CODES).sort()).toEqual(expectedCodes.sort());
+  });
+
+  test.each([
+    ['IMPORT_IN_PROGRESS', 409],
+    ['IMPORT_CANCELLED', 499],
+    ['IMPORT_CAPACITY_REACHED', 503],
+  ])('maps %s to HTTP %i', (code, statusCode) => {
+    expect(ERROR_CODES[code].statusCode).toBe(statusCode);
   });
 
   test.each([
@@ -132,6 +141,28 @@ describe('errorHandler middleware', () => {
 
     expect(res.body.error.message).not.toContain('secret');
     expect(res.body.error.code).toBe('INTERNAL_ERROR');
+  });
+
+  test('maps malformed JSON body errors to 400 VALIDATION_ERROR', async () => {
+    const parseError = Object.assign(new SyntaxError('Unexpected token'), { type: 'entity.parse.failed', status: 400 });
+    const app = buildApp(parseError);
+    const res = await request(app).get('/error');
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({
+      error: { code: 'VALIDATION_ERROR', message: 'İstek gövdesi geçerli JSON içermiyor' },
+    });
+  });
+
+  test('maps oversized body errors to 413 without exposing internals', async () => {
+    const sizeError = Object.assign(new Error('request entity too large'), { type: 'entity.too.large', status: 413 });
+    const app = buildApp(sizeError);
+    const res = await request(app).get('/error');
+
+    expect(res.status).toBe(413);
+    expect(res.body).toEqual({
+      error: { code: 'VALIDATION_ERROR', message: 'İstek gövdesi izin verilen boyutu aşıyor' },
+    });
   });
 });
 

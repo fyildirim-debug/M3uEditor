@@ -17,7 +17,7 @@
           <div class="profile-stats" v-if="profile">
             <div class="stat-item">
               <span class="stat-value">{{ profile.playlistCount }}</span>
-              <span class="stat-label">Playlist</span>
+              <span class="stat-label">{{ t('dashboard.statsPlaylist') }}</span>
             </div>
             <div class="stat-item">
               <span class="stat-value">{{ profile.channelCount }}</span>
@@ -102,6 +102,7 @@
 
 <script setup>
 import { ref, onMounted, inject } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useI18n } from '../langs/useI18n'
@@ -113,7 +114,9 @@ const router = useRouter()
 const toast = inject('toast')
 const { theme, setTheme } = useTheme()
 
-const user = auth.user
+// storeToRefs olmadan `auth.user` anlik degeri kopyalar ve reaktiviteyi kaybeder;
+// e-posta degistiginde baslikta eski adres gorunmeye devam ederdi.
+const { user } = storeToRefs(auth)
 const profile = ref(null)
 
 const pwForm = ref({ current: '', newPw: '', confirm: '' })

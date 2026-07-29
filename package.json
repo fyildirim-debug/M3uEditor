@@ -1,6 +1,6 @@
 {
   "name": "m3u-playlist-editor",
-  "version": "1.0.0",
+  "version": "1.7.0",
   "description": "M3U Playlist Editor - IPTV playlist management REST API",
   "engines": {
     "node": ">=22"
@@ -17,7 +17,9 @@
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
     "seed": "knex seed:run",
-    "seed:demo": "node scripts/seed-demo.js"
+    "seed:demo": "node scripts/seed-demo.js",
+    "make-admin": "node scripts/make-admin.js",
+    "reset-password": "node scripts/reset-password.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

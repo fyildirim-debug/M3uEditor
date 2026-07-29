@@ -1,7 +1,10 @@
 const mockDb = jest.fn();
 mockDb.fn = { now: jest.fn(() => 'NOW') };
 mockDb.transaction = jest.fn();
+mockDb.raw = jest.fn();
 jest.mock('../../../src/config/database', () => mockDb);
+const mockRemoveChannelLogos = jest.fn().mockResolvedValue();
+jest.mock('../../../src/utils/logoStorage', () => ({ removeChannelLogos: mockRemoveChannelLogos }));
 
 const channelService = require('../../../src/services/ChannelService');
 
@@ -39,6 +42,26 @@ describe('ChannelService', () => {
     expect(updatePayload).not.toHaveProperty('epg_source_id');
   });
 
+  test('removes a local logo after it is replaced by an external URL', async () => {
+    const owned = builder({ first: { id: 'c1', playlist_id: 'p1', logo_url: '/logos/c1.png' } });
+    mockDb.mockReturnValue(owned);
+
+    await channelService.update('user-1', 'c1', { logo_url: 'https://cdn.example/logo.png' });
+
+    expect(owned.update).toHaveBeenCalled();
+    expect(mockRemoveChannelLogos).toHaveBeenCalledWith(['c1']);
+    expect(owned.update.mock.invocationCallOrder[0]).toBeLessThan(mockRemoveChannelLogos.mock.invocationCallOrder[0]);
+  });
+
+  test('does not remove a newly uploaded local logo when its extension changes', async () => {
+    const owned = builder({ first: { id: 'c1', playlist_id: 'p1', logo_url: '/logos/c1.png' } });
+    mockDb.mockReturnValue(owned);
+
+    await channelService.update('user-1', 'c1', { logo_url: '/logos/c1.webp' });
+
+    expect(mockRemoveChannelLogos).not.toHaveBeenCalled();
+  });
+
   test('rejects bulk moves across playlist boundaries', async () => {
     const channels = builder({ rows: [{ id: 'c1', playlist_id: 'p1' }] });
     const category = builder({ first: { id: 'cat2', playlist_id: 'p2' } });
@@ -50,5 +73,213 @@ describe('ChannelService', () => {
   test('rejects operations on channels outside the tenant', async () => {
     mockDb.mockReturnValue(builder({ first: undefined }));
     await expect(channelService.delete('user-1', 'foreign')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  test('rejects oversized channel field values before touching the database', async () => {
+    mockDb.mockReturnValue(builder({ first: { id: 'c1', playlist_id: 'p1', name: 'Old' } }));
+    await expect(channelService.update('user-1', 'c1', { name: 'x'.repeat(501) }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(channelService.update('user-1', 'c1', { logo_url: 'x'.repeat(5001) }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(mockDb).not.toHaveBeenCalled();
+  });
+
+  test('rejects oversized values in bulk updates before touching the database', async () => {
+    await expect(channelService.bulkUpdate('user-1', ['c1'], { name: 'x'.repeat(501) }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(mockDb).not.toHaveBeenCalled();
+  });
+
+  test('rejects control characters that would inject extra M3U lines', async () => {
+    mockDb.mockReturnValue(builder({ first: { id: 'c1', playlist_id: 'p1', name: 'Old' } }));
+    await expect(channelService.update('user-1', 'c1', { name: 'Evil\n#EXTINF:-1,Injected' }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  test('rejects bulk rename terms and projected names beyond the field limit', async () => {
+    await expect(channelService.bulkRename('user-1', ['c1'], 'a', 'x'.repeat(1001)))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    await expect(channelService.bulkRename('user-1', ['c1'], ''))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+
+    // Girdiler sinir icinde ama uretilen ad sinirin ustunde kaliyor.
+    const owned = builder({ rows: [{ id: 'c1', name: 'a'.repeat(400) }] });
+    mockDb.mockReturnValue(owned);
+    mockDb.transaction.mockImplementation((callback) => callback(owned));
+    await expect(channelService.bulkRename('user-1', ['c1'], 'a', 'bb'))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  describe('bulk rename preview', () => {
+    test('returns at most 20 changed samples and never opens a write transaction', async () => {
+      const channelIds = Array.from({ length: 25 }, (_, index) => `c${index + 1}`);
+      const owned = builder({ rows: channelIds.map((id, index) => ({ id, name: `News ${index + 1}` })) });
+      mockDb.mockReturnValue(owned);
+
+      await expect(channelService.previewBulkRename('user-1', channelIds, 'News', 'Live'))
+        .resolves.toEqual({
+          affected: 25,
+          samples: channelIds.slice(0, 20).map((id, index) => ({
+            id,
+            before: `News ${index + 1}`,
+            after: `Live ${index + 1}`,
+          })),
+        });
+
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+      expect(owned.update).not.toHaveBeenCalled();
+      expect(mockDb.raw).not.toHaveBeenCalled();
+    });
+
+    test('applies ReDoS and rename term byte limits before querying channels', async () => {
+      await expect(channelService.previewBulkRename('user-1', ['c1'], '(a+)+$', 'x', true))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      await expect(channelService.previewBulkRename('user-1', ['c1'], 'a', 'x'.repeat(1001)))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+
+      expect(mockDb).not.toHaveBeenCalled();
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+    });
+
+    test('rejects channels outside the tenant without writing anything', async () => {
+      const owned = builder({ rows: [{ id: 'c1', name: 'News' }] });
+      mockDb.mockReturnValue(owned);
+
+      await expect(channelService.previewBulkRename('user-1', ['c1', 'foreign'], 'News', 'Live'))
+        .rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+      expect(owned.update).not.toHaveBeenCalled();
+    });
+
+    test('rejects a preview that would produce an oversized channel name', async () => {
+      const owned = builder({ rows: [{ id: 'c1', name: 'a'.repeat(400) }] });
+      mockDb.mockReturnValue(owned);
+
+      await expect(channelService.previewBulkRename('user-1', ['c1'], 'a', 'bb'))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+
+      expect(mockDb.transaction).not.toHaveBeenCalled();
+      expect(owned.update).not.toHaveBeenCalled();
+    });
+
+    test('uses the same prepared changes when the rename is applied', async () => {
+      const owned = builder({ rows: [
+        { id: 'c1', name: 'News HD' },
+        { id: 'c2', name: 'Sports' },
+      ] });
+      const trx = Object.assign(jest.fn(() => owned), { fn: { now: jest.fn(() => 'TRX_NOW') } });
+      mockDb.mockReturnValue(owned);
+      mockDb.transaction.mockImplementation((callback) => callback(trx));
+
+      await expect(channelService.bulkRename('user-1', ['c1', 'c2'], ' HD$', '', true))
+        .resolves.toEqual({ renamed: 1, total: 2 });
+
+      expect(mockDb.transaction).toHaveBeenCalledTimes(1);
+      expect(owned.update).toHaveBeenCalledTimes(1);
+      expect(owned.update).toHaveBeenCalledWith({ name: 'News', updated_at: 'TRX_NOW' });
+    });
+  });
+
+  test('compacts sort order with a single set-based statement', async () => {
+    const owned = builder({ first: { id: 'c1', playlist_id: 'p1' } });
+    const raw = jest.fn().mockResolvedValue({ rowCount: 0 });
+    mockDb.mockReturnValue(owned);
+    const trx = Object.assign(jest.fn(() => owned), { raw });
+    mockDb.transaction.mockImplementation((callback) => callback(trx));
+
+    await channelService.delete('user-1', 'c1');
+
+    expect(raw).toHaveBeenCalledTimes(1);
+    expect(raw.mock.calls[0][0]).toContain('ROW_NUMBER() OVER');
+    expect(raw.mock.calls[0][1]).toEqual(['p1']);
+    expect(mockRemoveChannelLogos).toHaveBeenCalledWith(['c1']);
+  });
+
+  test('does not remove channel logos when the delete transaction rolls back', async () => {
+    const owned = builder({ first: { id: 'c1', playlist_id: 'p1' } });
+    mockDb.mockReturnValue(owned);
+    mockDb.transaction.mockRejectedValueOnce(new Error('rollback'));
+
+    await expect(channelService.delete('user-1', 'c1')).rejects.toThrow('rollback');
+
+    expect(mockRemoveChannelLogos).not.toHaveBeenCalled();
+  });
+
+  test('bulk updates remove only local logos replaced by an external URL', async () => {
+    const channels = builder({ rows: [
+      { id: 'c1', playlist_id: 'p1', logo_url: '/logos/c1.png' },
+      { id: 'c2', playlist_id: 'p1', logo_url: 'https://cdn.example/old.png' },
+    ] });
+    channels.update.mockResolvedValue(2);
+    mockDb.mockReturnValue(channels);
+
+    await expect(channelService.bulkUpdate('user-1', ['c1', 'c2'], { logo_url: 'https://cdn.example/new.png' }))
+      .resolves.toEqual({ updated: 2 });
+
+    expect(mockRemoveChannelLogos).toHaveBeenCalledWith(['c1']);
+  });
+
+  describe('relative channel ordering', () => {
+    test('rejects missing, conflicting, and malformed relative positions', async () => {
+      await expect(channelService.updateOrder('user-1', 'c1', null))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      await expect(channelService.updateOrder('user-1', 'c1', {}))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      await expect(channelService.updateOrder('user-1', 'c1', { afterChannelId: 'c2', beforeChannelId: 'c3' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      await expect(channelService.updateOrder('user-1', 'c1', { afterChannelId: '' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      expect(mockDb).not.toHaveBeenCalled();
+    });
+
+    test('rejects a reference channel from another playlist', async () => {
+      mockDb
+        .mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }))
+        .mockReturnValueOnce(builder({ first: { id: 'c2', playlist_id: 'p2' } }));
+
+      await expect(channelService.updateOrder('user-1', 'c1', { afterChannelId: 'c2' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      expect(mockDb.raw).not.toHaveBeenCalled();
+    });
+
+    test('rejects self-references', async () => {
+      mockDb.mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }));
+
+      await expect(channelService.updateOrder('user-1', 'c1', { beforeChannelId: 'c1' }))
+        .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      expect(mockDb).toHaveBeenCalledTimes(1);
+      expect(mockDb.raw).not.toHaveBeenCalled();
+    });
+
+    test('rejects a reference channel outside the authenticated tenant', async () => {
+      mockDb
+        .mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }))
+        .mockReturnValueOnce(builder({ first: undefined }));
+
+      await expect(channelService.updateOrder('user-1', 'c1', { afterChannelId: 'foreign' }))
+        .rejects.toMatchObject({ code: 'NOT_FOUND' });
+      expect(mockDb.raw).not.toHaveBeenCalled();
+    });
+
+    test('updates relative order with one deterministic set-based statement', async () => {
+      mockDb
+        .mockReturnValueOnce(builder({ first: { id: 'c1', playlist_id: 'p1' } }))
+        .mockReturnValueOnce(builder({ first: { id: 'c2', playlist_id: 'p1' } }));
+      mockDb.raw.mockResolvedValueOnce({ rowCount: 2 });
+
+      await channelService.updateOrder('user-1', 'c1', { afterChannelId: 'c2' });
+
+      expect(mockDb.raw).toHaveBeenCalledTimes(1);
+      const [sql, bindings] = mockDb.raw.mock.calls[0];
+      expect(sql).toContain('ROW_NUMBER() OVER (ORDER BY sort_order ASC, id ASC)');
+      expect(sql).toContain('IS DISTINCT FROM');
+      expect(bindings).toEqual({
+        playlistId: 'p1',
+        channelId: 'c1',
+        referenceChannelId: 'c2',
+        placement: 'after',
+      });
+    });
   });
 });

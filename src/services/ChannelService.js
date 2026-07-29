@@ -1,11 +1,41 @@
 const db = require('../config/database');
 const { createAppError } = require('../utils/AppError');
+const { removeChannelLogos } = require('../utils/logoStorage');
 
-const { validateRegex } = require('../utils/validation');
+const { validateRegex, validateChannelUpdates, CHANNEL_FIELD_LIMITS } = require('../utils/validation');
 
-const ALLOWED_UPDATE_FIELDS = ['name', 'logo_url', 'category_id', 'stream_url'];
+// Yazilabilir alan listesi ve sinirlari validateChannelUpdates icinde tanimli.
+const MAX_RENAME_TERM_BYTES = 1000;
+
+function shouldRemoveLocalLogo(previousLogoUrl, nextLogoUrl) {
+  return typeof previousLogoUrl === 'string'
+    && previousLogoUrl.startsWith('/logos/')
+    && previousLogoUrl !== nextLogoUrl
+    && !(typeof nextLogoUrl === 'string' && nextLogoUrl.startsWith('/logos/'));
+}
 
 class ChannelService {
+  /**
+   * Bir oynatma listesindeki sort_order degerlerini 0..n-1 araligina tek bir
+   * SQL ifadesiyle sikistirir. Satir basina UPDATE atmak 150k kanalli bir
+   * listede tek bir silme/tasima islemini dakikalara cikariyordu.
+   * @param {import('knex')} connection - Aktif transaction
+   * @param {string} playlistId
+   */
+  async _compactSortOrder(connection, playlistId) {
+    await connection.raw(
+      `UPDATE channels AS c
+          SET sort_order = ranked.position
+         FROM (
+           SELECT id, (ROW_NUMBER() OVER (ORDER BY sort_order ASC, id ASC) - 1) AS position
+             FROM channels
+            WHERE playlist_id = ?
+         ) AS ranked
+        WHERE c.id = ranked.id
+          AND c.sort_order IS DISTINCT FROM ranked.position`,
+      [playlistId]
+    );
+  }
   /**
    * Verify a channel belongs to the given user via playlists join.
    * Returns the channel row or throws NOT_FOUND.
@@ -89,6 +119,7 @@ class ChannelService {
       .leftJoin('categories', 'channels.category_id', 'categories.id')
       .select('channels.*', 'categories.name as category_name')
       .orderBy('channels.sort_order', 'asc')
+      .orderBy('channels.id', 'asc')
       .limit(limit)
       .offset(offset);
 
@@ -103,16 +134,10 @@ class ChannelService {
    * @returns {Promise<object>} Updated channel
    */
   async update(userId, channelId, updates) {
+    const filtered = validateChannelUpdates(updates);
     const ownedChannel = await this._verifyChannelOwnership(userId, channelId);
-    if (updates.category_id !== undefined) {
-      await this._verifyCategoryForPlaylist(userId, ownedChannel.playlist_id, updates.category_id);
-    }
-
-    const filtered = {};
-    for (const key of ALLOWED_UPDATE_FIELDS) {
-      if (updates[key] !== undefined) {
-        filtered[key] = updates[key];
-      }
+    if (filtered.category_id !== undefined) {
+      await this._verifyCategoryForPlaylist(userId, ownedChannel.playlist_id, filtered.category_id);
     }
 
     if (Object.keys(filtered).length > 0) {
@@ -120,43 +145,90 @@ class ChannelService {
       await db('channels').where('id', channelId).update(filtered);
     }
 
+    if (filtered.logo_url !== undefined && shouldRemoveLocalLogo(ownedChannel.logo_url, filtered.logo_url)) {
+      await removeChannelLogos([ownedChannel.id]);
+    }
+
     const channel = await db('channels').where('id', channelId).first();
     return channel;
   }
 
   /**
-   * Move a channel to a new position (0-based) and recompact sort_order.
+   * Move a channel immediately before or after another channel in the same
+   * playlist. Relative positioning remains valid for filtered/paginated lists.
    * @param {string} userId
    * @param {string} channelId
-   * @param {number} newPosition - 0-based target position
+   * @param {{ afterChannelId?: string, beforeChannelId?: string }} relativePosition
    */
-  async updateOrder(userId, channelId, newPosition) {
+  async updateOrder(userId, channelId, relativePosition = {}) {
+    if (!relativePosition || typeof relativePosition !== 'object' || Array.isArray(relativePosition)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir göreli sıralama konumu gönderin');
+    }
+    const { afterChannelId, beforeChannelId } = relativePosition;
+    const hasAfter = afterChannelId !== undefined;
+    const hasBefore = beforeChannelId !== undefined;
+    if (hasAfter === hasBefore) {
+      throw createAppError('VALIDATION_ERROR', 'afterChannelId veya beforeChannelId alanlarından yalnızca biri gönderilmelidir');
+    }
+
+    const referenceChannelId = hasAfter ? afterChannelId : beforeChannelId;
+    if (typeof referenceChannelId !== 'string' || !referenceChannelId.trim() || referenceChannelId.length > 200) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir referans kanal kimliği gönderin');
+    }
+
     const channel = await this._verifyChannelOwnership(userId, channelId);
+    if (referenceChannelId === channelId) {
+      throw createAppError('VALIDATION_ERROR', 'Bir kanal kendisine göre sıralanamaz');
+    }
+
+    const referenceChannel = await this._verifyChannelOwnership(userId, referenceChannelId);
     const playlistId = channel.playlist_id;
+    if (referenceChannel.playlist_id !== playlistId) {
+      throw createAppError('VALIDATION_ERROR', 'Referans kanal aynı oynatma listesine ait olmalıdır');
+    }
 
-    await db.transaction(async (trx) => {
-      // Get all channels in the playlist ordered by sort_order
-      const allChannels = await trx('channels')
-        .where('playlist_id', playlistId)
-        .orderBy('sort_order', 'asc')
-        .select('id', 'sort_order');
-
-      // Remove the moving channel from the list
-      const filtered = allChannels.filter((c) => c.id !== channelId);
-
-      // Clamp newPosition
-      const clampedPos = Math.max(0, Math.min(newPosition, filtered.length));
-
-      // Insert at new position
-      filtered.splice(clampedPos, 0, { id: channelId });
-
-      // Bulk update sort_order using a single query with CASE
-      if (filtered.length > 0) {
-        for (let index = 0; index < filtered.length; index += 1) {
-          await trx('channels').where({ id: filtered[index].id }).update({ sort_order: index });
-        }
+    // Tasima tek bir set-tabanli ifadede yapilir. Once deterministik mevcut
+    // sira hesaplanir, sonra tasinan satir cikarilmis listedeki hedef konum
+    // bulunur ve yalnizca yeri degisen satirlar guncellenir.
+    await db.raw(
+      `WITH current AS (
+         SELECT id, (ROW_NUMBER() OVER (ORDER BY sort_order ASC, id ASC) - 1) AS idx
+           FROM channels
+          WHERE playlist_id = :playlistId
+       ),
+       positions AS (
+         SELECT (SELECT idx FROM current WHERE id = :channelId) AS moving_idx,
+                (SELECT idx FROM current WHERE id = :referenceChannelId) AS reference_idx
+       ),
+       target AS (
+         SELECT CASE
+                  WHEN :placement = 'before' THEN reference_idx - CASE WHEN moving_idx < reference_idx THEN 1 ELSE 0 END
+                  ELSE reference_idx + CASE WHEN moving_idx > reference_idx THEN 1 ELSE 0 END
+                END AS idx
+           FROM positions
+       ),
+       final AS (
+         SELECT c.id,
+                CASE
+                  WHEN c.id = :channelId THEN (SELECT idx FROM target)
+                  WHEN c.idx < (SELECT moving_idx FROM positions) AND c.idx >= (SELECT idx FROM target) THEN c.idx + 1
+                  WHEN c.idx > (SELECT moving_idx FROM positions) AND c.idx <= (SELECT idx FROM target) THEN c.idx - 1
+                  ELSE c.idx
+                END AS position
+           FROM current c
+       )
+       UPDATE channels AS ch
+          SET sort_order = final.position, updated_at = NOW()
+         FROM final
+        WHERE ch.id = final.id
+          AND ch.sort_order IS DISTINCT FROM final.position`,
+      {
+        playlistId,
+        channelId,
+        referenceChannelId,
+        placement: hasAfter ? 'after' : 'before',
       }
-    });
+    );
   }
 
   /**
@@ -170,29 +242,23 @@ class ChannelService {
     if (!channelIds || channelIds.length === 0) {
       return { updated: 0 };
     }
+    const filtered = validateChannelUpdates(updates);
 
     // Verify all channels belong to user's playlists
     const ownedChannels = await db('channels')
       .join('playlists', 'channels.playlist_id', 'playlists.id')
       .whereIn('channels.id', channelIds)
       .andWhere('playlists.user_id', userId)
-      .select('channels.id', 'channels.playlist_id');
+      .select('channels.id', 'channels.playlist_id', 'channels.logo_url');
 
     if (ownedChannels.length !== channelIds.length) {
       throw createAppError('NOT_FOUND');
     }
 
     const playlistIds = [...new Set(ownedChannels.map((channel) => channel.playlist_id))];
-    if (updates.category_id !== undefined) {
+    if (filtered.category_id !== undefined) {
       if (playlistIds.length !== 1) throw createAppError('VALIDATION_ERROR', 'Kategori değişikliği tek bir oynatma listesinde yapılabilir');
-      await this._verifyCategoryForPlaylist(userId, playlistIds[0], updates.category_id);
-    }
-
-    const filtered = {};
-    for (const key of ALLOWED_UPDATE_FIELDS) {
-      if (updates[key] !== undefined) {
-        filtered[key] = updates[key];
-      }
+      await this._verifyCategoryForPlaylist(userId, playlistIds[0], filtered.category_id);
     }
 
     if (Object.keys(filtered).length === 0) {
@@ -203,6 +269,12 @@ class ChannelService {
     const updated = await db('channels')
       .whereIn('id', channelIds)
       .update(filtered);
+
+    if (filtered.logo_url !== undefined) {
+      await removeChannelLogos(ownedChannels
+        .filter((channel) => shouldRemoveLocalLogo(channel.logo_url, filtered.logo_url))
+        .map((channel) => channel.id));
+    }
 
     return { updated };
   }
@@ -254,18 +326,16 @@ class ChannelService {
 
     const startSortOrder = (maxSortOrder?.max ?? -1) + 1;
 
-    // Update channels with new category_id and sort_order (move to end of category)
-    await db.transaction(async (trx) => {
-      for (let i = 0; i < channelIds.length; i++) {
-        await trx('channels')
-          .where('id', channelIds[i])
-          .update({
-            category_id: targetCategoryId,
-            sort_order: startSortOrder + i,
-            updated_at: db.fn.now()
-          });
-      }
-    });
+    // Tek ifadede tasi: gonderilen sira korunur, satir basina UPDATE atilmaz.
+    await db.raw(
+      `UPDATE channels AS c
+          SET category_id = :targetCategoryId,
+              sort_order = :startSortOrder::int + (v.ordinality - 1),
+              updated_at = NOW()
+         FROM unnest(:channelIds::uuid[]) WITH ORDINALITY AS v(id, ordinality)
+        WHERE c.id = v.id`,
+      { targetCategoryId, startSortOrder, channelIds }
+    );
 
     return { moved: channelIds.length };
   }
@@ -281,19 +351,9 @@ class ChannelService {
 
     await db.transaction(async (trx) => {
       await trx('channels').where('id', channelId).del();
-
-      // Recompact sort_order for remaining channels in the same playlist
-      const remaining = await trx('channels')
-        .where('playlist_id', playlistId)
-        .orderBy('sort_order', 'asc')
-        .select('id');
-
-      if (remaining.length > 0) {
-        for (let index = 0; index < remaining.length; index += 1) {
-          await trx('channels').where({ id: remaining[index].id }).update({ sort_order: index });
-        }
-      }
+      await this._compactSortOrder(trx, playlistId);
     });
+    await removeChannelLogos([channel.id]);
   }
 
   async bulkDelete(userId, channelIds) {
@@ -307,12 +367,10 @@ class ChannelService {
     await db.transaction(async (trx) => {
       await trx('channels').whereIn('id', channelIds).del();
       for (const playlistId of new Set(owned.map((channel) => channel.playlist_id))) {
-        const remaining = await trx('channels').where({ playlist_id: playlistId }).orderBy('sort_order').select('id');
-        for (let index = 0; index < remaining.length; index += 1) {
-          await trx('channels').where({ id: remaining[index].id }).update({ sort_order: index });
-        }
+        await this._compactSortOrder(trx, playlistId);
       }
     });
+    await removeChannelLogos(owned.map((channel) => channel.id));
     return { deleted: channelIds.length };
   }
 
@@ -335,16 +393,22 @@ class ChannelService {
   }
 
   /**
-   * Bulk rename channels using find/replace.
-   * @param {string} userId
-   * @param {string[]} channelIds
-   * @param {string} find - text to find
-   * @param {string} replace - replacement text
-   * @param {boolean} useRegex - treat find as regex
-   * @returns {Promise<{ renamed: number, total: number }>}
+   * Validate a bulk rename request, verify ownership, and calculate every
+   * resulting name without mutating the database. Both preview and apply use
+   * this path so their validation cannot drift.
+   * @private
    */
-  async bulkRename(userId, channelIds, find, replace = '', useRegex = false) {
+  async _prepareBulkRename(userId, channelIds, find, replace = '', useRegex = false) {
+    if (typeof find !== 'string' || !find.length) throw createAppError('VALIDATION_ERROR', 'Aranacak metin gerekli');
     if (useRegex) validateRegex(find);
+
+    const normalizedReplace = String(replace ?? '');
+    // Sinirsiz `find`/`replace` tek istekte 1000 satiri megabaytlarca veriyle
+    // sisirebilirdi; hem girdiler hem de uretilen ad sinirlanir.
+    if (Buffer.byteLength(find, 'utf8') > MAX_RENAME_TERM_BYTES || Buffer.byteLength(normalizedReplace, 'utf8') > MAX_RENAME_TERM_BYTES) {
+      throw createAppError('VALIDATION_ERROR', `Arama ve değiştirme metinleri en fazla ${MAX_RENAME_TERM_BYTES} bayt olabilir`);
+    }
+
     const owned = await db('channels')
       .join('playlists', 'channels.playlist_id', 'playlists.id')
       .whereIn('channels.id', channelIds)
@@ -355,18 +419,49 @@ class ChannelService {
       throw createAppError('NOT_FOUND');
     }
 
-    let renamed = 0;
+    const ownedById = new Map(owned.map((channel) => [channel.id, channel]));
+    const matcher = useRegex ? new RegExp(find, 'g') : null;
+    const changes = channelIds.map((id) => {
+      const channel = ownedById.get(id);
+      const after = matcher
+        ? channel.name.replace(matcher, normalizedReplace)
+        : channel.name.split(find).join(normalizedReplace);
+      if (Buffer.byteLength(after, 'utf8') > CHANNEL_FIELD_LIMITS.name) {
+        throw createAppError('VALIDATION_ERROR', `Yeniden adlandırma ${CHANNEL_FIELD_LIMITS.name} bayt sınırını aşan bir ad üretiyor`);
+      }
+      return { id: channel.id, before: channel.name, after };
+    }).filter((change) => change.after !== change.before);
+
+    return { changes, total: channelIds.length };
+  }
+
+  /**
+   * Preview bulk rename changes without writing to the database.
+   * @returns {Promise<{ affected: number, samples: Array<{id: string, before: string, after: string}> }>}
+   */
+  async previewBulkRename(userId, channelIds, find, replace = '', useRegex = false) {
+    const { changes } = await this._prepareBulkRename(userId, channelIds, find, replace, useRegex);
+    return { affected: changes.length, samples: changes.slice(0, 20) };
+  }
+
+  /**
+   * Bulk rename channels using find/replace.
+   * @param {string} userId
+   * @param {string[]} channelIds
+   * @param {string} find - text to find
+   * @param {string} replace - replacement text
+   * @param {boolean} useRegex - treat find as regex
+   * @returns {Promise<{ renamed: number, total: number }>}
+   */
+  async bulkRename(userId, channelIds, find, replace = '', useRegex = false) {
+    const { changes, total } = await this._prepareBulkRename(userId, channelIds, find, replace, useRegex);
     await db.transaction(async (trx) => {
-      for (const ch of owned) {
-        const newName = useRegex ? ch.name.replace(new RegExp(find, 'g'), replace) : ch.name.split(find).join(replace);
-        if (newName !== ch.name) {
-          await trx('channels').where('id', ch.id).update({ name: newName, updated_at: trx.fn.now() });
-          renamed += 1;
-        }
+      for (const change of changes) {
+        await trx('channels').where('id', change.id).update({ name: change.after, updated_at: trx.fn.now() });
       }
     });
 
-    return { renamed, total: channelIds.length };
+    return { renamed: changes.length, total };
   }
 
   /**
