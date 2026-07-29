@@ -76,6 +76,22 @@ docker compose exec api npm run make-admin -- <email>
 
 Yetkiyi geri almak için komutun sonuna `--revoke` ekleyin.
 
+## Kayıt ve şifre kurtarma
+
+Yeni hesap açılmasını durdurmak için `ALLOW_REGISTRATION=false` ayarlayın. Geriye dönük uyumluluk için varsayılan değer `true`'dur. Temiz kurulumun kilitlenmemesi amacıyla `users` tablosu boşken ilk kullanıcı, bu bayrak kapalı olsa bile kaydolabilir; ilk kullanıcıdan sonra kayıtlar reddedilir. Kimlik doğrulaması gerektirmeyen `GET /api/auth/registration-status` ucu yalnızca etkin durumu `{ "allowed": boolean }` biçiminde döndürür.
+
+SMTP yapılandırılmadığında kayıtlı bir kullanıcının şifresini güçlü, rastgele üretilen bir değerle sıfırlayın:
+
+```bash
+npm run reset-password -- <e-posta>
+```
+
+Belirli bir şifre vermek için `--password <değer>` ekleyin. Şifre sıfırlandığında kullanıcının tüm aktif oturumları iptal edilir. Docker kurulumunda komutu API container'ı içinde çalıştırın:
+
+```bash
+docker compose exec api npm run reset-password -- <e-posta>
+```
+
 ## Docker deployment
 
 Create `.env` from `.env.example`. Generate the two secrets independently — do not reuse one value for both, and do not ship the placeholders:

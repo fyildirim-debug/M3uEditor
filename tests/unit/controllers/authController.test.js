@@ -7,12 +7,45 @@ jest.mock('../../../src/config/database', () => mockKnex);
 
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const config = require('../../../src/config');
 const jwtConfig = require('../../../src/config/jwt');
 const app = require('../../../src/app');
+const authController = require('../../../src/controllers/authController');
+const authRouter = require('../../../src/routes/auth');
 
 describe('Auth Controller', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    config.allowRegistration = true;
+    delete mockKnex.transaction;
+  });
+
+  afterAll(() => { config.allowRegistration = true; });
+
+  describe('GET /api/auth/registration-status', () => {
+    it('is registered as a public GET route with no authentication middleware', () => {
+      const layer = authRouter.stack.find(candidate => candidate.route?.path === '/registration-status');
+
+      expect(layer.route.methods).toEqual({ get: true });
+      expect(layer.route.stack).toHaveLength(1);
+      expect(layer.route.stack[0].handle).toBe(authController.registrationStatus);
+    });
+
+    it('returns only allowed=false when registration is disabled and a user exists', async () => {
+      config.allowRegistration = false;
+      mockKnex.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        first: jest.fn().mockResolvedValue({ id: 'existing-user' }),
+      });
+
+      const res = { json: jest.fn() };
+      const next = jest.fn();
+      await authController.registrationStatus({}, res, next);
+
+      expect(res.json).toHaveBeenCalledWith({ allowed: false });
+      expect(Object.keys(res.json.mock.calls[0][0])).toEqual(['allowed']);
+      expect(next).not.toHaveBeenCalled();
+    });
   });
 
   describe('POST /api/auth/register', () => {

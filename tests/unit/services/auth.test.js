@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const config = require('../../../src/config');
 const jwtConfig = require('../../../src/config/jwt');
 const { AppError } = require('../../../src/utils/AppError');
 const { hashToken } = require('../../../src/utils/crypto');
@@ -18,7 +19,11 @@ const authService = require('../../../src/services/AuthService');
 describe('AuthService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    config.allowRegistration = true;
+    delete mockKnex.transaction;
   });
+
+  afterAll(() => { config.allowRegistration = true; });
 
   describe('register', () => {
     it('should create a user and return a valid token', async () => {
@@ -59,6 +64,50 @@ describe('AuthService', () => {
       expect(insertedData.password_hash).not.toBe('mypassword');
       const isValid = await bcrypt.compare('mypassword', insertedData.password_hash);
       expect(isValid).toBe(true);
+    });
+
+    it('returns FORBIDDEN under the disabled flag once any user exists', async () => {
+      config.allowRegistration = false;
+      const trx = jest.fn(() => ({
+        select: jest.fn().mockReturnThis(),
+        first: jest.fn().mockResolvedValue({ id: 'existing-user' }),
+      }));
+      trx.raw = jest.fn().mockResolvedValue();
+      mockKnex.transaction = jest.fn(callback => callback(trx));
+
+      await expect(authService.register('blocked@example.com', 'password123')).rejects.toMatchObject({
+        code: 'FORBIDDEN',
+        statusCode: 403,
+        message: 'Yeni kullanıcı kaydı devre dışı',
+      });
+      expect(trx.raw).toHaveBeenCalledWith('LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE');
+    });
+
+    it('allows the first user under the disabled flag inside the registration transaction', async () => {
+      config.allowRegistration = false;
+      const fakeUser = { id: 'first-user', email: 'first@example.com', is_admin: false };
+      const trx = jest.fn((table) => {
+        if (table === 'users') {
+          return {
+            select: jest.fn().mockReturnValue({ first: jest.fn().mockResolvedValue(undefined) }),
+            insert: jest.fn().mockReturnValue({ returning: jest.fn().mockResolvedValue([fakeUser]) }),
+          };
+        }
+        return {
+          insert: jest.fn().mockReturnValue({
+            returning: jest.fn().mockResolvedValue([{ id: 'first-session', user_id: fakeUser.id }]),
+          }),
+        };
+      });
+      trx.raw = jest.fn().mockResolvedValue();
+      mockKnex.transaction = jest.fn(callback => callback(trx));
+
+      await expect(authService.register(fakeUser.email, 'password123')).resolves.toMatchObject({
+        user: { id: fakeUser.id, email: fakeUser.email, is_admin: false },
+        token: expect.any(String),
+        refreshToken: expect.any(String),
+      });
+      expect(mockKnex.transaction).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -119,6 +168,53 @@ describe('AuthService', () => {
         expect(compareSpy).toHaveBeenCalledWith('anypass', expect.stringMatching(/^\$2[aby]\$/));
         compareSpy.mockRestore();
       }
+    });
+  });
+
+  describe('resetPasswordByEmail', () => {
+    it('uses bcrypt cost 12 and revokes every active session in the same transaction', async () => {
+      const user = { id: 'reset-user-1', email: 'operator@example.com' };
+      mockKnex.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        first: jest.fn().mockResolvedValue(user),
+      });
+      let userChanges;
+      let sessionChanges;
+      const trx = jest.fn((table) => ({
+        where: jest.fn().mockReturnThis(),
+        update: jest.fn().mockImplementation(async (changes) => {
+          if (table === 'users') userChanges = changes;
+          else sessionChanges = changes;
+          return 1;
+        }),
+      }));
+      trx.fn = { now: jest.fn(() => 'NOW') };
+      mockKnex.transaction = jest.fn(callback => callback(trx));
+
+      await expect(authService.resetPasswordByEmail(user.email, 'new-password-123')).resolves.toEqual({
+        success: true,
+        email: user.email,
+      });
+
+      expect(await bcrypt.compare('new-password-123', userChanges.password_hash)).toBe(true);
+      expect(bcrypt.getRounds(userChanges.password_hash)).toBe(12);
+      expect(userChanges).toMatchObject({ password_reset_token: null, password_reset_expires: null });
+      expect(sessionChanges).toEqual({ revoked_at: 'NOW', revoke_reason: 'password_reset' });
+      expect(mockKnex.transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns a clear NOT_FOUND error for an unknown user', async () => {
+      mockKnex.mockReturnValue({
+        where: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        first: jest.fn().mockResolvedValue(undefined),
+      });
+
+      await expect(authService.resetPasswordByEmail('missing@example.com', 'new-password-123')).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        message: 'Kullanıcı bulunamadı: missing@example.com',
+      });
     });
   });
 

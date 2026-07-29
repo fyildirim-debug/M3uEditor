@@ -6,6 +6,7 @@ const os = require('os');
 const path = require('path');
 const readline = require('readline');
 const db = require('../config/database');
+const config = require('../config');
 const jwtConfig = require('../config/jwt');
 const logger = require('../config/logger');
 const { hashToken } = require('../utils/crypto');
@@ -18,20 +19,45 @@ const DUMMY_PASSWORD_HASH = bcrypt.hashSync('m3u-editor-dummy-password', SALT_RO
 const ACCOUNT_LOGO_BATCH_SIZE = 1000;
 
 class AuthService {
+  async isRegistrationAllowed(connection = db) {
+    if (config.allowRegistration) return true;
+    const firstUser = await connection('users').select('id').first();
+    return !firstUser;
+  }
+
   async register(email, password, metadata = {}) {
     const normalizedEmail = email.trim().toLowerCase();
-    const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
-    let user;
-    try {
-      [user] = await db('users')
-        .insert({ email: normalizedEmail, password_hash: passwordHash })
-        .returning(['id', 'email', 'is_admin']);
-    } catch (error) {
-      if (error.code === '23505') throw createAppError('VALIDATION_ERROR', 'Bu e-posta adresi zaten kayıtlı');
-      throw error;
+    const createRegistration = async (connection) => {
+      const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
+      let user;
+      try {
+        [user] = await connection('users')
+          .insert({ email: normalizedEmail, password_hash: passwordHash })
+          .returning(['id', 'email', 'is_admin']);
+      } catch (error) {
+        if (error.code === '23505') throw createAppError('VALIDATION_ERROR', 'Bu e-posta adresi zaten kayıtlı');
+        throw error;
+      }
+
+      const session = await this._createSession(user.id, metadata, connection);
+      return { user, session };
+    };
+
+    let registration;
+    if (config.allowRegistration) {
+      registration = await createRegistration(db);
+    } else {
+      registration = await db.transaction(async (trx) => {
+        // Serialize the empty-install exception so only one concurrent request can become the first user.
+        await trx.raw('LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE');
+        if (!(await this.isRegistrationAllowed(trx))) {
+          throw createAppError('FORBIDDEN', 'Yeni kullanıcı kaydı devre dışı');
+        }
+        return createRegistration(trx);
+      });
     }
 
-    const session = await this._createSession(user.id, metadata);
+    const { user, session } = registration;
     const token = this._generateToken(user.id, session.id);
 
     const emailService = require('./EmailService');
@@ -133,14 +159,23 @@ class AuthService {
       throw createAppError('INVALID_CREDENTIALS', 'Mevcut şifre yanlış');
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-    await db.transaction(async (trx) => {
-      await trx('users').where({ id: userId }).update({ password_hash: passwordHash, updated_at: trx.fn.now() });
-      await trx('sessions').where({ user_id: userId, revoked_at: null }).update({
-        revoked_at: trx.fn.now(), revoke_reason: 'password_change',
-      });
-    });
+    await this._replacePassword(userId, newPassword, 'password_change');
     return { success: true, reauthenticationRequired: true };
+  }
+
+  async resetPasswordByEmail(email, newPassword) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (typeof newPassword !== 'string' || newPassword.length < 10 || newPassword.length > 128) {
+      throw createAppError('VALIDATION_ERROR', 'Şifre 10-128 karakter arasında olmalı');
+    }
+    const user = await db('users').where({ email: normalizedEmail }).select('id', 'email').first();
+    if (!user) throw createAppError('NOT_FOUND', `Kullanıcı bulunamadı: ${normalizedEmail}`);
+
+    await this._replacePassword(user.id, newPassword, 'password_reset', {
+      password_reset_token: null,
+      password_reset_expires: null,
+    });
+    return { success: true, email: user.email };
   }
 
   async changeEmail(userId, password, newEmail) {
@@ -268,19 +303,25 @@ class AuthService {
       throw createAppError('TOKEN_EXPIRED', 'Şifre sıfırlama bağlantısının süresi dolmuş');
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-    await db.transaction(async (trx) => {
-      await trx('users').where({ id: user.id }).update({
-        password_hash: passwordHash,
-        password_reset_token: null,
-        password_reset_expires: null,
-        updated_at: trx.fn.now(),
-      });
-      await trx('sessions').where({ user_id: user.id, revoked_at: null }).update({
-        revoked_at: trx.fn.now(), revoke_reason: 'password_reset',
-      });
+    await this._replacePassword(user.id, newPassword, 'password_reset', {
+      password_reset_token: null,
+      password_reset_expires: null,
     });
     return { success: true };
+  }
+
+  async _replacePassword(userId, newPassword, revokeReason, additionalChanges = {}) {
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    await db.transaction(async (trx) => {
+      await trx('users').where({ id: userId }).update({
+        ...additionalChanges,
+        password_hash: passwordHash,
+        updated_at: trx.fn.now(),
+      });
+      await trx('sessions').where({ user_id: userId, revoked_at: null }).update({
+        revoked_at: trx.fn.now(), revoke_reason: revokeReason,
+      });
+    });
   }
 
   verifyToken(token) {

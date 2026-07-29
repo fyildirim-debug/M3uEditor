@@ -16,6 +16,28 @@ function loadProductionConfig(jwtSecret, encryptionKey) {
   });
 }
 
+function loadRegistrationConfig(allowRegistration) {
+  const originalValue = process.env.ALLOW_REGISTRATION;
+  if (allowRegistration === undefined) delete process.env.ALLOW_REGISTRATION;
+  else process.env.ALLOW_REGISTRATION = allowRegistration;
+  jest.resetModules();
+  const value = require('../../src/config').allowRegistration;
+  if (originalValue === undefined) delete process.env.ALLOW_REGISTRATION;
+  else process.env.ALLOW_REGISTRATION = originalValue;
+  return value;
+}
+
+describe('Registration configuration', () => {
+  test('allows registration by default for backward compatibility', () => {
+    expect(loadRegistrationConfig(undefined)).toBe(true);
+  });
+
+  test('only disables registration when ALLOW_REGISTRATION is false', () => {
+    expect(loadRegistrationConfig('false')).toBe(false);
+    expect(loadRegistrationConfig('true')).toBe(true);
+  });
+});
+
 describe('Production secret validation', () => {
   test.each([
     ['replace-with-a-long-random-secret', 'replace-with-another-long-random-secret'],

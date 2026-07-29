@@ -59,6 +59,7 @@ const config = {
     audience: process.env.JWT_AUDIENCE || 'm3u-editor-web',
   },
   credentialEncryptionKey: encryptionKey,
+  allowRegistration: process.env.ALLOW_REGISTRATION !== 'false',
   allowPrivateNetworkUrls: process.env.ALLOW_PRIVATE_NETWORK_URLS === 'true',
   corsOrigins: (process.env.CORS_ORIGIN || process.env.APP_URL || '')
     .split(',')

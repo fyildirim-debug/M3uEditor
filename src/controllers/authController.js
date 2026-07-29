@@ -63,6 +63,12 @@ async function register(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function registrationStatus(_req, res, next) {
+  try {
+    res.json({ allowed: await authService.isRegistrationAllowed() });
+  } catch (error) { next(error); }
+}
+
 async function login(req, res, next) {
   try {
     const { email, password } = req.body;
@@ -152,4 +158,16 @@ async function resetPassword(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { register, login, refreshToken, logout, changePassword, changeEmail, deleteAccount, getProfile, forgotPassword, resetPassword };
+module.exports = {
+  register,
+  registrationStatus,
+  login,
+  refreshToken,
+  logout,
+  changePassword,
+  changeEmail,
+  deleteAccount,
+  getProfile,
+  forgotPassword,
+  resetPassword,
+};
