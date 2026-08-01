@@ -33,6 +33,12 @@ describe('Database Migrations', () => {
       '20240101000019_add_xtream_output.js',
       '20240101000020_add_category_visibility.js',
       '20240101000021_add_output_password_enc.js',
+      '20240101000022_add_sync_intervals.js',
+      '20240101000023_create_backups.js',
+      '20240101000024_add_channel_health.js',
+      '20240101000025_create_filter_rules.js',
+      '20240101000026_create_profiles_and_views.js',
+      '20240101000027_create_playlist_sources.js',
     ]);
   });
 

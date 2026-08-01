@@ -449,36 +449,23 @@ function setCategorySelected(categoryId, checked) {
   else currentTypeState.value.selected.delete(categoryId)
 }
 
-function buildImportStages(types) {
-  const stages = [
-    { pct: 8, key: 'xtream.stageConnecting' },
-    { pct: 15, key: 'xtream.stageAuth' },
-    { pct: 25, key: 'xtream.stageCategories' }
-  ]
-  if (types.includes('live')) stages.push({ pct: 45, key: 'xtream.stageChannels' })
-  if (types.includes('series')) stages.push({ pct: 65, key: 'xtream.stageSeries' })
-  if (types.includes('vod')) stages.push({ pct: 80, key: 'xtream.stageVod' })
-  stages.push({ pct: 90, key: 'xtream.stageProcessing' })
-  stages.push({ pct: 95, key: 'xtream.stageSaving' })
-  return stages
+function startImportProgress() {
+  importProgress.value = 0
+  importStageKey.value = 'xtream.stageProcessing'
+  clearImportProgress()
+  importProgressTimer = setInterval(pollImportProgress, 2000)
 }
 
-function startImportProgress(types) {
-  const stages = buildImportStages(types)
-  let stageIndex = 0
-  importProgress.value = 0
-  importStageKey.value = stages[0].key
-  clearImportProgress()
-  importProgressTimer = setInterval(() => {
-    const target = stages[stageIndex].pct
-    if (importProgress.value < target) {
-      const delta = Math.max(0.4, (target - importProgress.value) * 0.06)
-      importProgress.value = Math.min(target, importProgress.value + delta)
-    } else if (stageIndex < stages.length - 1) {
-      stageIndex++
-      importStageKey.value = stages[stageIndex].key
+async function pollImportProgress() {
+  try {
+    const { data } = await api.get('/import/jobs/active')
+    const jobs = Array.isArray(data) ? data : []
+    const job = jobs.find(j => props.playlistId && String(j.playlistId) === String(props.playlistId)) || jobs[0]
+    if (job && job.total > 0) {
+      importProgress.value = Math.min(99, Math.round((job.processed / job.total) * 100))
+      importStageKey.value = 'xtream.stageSaving'
     }
-  }, 250)
+  } catch { /* ilerleme sorgusu gecici olarak basarisiz olabilir */ }
 }
 
 function clearImportProgress() {
@@ -499,7 +486,7 @@ async function runImport() {
   importResult.value = null
   importError.value = ''
   importAbortController = new AbortController()
-  startImportProgress(streamTypes)
+  startImportProgress()
   try {
     const { data } = await api.post(endpoint, {
       serverUrl: form.serverUrl.trim(),

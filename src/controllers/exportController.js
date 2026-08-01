@@ -2,6 +2,7 @@ const exportService = require('../services/ExportService');
 const xmltvExportService = require('../services/XMLTVExportService');
 const { createAppError } = require('../utils/AppError');
 const { validateIdArray } = require('../utils/validation');
+const { validate: validateUuid } = require('uuid');
 
 async function exportPlaylist(req, res, next) {
   try {
@@ -13,8 +14,12 @@ async function exportPlaylist(req, res, next) {
     if (streamType && !['live', 'vod', 'series'].includes(streamType)) {
       throw createAppError('VALIDATION_ERROR', 'Geçersiz içerik türü');
     }
+    const viewId = req.query.viewId || null;
+    if (viewId && !validateUuid(viewId)) {
+      throw createAppError('VALIDATION_ERROR', 'Geçersiz görünüm kimliği');
+    }
 
-    const content = await exportService.exportAsM3U(req.userId, playlistId, excludeCategories, streamType);
+    const content = await exportService.exportAsM3U(req.userId, playlistId, excludeCategories, streamType, viewId);
     res.setHeader('Content-Type', 'audio/x-mpegurl');
     res.setHeader('Content-Disposition', 'attachment; filename="playlist.m3u"');
     res.setHeader('Cache-Control', 'private, no-store');
@@ -34,6 +39,13 @@ async function sharePlaylist(req, res, next) {
       throw createAppError('VALIDATION_ERROR', 'Paylaşım şifresi 10-128 karakter arasında olmalı');
     }
     res.status(201).json(await exportService.generateShareUrl(req.userId, playlistId, { expiresInDays, password }));
+  } catch (error) { next(error); }
+}
+
+async function revokeShare(req, res, next) {
+  try {
+    await exportService.revokeShare(req.userId, req.params.id);
+    res.status(204).end();
   } catch (error) { next(error); }
 }
 
@@ -110,4 +122,4 @@ async function getEpgCoverage(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { exportPlaylist, sharePlaylist, getShared, exportXmltv, getSharedXmltv, getEpgCoverage };
+module.exports = { exportPlaylist, sharePlaylist, revokeShare, getShared, exportXmltv, getSharedXmltv, getEpgCoverage };

@@ -108,6 +108,9 @@
             <button class="pl-card-action" @click="startEdit(pl)" :data-tooltip="t('common.edit')" :aria-label="t('common.edit')">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
+            <button class="pl-card-action" @click="openBackups(pl)" :data-tooltip="t('backup.title')" :aria-label="t('backup.title')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            </button>
             <button class="pl-card-action pl-card-action-danger" @click="confirmDelete(pl)" :data-tooltip="t('common.delete')" :aria-label="t('common.delete')">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
@@ -216,6 +219,94 @@
       </Transition>
     </Teleport>
 
+    <!-- Backups Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="backupsPl" v-focus-trap class="modal-overlay" @click.self="closeBackups">
+          <div class="modal modal-wide">
+            <div class="modal-header">
+              <h3>{{ t('backup.title') }} — {{ backupsPl.name }}</h3>
+              <button class="btn btn-ghost btn-icon-sm" :aria-label="t('common.close')" @click="closeBackups">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div class="backup-toolbar">
+              <button class="btn btn-primary btn-sm" @click="createBackup" :disabled="backupCreating">
+                <span v-if="backupCreating" class="spinner spinner-sm"></span>
+                {{ backupCreating ? t('backup.creating') : t('backup.backupNow') }}
+              </button>
+            </div>
+
+            <div v-if="backupsLoading" class="backup-empty">{{ t('common.loading') }}…</div>
+            <div v-else-if="backups.length === 0" class="backup-empty">
+              <p>{{ t('backup.empty') }}</p>
+            </div>
+            <div v-else class="backup-list">
+              <div v-for="b in backups" :key="b.id" class="backup-row">
+                <div class="backup-info">
+                  <div class="backup-line1">
+                    <span class="backup-date">{{ formatDateTime(b.created_at) }}</span>
+                    <span class="backup-reason">{{ reasonLabel(b.reason) }}</span>
+                  </div>
+                  <div class="backup-line2">{{ t('backup.channels', { n: b.channel_count }) }} · {{ formatSize(b.size_bytes) }}</div>
+                </div>
+                <div class="backup-actions">
+                  <button class="pl-card-action" @click="downloadBackup(b)" :data-tooltip="t('backup.download')" :aria-label="t('backup.download')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </button>
+                  <button class="pl-card-action" @click="askRestore(b)" :data-tooltip="t('backup.restore')" :aria-label="t('backup.restore')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                  </button>
+                  <button class="pl-card-action pl-card-action-danger" @click="askDeleteBackup(b)" :data-tooltip="t('common.delete')" :aria-label="t('common.delete')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Restore confirm -->
+            <div v-if="restoringBackup" class="delete-warning backup-confirm">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <div class="backup-confirm-body">
+                <p>{{ t('backup.restoreConfirm', { name: backupsPl.name }) }}</p>
+                <div class="backup-confirm-actions">
+                  <button class="btn btn-secondary btn-sm" :disabled="restoring" @click="doRestore(false)">
+                    <span v-if="restoring" class="spinner spinner-sm"></span>
+                    {{ restoring ? t('backup.restoring') : t('backup.restoreNew') }}
+                  </button>
+                  <button class="btn btn-danger btn-sm" :disabled="restoring" @click="doRestore(true)">
+                    <span v-if="restoring" class="spinner spinner-sm"></span>
+                    {{ restoring ? t('backup.restoring') : t('backup.restoreOverwrite') }}
+                  </button>
+                  <button class="btn btn-ghost btn-sm" :disabled="restoring" @click="restoringBackup = null">{{ t('common.cancel') }}</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Delete confirm -->
+            <div v-if="deletingBackup" class="delete-warning backup-confirm">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <div class="backup-confirm-body">
+                <p>{{ t('backup.deleteConfirm') }}</p>
+                <div class="backup-confirm-actions">
+                  <button class="btn btn-danger btn-sm" :disabled="backupDeleting" @click="doDeleteBackup">
+                    <span v-if="backupDeleting" class="spinner spinner-sm"></span>
+                    {{ t('common.delete') }}
+                  </button>
+                  <button class="btn btn-ghost btn-sm" :disabled="backupDeleting" @click="deletingBackup = null">{{ t('common.cancel') }}</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn btn-secondary" @click="closeBackups">{{ t('common.close') }}</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <XtreamImportWizard
       v-if="showXtreamModal"
       @close="showXtreamModal = false"
@@ -278,6 +369,16 @@ const editingPl = ref(null)
 const editName = ref('')
 const deletingPl = ref(null)
 const deletingPlaylist = ref(false)
+
+// Backups
+const backupsPl = ref(null)
+const backups = ref([])
+const backupsLoading = ref(false)
+const backupCreating = ref(false)
+const restoringBackup = ref(null)
+const restoring = ref(false)
+const deletingBackup = ref(null)
+const backupDeleting = ref(false)
 
 const totalChannels = computed(() =>
   playlists.value.reduce((sum, pl) => sum + (pl.channel_count || 0), 0)
@@ -354,6 +455,108 @@ async function updatePlaylist() {
 }
 
 function confirmDelete(pl) { deletingPl.value = pl }
+
+function openBackups(pl) {
+  backupsPl.value = pl
+  restoringBackup.value = null
+  deletingBackup.value = null
+  loadBackups()
+}
+
+function closeBackups() {
+  if (restoring.value || backupCreating.value) return
+  backupsPl.value = null
+}
+
+async function loadBackups() {
+  if (!backupsPl.value) return
+  backupsLoading.value = true
+  try {
+    const { data } = await api.get('/playlists/' + backupsPl.value.id + '/backups')
+    backups.value = data
+  } catch { toast(t('backup.loadError'), 'error') }
+  finally { backupsLoading.value = false }
+}
+
+async function createBackup() {
+  if (backupCreating.value || !backupsPl.value) return
+  backupCreating.value = true
+  try {
+    await api.post('/playlists/' + backupsPl.value.id + '/backups', { reason: 'manual' })
+    await nextTick()
+    toast(t('backup.created'), 'success')
+    await loadBackups()
+  } catch (e) { toast(e.response?.data?.error?.message || t('backup.createError'), 'error') }
+  finally { backupCreating.value = false }
+}
+
+async function downloadBackup(b) {
+  try {
+    const { data, headers } = await api.get('/backups/' + b.id + '/download', { responseType: 'blob' })
+    const disposition = headers?.['content-disposition'] || ''
+    const match = disposition.match(/filename="?([^";]+)"?/i)
+    const url = URL.createObjectURL(data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = match ? match[1] : 'yedek.json.gz'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  } catch { toast(t('backup.downloadError'), 'error') }
+}
+
+function askRestore(b) { restoringBackup.value = b; deletingBackup.value = null }
+
+async function doRestore(overwrite) {
+  if (restoring.value || !restoringBackup.value) return
+  restoring.value = true
+  try {
+    const payload = overwrite ? { targetPlaylistId: backupsPl.value.id } : {}
+    const { data } = await api.post('/backups/' + restoringBackup.value.id + '/restore', payload)
+    restoringBackup.value = null
+    backupsPl.value = null
+    await nextTick()
+    toast(t('backup.restored'), 'success')
+    await loadPlaylists()
+    if (!overwrite && data.playlistId) router.push('/playlist/' + data.playlistId)
+  } catch (e) { toast(e.response?.data?.error?.message || t('backup.restoreError'), 'error') }
+  finally { restoring.value = false }
+}
+
+function askDeleteBackup(b) { deletingBackup.value = b; restoringBackup.value = null }
+
+async function doDeleteBackup() {
+  if (backupDeleting.value || !deletingBackup.value) return
+  backupDeleting.value = true
+  try {
+    await api.delete('/backups/' + deletingBackup.value.id)
+    deletingBackup.value = null
+    await nextTick()
+    toast(t('backup.deleted'), 'success')
+    await loadBackups()
+  } catch (e) { toast(e.response?.data?.error?.message || t('backup.deleteError'), 'error') }
+  finally { backupDeleting.value = false }
+}
+
+function reasonLabel(reason) {
+  if (reason === 'pre-sync') return t('backup.reasonPreSync')
+  if (reason === 'scheduled') return t('backup.reasonScheduled')
+  return t('backup.reasonManual')
+}
+
+function formatSize(bytes) {
+  const n = Number(bytes) || 0
+  if (n < 1024) return n + ' B'
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB'
+  return (n / (1024 * 1024)).toFixed(2) + ' MB'
+}
+
+function formatDateTime(d) {
+  if (!d) return ''
+  const locale = localStorage.getItem('app_lang') === 'en' ? 'en-US' : 'tr-TR'
+  return new Date(d).toLocaleString(locale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
 
 async function deletePlaylist() {
   if (deletingPlaylist.value) return
@@ -731,6 +934,30 @@ async function doM3uImport() {
   box-shadow: 0 0 8px rgba(99,102,241,0.4);
 }
 .progress-hint { margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+
+/* Backups modal */
+.modal-wide { max-width: 560px; }
+.backup-toolbar { display: flex; justify-content: flex-end; margin-bottom: 14px; }
+.backup-list { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.backup-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.backup-info { min-width: 0; }
+.backup-line1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.backup-date { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.backup-reason {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 2px 8px; border-radius: 10px;
+  background: var(--accent-soft); color: var(--accent-hover); border: 1px solid rgba(99,102,241,0.2);
+}
+.backup-line2 { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+.backup-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.backup-empty { text-align: center; color: var(--text-muted); font-size: 13px; padding: 24px 0; }
+.backup-confirm { margin-top: 14px; }
+.backup-confirm-body { flex: 1; }
+.backup-confirm-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 
 /* Responsive */
 @media (max-width: 640px) {

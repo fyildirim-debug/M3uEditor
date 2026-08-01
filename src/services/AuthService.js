@@ -383,6 +383,54 @@ class AuthService {
   _publicUser(user) {
     return { id: user.id, email: user.email, ...(user.is_admin !== undefined ? { is_admin: Boolean(user.is_admin) } : {}) };
   }
+
+  /**
+   * List active session families (devices) for a user. One entry per family,
+   * using the most recent session's device metadata.
+   * @param {string} userId
+   * @param {string} [currentSessionId] - marks the family containing it as current
+   * @returns {Promise<object[]>}
+   */
+  async listSessions(userId, currentSessionId = null) {
+    const sessions = await db('sessions')
+      .where({ user_id: userId, revoked_at: null })
+      .where('expires_at', '>', db.fn.now())
+      .select('id', 'family_id', 'user_agent', 'ip_address', 'last_used_at', 'created_at')
+      .orderBy('created_at', 'asc');
+
+    const families = new Map();
+    for (const session of sessions) {
+      const existing = families.get(session.family_id);
+      if (!existing) {
+        families.set(session.family_id, {
+          familyId: session.family_id,
+          userAgent: session.user_agent,
+          ipAddress: session.ip_address,
+          createdAt: session.created_at,
+          lastUsedAt: session.last_used_at || session.created_at,
+          current: session.id === currentSessionId,
+        });
+      } else {
+        existing.userAgent = session.user_agent || existing.userAgent;
+        existing.ipAddress = session.ip_address || existing.ipAddress;
+        if (session.last_used_at && session.last_used_at > existing.lastUsedAt) existing.lastUsedAt = session.last_used_at;
+        if (session.id === currentSessionId) existing.current = true;
+      }
+    }
+    return [...families.values()].sort((a, b) => new Date(b.lastUsedAt) - new Date(a.lastUsedAt));
+  }
+
+  /**
+   * Revoke every active session in a family owned by the user.
+   * @param {string} userId
+   * @param {string} familyId
+   * @returns {Promise<number>} revoked session count
+   */
+  async revokeSessionFamily(userId, familyId) {
+    return db('sessions')
+      .where({ user_id: userId, family_id: familyId, revoked_at: null })
+      .update({ revoked_at: db.fn.now(), revoke_reason: 'revoked_by_user' });
+  }
 }
 
 module.exports = new AuthService();

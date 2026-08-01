@@ -79,6 +79,9 @@
           <div class="nav-item" role="button" tabindex="0" @click="doShare" @keydown.enter.space.prevent="doShare">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> {{ t('nav.share') }}
           </div>
+          <div class="nav-item" role="button" tabindex="0" @click="showViewProfiles = true" @keydown.enter.space.prevent="showViewProfiles = true">
+            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> {{ t('viewProfiles.title') }}
+          </div>
         </div>
       </nav>
       <button v-if="mobileNavOpen" class="mobile-scrim" :aria-label="t('accessibility.closeMenu')" @click="mobileNavOpen = false"></button>
@@ -93,6 +96,7 @@
             </button>
             <h2 class="playlist-title">{{ playlistName }}</h2>
             <span class="channel-count-badge">{{ totalChannelCount }} {{ streamTypeLabel.unit }}</span>
+            <span v-if="isResultFiltered" class="filter-count-badge">{{ t('advFilter.filteredCount', { count: tableTotal, unit: streamTypeLabel.unit }) }}</span>
           </div>
           <div class="top-bar-right">
             <button v-if="activeView === 'basic'" class="mobile-menu-btn" :aria-label="t('accessibility.openCategories')" @click="mobileCategoriesOpen = true">
@@ -100,8 +104,19 @@
             </button>
             <div class="search-box">
               <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input class="search-input" v-model="search" :aria-label="streamTypeLabel.search" :placeholder="streamTypeLabel.search" @input="debouncedSearch" />
+              <input class="search-input" v-model="search" :aria-label="streamTypeLabel.search" :placeholder="streamTypeLabel.search" :title="t('keyboard.focusSearch')" @input="debouncedSearch" />
             </div>
+            <select v-if="activeView === 'basic'" class="input adv-filter-select" v-model="activeFilter" :aria-label="t('advFilter.label')" @change="onFilterChange">
+              <option v-for="opt in filterOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+            <span v-if="activeFilter" class="adv-filter-badge">
+              {{ activeFilterLabel }}
+              <button type="button" class="adv-filter-badge-clear" :aria-label="t('common.close')" @click="clearAdvFilter">×</button>
+            </span>
+            <button v-if="activeView === 'basic'" class="btn btn-secondary btn-sm health-scan-btn" :disabled="healthScan.running" :aria-label="t('streamHealth.scanButton')" @click="startHealthScan">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <span class="health-scan-label">{{ healthScan.running ? t('streamHealth.scanning', { checked: healthScan.checked, total: healthScan.total }) : t('streamHealth.scanButton') }}</span>
+            </button>
             <button v-if="activeView === 'basic'" class="btn btn-secondary btn-sm add-channel-btn" :aria-label="t('addChannel.title')" @click="showAddChannel = true">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span class="add-channel-label">{{ t('addChannel.title') }}</span>
@@ -297,8 +312,8 @@
                             </div>
                           </td>
                           <td class="td-url"><span class="url-text">{{ shortenUrl(ch.stream_url) }}</span></td>
-                          <td v-if="activeStreamType === 'live'" class="td-epg">{{ ch.epg_channel_id || '-' }}</td>
-                          <td v-else class="td-epg">{{ ch.extras?.genres?.slice(0,2).join(', ') || ch.extras?.genre || '-' }}</td>
+                          <td v-if="activeStreamType === 'live'" class="td-epg"><span class="health-dot" :class="ch.last_checked_at ? (ch.last_check_ok ? 'health-ok' : 'health-dead') : 'health-unchecked'" :title="ch.last_checked_at ? (ch.last_check_ok ? (ch.last_check_status ? `HTTP ${ch.last_check_status} - ${t('streamHealth.ok')}` : t('streamHealth.ok')) : (ch.last_check_status ? `HTTP ${ch.last_check_status}` : t('streamHealth.dead'))) : t('streamHealth.unchecked')"></span>{{ ch.epg_channel_id || '-' }}</td>
+                          <td v-else class="td-epg"><span class="health-dot" :class="ch.last_checked_at ? (ch.last_check_ok ? 'health-ok' : 'health-dead') : 'health-unchecked'" :title="ch.last_checked_at ? (ch.last_check_ok ? (ch.last_check_status ? `HTTP ${ch.last_check_status} - ${t('streamHealth.ok')}` : t('streamHealth.ok')) : (ch.last_check_status ? `HTTP ${ch.last_check_status}` : t('streamHealth.dead'))) : t('streamHealth.unchecked')"></span>{{ ch.extras?.genres?.slice(0,2).join(', ') || ch.extras?.genre || '-' }}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -333,6 +348,14 @@
                       <svg class="sort-handle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
                       <span class="sort-name">{{ cat.name }}</span>
                       <span class="sort-count">{{ cat.channel_count || 0 }}</span>
+                      <div class="sort-move">
+                        <button class="sort-move-btn" type="button" :disabled="idx === 0" :aria-label="t('sort.moveUp')" :title="t('sort.moveUp')" @click.stop="moveSortCat(idx, -1)">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                        </button>
+                        <button class="sort-move-btn" type="button" :disabled="idx === categories.length - 1" :aria-label="t('sort.moveDown')" :title="t('sort.moveDown')" @click.stop="moveSortCat(idx, 1)">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -360,6 +383,14 @@
                       <img v-if="ch.logo_url" :src="ch.logo_url" class="sort-ch-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="$event.target.style.display='none'" />
                       <span class="sort-name">{{ ch.name }}</span>
                       <span class="sort-count">#{{ idx + 1 }}</span>
+                      <div class="sort-move">
+                        <button class="sort-move-btn" type="button" :disabled="idx === 0" :aria-label="t('sort.moveUp')" :title="t('sort.moveUp')" @click.stop="moveSortChan(idx, -1)">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                        </button>
+                        <button class="sort-move-btn" type="button" :disabled="idx === sortCatChannels.length - 1" :aria-label="t('sort.moveDown')" :title="t('sort.moveDown')" @click.stop="moveSortChan(idx, 1)">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                      </div>
                     </div>
                     <button v-if="sortRenderCount < sortCatChannels.length" class="btn btn-secondary btn-sm load-more-btn" @click="sortRenderCount += SORT_RENDER_LIMIT">
                       {{ t('common.showMore', { count: sortCatChannels.length - sortRenderCount }) }}
@@ -382,6 +413,11 @@
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/><path d="M22 4v16"/></svg>
                     {{ t('epg.sourcesTab') }}
                     <span v-if="epgSources.length" class="epg-tab-badge">{{ epgSources.length }}</span>
+                  </button>
+                  <button :class="['epg-tab', { active: epgTab === 'profiles' }]" @click="epgTab = 'profiles'">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8-5-3.6-5 3.6 1.9-5.8L4 8.8h6.1z"/></svg>
+                    {{ t('epgProfiles.tab') }}
+                    <span v-if="epgProfiles.length" class="epg-tab-badge">{{ epgProfiles.length }}</span>
                   </button>
                 </div>
                 <div class="epg-topbar-actions">
@@ -498,6 +534,48 @@
                   </div>
                 </div>
 
+                <!-- Source Library (iptv-org) -->
+                <div class="epg-add-card">
+                  <div class="epg-add-card-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                  </div>
+                  <div class="epg-add-card-body">
+                    <div class="epg-add-card-title">{{ t('epgLibrary.title') }}</div>
+                    <div class="epg-add-card-desc">{{ t('epgLibrary.desc') }}</div>
+                    <div class="epg-add-input-row">
+                      <select class="input epg-lib-country" v-model="libCountry" :aria-label="t('epgLibrary.countryLabel')">
+                        <option value="">{{ t('epgLibrary.allCountries') }}</option>
+                        <option v-for="c in libCountries" :key="c.code" :value="c.code">{{ c.flag }} {{ c.name }}</option>
+                      </select>
+                      <input class="input" type="search" v-model="libQuery" :aria-label="t('epgLibrary.searchPlaceholder')" :placeholder="t('epgLibrary.searchPlaceholder')" />
+                    </div>
+                    <div class="epg-lib-results">
+                      <div v-if="libLoading" class="epg-lib-status"><span class="spinner" style="width:14px;height:14px"></span> {{ t('epgLibrary.loading') }}</div>
+                      <div v-else-if="libError" class="epg-lib-status">
+                        <span>{{ t('epgLibrary.loadError') }}</span>
+                        <button class="btn btn-secondary btn-xs" @click="searchLibrary">{{ t('epgLibrary.retry') }}</button>
+                      </div>
+                      <div v-else-if="!libGuides.length" class="epg-lib-status">{{ t('epgLibrary.noResults') }}</div>
+                      <div v-else class="epg-lib-list">
+                        <div v-for="g in libGuides.slice(0, 50)" :key="g.site" class="epg-lib-item">
+                          <div class="epg-lib-item-info">
+                            <div class="epg-lib-item-name">{{ g.site }}</div>
+                            <div class="epg-lib-item-meta">
+                              <span>{{ t('epgLibrary.channelCount', { count: g.channelCount }) }}</span>
+                              <span v-if="g.sampleChannels && g.sampleChannels.length" class="epg-lib-item-samples">{{ g.sampleChannels.join(', ') }}</span>
+                            </div>
+                          </div>
+                          <button v-if="g.url" class="btn btn-primary btn-xs" @click="addFromLibrary(g)" :disabled="libAdding === g.site">
+                            <span v-if="libAdding === g.site" class="spinner" style="width:12px;height:12px"></span>
+                            <span v-else>{{ t('common.add') }}</span>
+                          </button>
+                          <span v-else class="epg-lib-no-url" :title="t('epgLibrary.noUrlHint')">{{ t('epgLibrary.noUrl') }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Source List -->
                 <div v-if="epgSources.length" class="epg-source-cards">
                   <div v-for="s in epgSources" :key="s.id" class="epg-src-card">
@@ -527,6 +605,24 @@
                         </button>
                       </div>
                     </div>
+                    <div class="epg-src-autorefresh">
+                      <label class="epg-src-autorefresh-label" :for="`epg-refresh-${s.id}`">{{ t('autoSync.epgRefresh') }}</label>
+                      <select
+                        :id="`epg-refresh-${s.id}`"
+                        class="input epg-src-autorefresh-select"
+                        :value="s.refresh_interval_minutes === null || s.refresh_interval_minutes === undefined ? '' : String(s.refresh_interval_minutes)"
+                        :disabled="s._savingInterval"
+                        @change="saveEpgRefreshInterval(s, $event.target.value)"
+                      >
+                        <option value="">{{ t('autoSync.off') }}</option>
+                        <option value="360">{{ t('autoSync.every6h') }}</option>
+                        <option value="720">{{ t('autoSync.every12h') }}</option>
+                        <option value="1440">{{ t('autoSync.every24h') }}</option>
+                        <option value="2880">{{ t('autoSync.every48h') }}</option>
+                        <option value="10080">{{ t('autoSync.weekly') }}</option>
+                      </select>
+                      <span v-if="s._savingInterval" class="spinner" style="width:12px;height:12px"></span>
+                    </div>
                   </div>
                 </div>
                 <div v-else class="epg-no-sources">
@@ -535,6 +631,78 @@
                   </div>
                   <p>{{ t('epg.noSources') }}</p>
                   <span>{{ t('epg.addSourcesHint') }}</span>
+                </div>
+              </div>
+
+              <!-- TAB: Match Profiles -->
+              <div v-if="epgTab === 'profiles'" class="epg-sources-wrap">
+                <!-- Create Profile -->
+                <div class="epg-add-card">
+                  <div class="epg-add-card-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8-5-3.6-5 3.6 1.9-5.8L4 8.8h6.1z"/></svg>
+                  </div>
+                  <div class="epg-add-card-body">
+                    <div class="epg-add-card-title">{{ t('epgProfiles.title') }}</div>
+                    <div class="epg-add-card-desc">{{ t('epgProfiles.desc') }}</div>
+                    <div class="epg-profile-form">
+                      <input class="input" v-model="newProfile.name" :aria-label="t('epgProfiles.namePlaceholder')" :placeholder="t('epgProfiles.namePlaceholder')" @keyup.enter="createEpgProfile" />
+                      <div class="epg-profile-fields">
+                        <label class="epg-profile-field">
+                          <span>{{ t('epgProfiles.prefixesLabel') }}</span>
+                          <input class="input" v-model="newProfile.stripPrefixes" :placeholder="t('epgProfiles.prefixesPlaceholder')" @keyup.enter="createEpgProfile" />
+                        </label>
+                        <label class="epg-profile-field">
+                          <span>{{ t('epgProfiles.suffixesLabel') }}</span>
+                          <input class="input" v-model="newProfile.stripSuffixes" :placeholder="t('epgProfiles.suffixesPlaceholder')" @keyup.enter="createEpgProfile" />
+                        </label>
+                        <label class="epg-profile-field">
+                          <span>{{ t('epgProfiles.ignoreLabel') }}</span>
+                          <input class="input" v-model="newProfile.ignoreWords" :placeholder="t('epgProfiles.ignorePlaceholder')" @keyup.enter="createEpgProfile" />
+                        </label>
+                      </div>
+                      <div class="epg-add-input-row">
+                        <button class="btn btn-primary btn-sm" @click="createEpgProfile" :disabled="savingProfile || !newProfile.name.trim()">
+                          <span v-if="savingProfile" class="spinner" style="width:13px;height:13px"></span>
+                          <span v-else>{{ t('epgProfiles.create') }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Profile List -->
+                <div v-if="epgProfiles.length" class="epg-source-cards">
+                  <div v-for="p in epgProfiles" :key="p.id" class="epg-src-card">
+                    <div class="epg-src-card-header">
+                      <div class="epg-src-info">
+                        <div class="epg-src-url">{{ p.name }}</div>
+                        <div class="epg-src-meta">
+                          <span class="badge badge-success">{{ t('epgProfiles.matched', { count: p.mapped_count }) }}</span>
+                          <span class="epg-src-date">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                            {{ p.last_run_at ? t('epgProfiles.lastRun', { date: formatDateTime(p.last_run_at) }) : t('epgProfiles.neverRun') }}
+                          </span>
+                        </div>
+                        <div v-if="profileSettingsSummary(p)" class="epg-profile-settings">{{ profileSettingsSummary(p) }}</div>
+                      </div>
+                      <div class="epg-src-actions">
+                        <button class="epg-src-btn" @click="runEpgProfile(p)" :disabled="runningProfileId === p.id" :title="t('epgProfiles.run')">
+                          <span v-if="runningProfileId === p.id" class="spinner" style="width:12px;height:12px"></span>
+                          <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </button>
+                        <button class="epg-src-btn epg-src-btn-danger" @click="deleteEpgProfile(p)" :title="t('common.delete')">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="epg-no-sources">
+                  <div class="epg-no-sources-icon">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8-5-3.6-5 3.6 1.9-5.8L4 8.8h6.1z"/></svg>
+                  </div>
+                  <p>{{ t('epgProfiles.empty') }}</p>
+                  <span>{{ t('epgProfiles.emptyHint') }}</span>
                 </div>
               </div>
             </template>
@@ -593,6 +761,63 @@
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       {{ t('common.change') }}
                     </button>
+                    <button class="btn btn-secondary" @click="toggleAccountEdit" :title="t('xtream.accountEdit')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                      {{ t('xtream.accountEdit') }}
+                    </button>
+                  </div>
+
+                  <!-- Xtream hesap duzenleme formu -->
+                  <div v-if="accountEditOpen" class="account-edit-form">
+                    <p class="account-edit-desc">{{ t('xtream.accountEditDesc') }}</p>
+                    <div class="form-group">
+                      <label for="ae-server">{{ t('xtream.serverUrl') }}</label>
+                      <input id="ae-server" class="input" type="url" v-model="accountEditForm.serverUrl" />
+                    </div>
+                    <div class="form-group">
+                      <label for="ae-username">{{ t('xtream.username') }}</label>
+                      <input id="ae-username" class="input" v-model="accountEditForm.username" />
+                    </div>
+                    <div class="form-group">
+                      <label for="ae-password">{{ t('xtream.password') }}</label>
+                      <input id="ae-password" class="input" type="password" v-model="accountEditForm.password" :placeholder="t('xtream.passwordKeep')" autocomplete="new-password" />
+                    </div>
+                    <div class="account-edit-actions">
+                      <button class="btn btn-secondary btn-sm" @click="accountEditOpen = false">{{ t('common.cancel') }}</button>
+                      <button class="btn btn-primary btn-sm" :disabled="accountEditSaving || !accountEditForm.serverUrl.trim() || !accountEditForm.username.trim()" @click="saveAccountEdit">
+                        <span v-if="accountEditSaving" class="spinner spinner-sm"></span>
+                        {{ t('common.save') }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Otomatik guncelleme ayarlari -->
+                  <div class="auto-sync-section">
+                    <div class="auto-sync-header">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <span class="auto-sync-title">{{ t('autoSync.title') }}</span>
+                    </div>
+                    <div class="auto-sync-controls">
+                      <select v-model="autoSyncInterval" class="input auto-sync-select" :disabled="autoSyncSaving" :aria-label="t('autoSync.interval')">
+                        <option :value="null">{{ t('autoSync.off') }}</option>
+                        <option :value="360">{{ t('autoSync.every6h') }}</option>
+                        <option :value="720">{{ t('autoSync.every12h') }}</option>
+                        <option :value="1440">{{ t('autoSync.every24h') }}</option>
+                        <option :value="2880">{{ t('autoSync.every48h') }}</option>
+                        <option :value="10080">{{ t('autoSync.weekly') }}</option>
+                      </select>
+                      <label class="auto-sync-backup">
+                        <input type="checkbox" v-model="autoSyncBackup" :disabled="autoSyncSaving || autoSyncInterval === null" />
+                        <span>{{ t('autoSync.backupBeforeSync') }}</span>
+                      </label>
+                      <button class="btn btn-secondary btn-sm" @click="saveAutoSync" :disabled="autoSyncSaving">
+                        <span v-if="autoSyncSaving" class="spinner" style="width:12px;height:12px"></span>
+                        {{ t('common.save') }}
+                      </button>
+                    </div>
+                    <p v-if="autoSyncInterval !== null && savedXtream.lastSynced" class="auto-sync-hint">
+                      {{ t('autoSync.lastRun') }}: {{ new Date(savedXtream.lastSynced).toLocaleString() }}
+                    </p>
                   </div>
                 </div>
 
@@ -669,6 +894,7 @@
                     <span class="badge badge-success">{{ t('updateView.addedCount', { count: syncResult.added }) }}</span>
                     <span class="badge badge-accent">{{ t('updateView.updatedCount', { count: syncResult.updated }) }}</span>
                     <span v-if="syncResult.removed" class="badge badge-danger">{{ t('updateView.removedCount', { count: syncResult.removed }) }}</span>
+                    <span v-if="syncResult.filteredOut" class="badge">{{ t('updateView.filteredOutCount', { count: syncResult.filteredOut }) }}</span>
                   </div>
 
                   <div class="sync-report-section">
@@ -723,6 +949,122 @@
                   <div v-if="savedXtreamTypes.includes('vod') && savedXtreamTypes.includes('series') && savedXtreamTypes.includes('live')" class="add-types-complete">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                     {{ t('addTypes.allAdded') }}
+                  </div>
+                </div>
+
+                <!-- Filtre Kurallari -->
+                <div class="add-types-section">
+                  <h4 class="add-types-title">{{ t('filterRules.title') }}</h4>
+                  <p class="add-types-desc">{{ t('filterRules.desc') }}</p>
+
+                  <ul v-if="filterRules.length" class="filter-rule-list">
+                    <li v-for="(rule, idx) in filterRules" :key="rule.id" class="filter-rule-row" :class="{ 'filter-rule-disabled': !rule.enabled }">
+                      <span class="badge" :class="rule.exclude ? 'badge-danger' : 'badge-success'">{{ rule.exclude ? t('filterRules.exclude') : t('filterRules.include') }}</span>
+                      <span class="filter-rule-field">{{ t('filterRules.fields.' + rule.field) }}</span>
+                      <code class="filter-rule-pattern" :title="rule.pattern">{{ rule.pattern }}</code>
+                      <div class="filter-rule-actions">
+                        <button class="btn btn-ghost btn-icon-sm" type="button" :disabled="idx === 0" :title="t('filterRules.moveUp')" @click="moveFilterRule(rule, 'up')">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                        </button>
+                        <button class="btn btn-ghost btn-icon-sm" type="button" :disabled="idx === filterRules.length - 1" :title="t('filterRules.moveDown')" @click="moveFilterRule(rule, 'down')">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </button>
+                        <button class="btn btn-ghost btn-icon-sm" type="button" :title="rule.enabled ? t('filterRules.disable') : t('filterRules.enable')" @click="toggleFilterRule(rule)">
+                          <svg v-if="rule.enabled" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                          <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        </button>
+                        <button class="btn btn-ghost btn-icon-sm" type="button" :title="t('common.delete')" @click="deleteFilterRule(rule)">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                      </div>
+                    </li>
+                  </ul>
+                  <p v-else class="filter-rule-empty">{{ t('filterRules.empty') }}</p>
+
+                  <form class="filter-rule-form" @submit.prevent="addFilterRule">
+                    <select v-model="newRule.field" class="input filter-rule-select" :aria-label="t('filterRules.fieldLabel')">
+                      <option value="group">{{ t('filterRules.fields.group') }}</option>
+                      <option value="name">{{ t('filterRules.fields.name') }}</option>
+                      <option value="url">{{ t('filterRules.fields.url') }}</option>
+                    </select>
+                    <input v-model="newRule.pattern" class="input filter-rule-input" type="text" autocomplete="off" :placeholder="t('filterRules.patternPlaceholder')" />
+                    <select v-model="newRule.exclude" class="input filter-rule-select" :aria-label="t('filterRules.modeLabel')">
+                      <option :value="true">{{ t('filterRules.exclude') }}</option>
+                      <option :value="false">{{ t('filterRules.include') }}</option>
+                    </select>
+                    <button class="btn btn-secondary btn-sm" type="button" :disabled="!newRule.pattern.trim() || ruleTesting" @click="testFilterRule">
+                      <span v-if="ruleTesting" class="spinner" style="width:12px;height:12px"></span>
+                      {{ t('filterRules.test') }}
+                    </button>
+                    <button class="btn btn-primary btn-sm" type="submit" :disabled="!newRule.pattern.trim() || ruleSaving">
+                      <span v-if="ruleSaving" class="spinner" style="width:12px;height:12px"></span>
+                      {{ t('filterRules.add') }}
+                    </button>
+                  </form>
+                  <div v-if="ruleTestResult" class="filter-rule-test-result">
+                    <p class="filter-rule-test-summary">{{ t('filterRules.testSummary', { count: ruleTestResult.matches.length, sampled: ruleTestResult.sampled }) }}</p>
+                    <ul v-if="ruleTestResult.matches.length" class="filter-rule-test-matches">
+                      <li v-for="match in ruleTestResult.matches" :key="match.name">
+                        {{ match.name }} <span v-if="match.group" class="filter-rule-test-group">{{ match.group }}</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <!-- Ek Kaynaklar (coklu kaynak) -->
+                <div v-if="savedXtream" class="add-types-section">
+                  <h4 class="add-types-title">{{ t('multiSource.title') }}</h4>
+                  <p class="add-types-desc">{{ t('multiSource.desc') }}</p>
+
+                  <ul v-if="extraSources.length" class="source-list">
+                    <li v-for="source in extraSources" :key="source.id" class="source-row">
+                      <div class="source-info">
+                        <span class="source-label">{{ source.label || source.username }}</span>
+                        <span class="source-detail">{{ source.username }} @ {{ source.server_url }}</span>
+                      </div>
+                      <button class="btn btn-ghost btn-icon-sm" type="button" :title="t('common.delete')" @click="deleteSource(source)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      </button>
+                    </li>
+                  </ul>
+                  <p v-else class="filter-rule-empty">{{ t('multiSource.empty') }}</p>
+
+                  <form class="source-form" @submit.prevent="addSource">
+                    <input v-model="newSource.label" class="input" type="text" autocomplete="off" :placeholder="t('multiSource.labelPlaceholder')" />
+                    <input v-model="newSource.serverUrl" class="input" type="text" autocomplete="off" :placeholder="t('multiSource.serverPlaceholder')" required />
+                    <input v-model="newSource.username" class="input" type="text" autocomplete="off" :placeholder="t('multiSource.usernamePlaceholder')" required />
+                    <input v-model="newSource.password" class="input" type="password" autocomplete="new-password" :placeholder="t('multiSource.passwordPlaceholder')" required />
+                    <button class="btn btn-secondary btn-sm" type="submit" :disabled="sourceSaving || !newSource.serverUrl.trim() || !newSource.username.trim() || !newSource.password">
+                      <span v-if="sourceSaving" class="spinner" style="width:12px;height:12px"></span>
+                      {{ t('multiSource.add') }}
+                    </button>
+                  </form>
+
+                  <button class="btn btn-primary" type="button" style="margin-top:12px" :disabled="syncingAll || syncing" @click="syncAllSources">
+                    <span v-if="syncingAll" class="spinner" style="width:14px;height:14px"></span>
+                    <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+                    {{ syncingAll ? t('multiSource.syncingAll') : t('multiSource.syncAll') }}
+                  </button>
+
+                  <div v-if="syncAllResult" class="sync-report" style="margin-top:12px">
+                    <h4 class="sync-report-title">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      {{ t('multiSource.reportTitle') }}
+                    </h4>
+                    <div class="sync-report-stats">
+                      <span class="badge badge-success">{{ t('updateView.addedCount', { count: syncAllResult.added }) }}</span>
+                      <span class="badge badge-accent">{{ t('updateView.updatedCount', { count: syncAllResult.updated }) }}</span>
+                      <span v-if="syncAllResult.removed" class="badge badge-danger">{{ t('updateView.removedCount', { count: syncAllResult.removed }) }}</span>
+                      <span v-if="syncAllResult.filteredOut" class="badge">{{ t('updateView.filteredOutCount', { count: syncAllResult.filteredOut }) }}</span>
+                    </div>
+                    <ul class="source-report-list">
+                      <li v-for="entry in syncAllResult.sources" :key="entry.sourceId || 'main'" class="source-report-row">
+                        <span class="source-report-label">{{ entry.label }}</span>
+                        <span v-if="entry.ok" class="source-report-ok">{{ t('multiSource.sourceOk', { added: entry.added, updated: entry.updated }) }}</span>
+                        <span v-else class="source-report-fail">{{ t('multiSource.sourceFailed', { error: entry.error }) }}</span>
+                      </li>
+                    </ul>
+                    <button class="btn btn-ghost btn-sm" type="button" @click="syncAllResult = null">{{ t('common.close') }}</button>
                   </div>
                 </div>
 
@@ -939,13 +1281,22 @@
       @applied="handleBulkApplied"
       @close="showBulkUpdate = false"
     />
-    <SharePlaylistModal v-if="showShare" :playlist-id="playlistId" @close="showShare = false" />
+    <SharePlaylistModal v-if="showShare" :playlist-id="playlistId" :is-shared="playlistShared" @shared="playlistShared = true" @revoked="playlistShared = false" @close="showShare = false" />
     <XtreamOutputModal v-if="showXtreamOutput" :playlist-id="playlistId" :hidden-count="categories.filter(c => c.is_hidden).length" @close="showXtreamOutput = false" />
+    <ViewProfilesModal v-if="showViewProfiles" :playlist-id="playlistId" :categories="categories" @close="showViewProfiles = false" @applied="onViewProfileApplied" />
     <XtreamImportWizard
       v-if="showXtreamModal"
       :playlist-id="playlistId"
       @close="showXtreamModal = false"
       @imported="handleXtreamImported"
+    />
+    <ConfirmModal
+      v-if="confirmState"
+      :title="confirmState.title"
+      :message="confirmState.message"
+      :loading="confirmLoading"
+      @confirm="handleConfirm"
+      @cancel="confirmState = null"
     />
 
     <!-- Existing modals -->
@@ -1065,7 +1416,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, inject, watch, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import AddChannelModal from '../components/AddChannelModal.vue'
@@ -1075,8 +1426,11 @@ import SharePlaylistModal from '../components/SharePlaylistModal.vue'
 import StreamTestControl from '../components/StreamTestControl.vue'
 import XtreamImportWizard from '../components/XtreamImportWizard.vue'
 import XtreamOutputModal from '../components/XtreamOutputModal.vue'
+import ConfirmModal from '../components/ConfirmModal.vue'
+import ViewProfilesModal from '../components/ViewProfilesModal.vue'
 
 const route = useRoute()
+const router = useRouter()
 const toast = inject('toast')
 const { t } = useI18n()
 const playlistId = route.params.id
@@ -1088,6 +1442,7 @@ const channels = ref([])
 const channelsLoading = ref(false)
 const selectedCatId = ref(null)
 const search = ref('')
+const activeFilter = ref('')
 const page = ref(1)
 const totalPages = ref(1)
 const totalChannelCount = ref(0)
@@ -1102,6 +1457,12 @@ const fetchingMetadata = ref(false)
 // Nav
 const activeView = ref('basic')
 const activeStreamType = ref('live')
+
+// Editor durumu URL'de: ?view=...&type=... (hash query) geri yukle
+const VALID_VIEWS = ['basic', 'sort', 'epg', 'category', 'update']
+const VALID_TYPES = ['live', 'vod', 'series']
+if (VALID_TYPES.includes(route.query.type)) activeStreamType.value = route.query.type
+if (VALID_VIEWS.includes(route.query.view)) activeView.value = route.query.view
 const streamTypeCounts = ref({ live: 0, vod: 0, series: 0 })
 const mobileNavOpen = ref(false)
 const mobileCategoriesOpen = ref(false)
@@ -1135,6 +1496,35 @@ const inlineEditName = ref('')
 const showXtreamModal = ref(false)
 const savedXtream = ref(null) // { serverUrl, username, lastSynced }
 const savedXtreamTypes = ref(['live'])
+const playlistShared = ref(false)
+// Otomatik guncelleme ayarlari (sync_interval_minutes / backup_before_sync)
+const autoSyncInterval = ref(null)
+const autoSyncBackup = ref(false)
+const autoSyncSaving = ref(false)
+
+function applyAutoSyncSettings(pl) {
+  if (!pl) return
+  autoSyncInterval.value = pl.sync_interval_minutes ?? null
+  autoSyncBackup.value = !!pl.backup_before_sync
+}
+
+async function saveAutoSync() {
+  if (autoSyncSaving.value) return
+  autoSyncSaving.value = true
+  try {
+    const { data } = await api.put(`/playlists/${playlistId}/sync-settings`, {
+      syncIntervalMinutes: autoSyncInterval.value,
+      backupBeforeSync: autoSyncBackup.value
+    })
+    autoSyncInterval.value = data.sync_interval_minutes ?? null
+    autoSyncBackup.value = !!data.backup_before_sync
+    toast(t('autoSync.saved'), 'success')
+  } catch (e) {
+    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+  } finally {
+    autoSyncSaving.value = false
+  }
+}
 const syncing = ref(false)
 const addingTypes = ref(false)
 const addTypesResult = ref(null)
@@ -1145,12 +1535,31 @@ const syncSelection = reactive({ live: new Set(), series: new Set(), vod: new Se
 const syncSearches = reactive({ live: '', series: '', vod: '' })
 const syncResult = ref(null)
 
+// Filtre kurallari
+const filterRules = ref([])
+const newRule = reactive({ field: 'group', pattern: '', exclude: true })
+const ruleSaving = ref(false)
+const ruleTesting = ref(false)
+const ruleTestResult = ref(null)
+
+// Ek kaynaklar (coklu kaynak)
+const extraSources = ref([])
+const newSource = reactive({ label: '', serverUrl: '', username: '', password: '' })
+const sourceSaving = ref(false)
+const syncingAll = ref(false)
+const syncAllResult = ref(null)
+
 // EPG
 const epgSources = ref([])
 const newEpgUrl = ref('')
 const addingEpg = ref(false)
 const autoMatching = ref(false)
 const matchResult = ref(null)
+// EPG Match Profiles
+const epgProfiles = ref([])
+const savingProfile = ref(false)
+const runningProfileId = ref(null)
+const newProfile = ref({ name: '', stripPrefixes: '', stripSuffixes: '', ignoreWords: '' })
 const editChannelEpg = ref([])
 // EPG Autocomplete (name field)
 const epgAcResults = ref([])
@@ -1205,10 +1614,41 @@ const showBulkUpdate = ref(false)
 const showShare = ref(false)
 const showXtreamOutput = ref(false)
 
+// ConfirmModal (native confirm yerine)
+const confirmState = ref(null) // { title, message, onConfirm }
+const confirmLoading = ref(false)
+
+function askConfirm(title, message, onConfirm) {
+  confirmState.value = { title, message, onConfirm }
+}
+
+async function handleConfirm() {
+  if (confirmLoading.value || !confirmState.value) return
+  confirmLoading.value = true
+  try { await confirmState.value.onConfirm() } finally {
+    confirmLoading.value = false
+    confirmState.value = null
+  }
+}
+// Gorunum sablonlari (P2-8)
+const showViewProfiles = ref(false)
+function onViewProfileApplied() { loadCategories() }
+
 let searchTimer = null
 
 const allSelected = computed(() => channels.value.length > 0 && channels.value.every(ch => selectedIds.value.has(ch.id)))
 const selectedChannelIds = computed(() => [...selectedIds.value])
+
+const filterOptions = computed(() => [
+  { value: '', label: t('advFilter.all') },
+  { value: 'missing_logo', label: t('advFilter.missingLogo') },
+  { value: 'missing_epg', label: t('advFilter.missingEpg') },
+  { value: 'duplicate_name', label: t('advFilter.duplicateName') },
+  { value: 'dead', label: t('advFilter.dead') },
+  { value: 'unchecked', label: t('advFilter.unchecked') },
+])
+const activeFilterLabel = computed(() => filterOptions.value.find(o => o.value === activeFilter.value)?.label || '')
+const isResultFiltered = computed(() => !!(search.value || activeFilter.value))
 
 const streamTypeLabel = computed(() => {
   switch (activeStreamType.value) {
@@ -1258,6 +1698,56 @@ async function loadStreamTypeCounts() {
   } catch {}
 }
 
+// URL durumunu hash query'sine yaz (?view=...&type=...)
+watch([activeView, activeStreamType], ([v, st]) => {
+  const query = {}
+  if (v !== 'basic') query.view = v
+  if (st !== 'live') query.type = st
+  router.replace({ query }).catch(() => {})
+})
+
+// Klavye kisayollari: '/' aramaya odaklanir, 'g' + e/s/k/g gorunum degistirir
+let goPrefixPending = false
+let goPrefixTimer = null
+
+function isTypingTarget(el) {
+  if (!el) return false
+  const tag = el.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable
+}
+
+function onGlobalKeydown(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return
+  if (isTypingTarget(e.target)) { goPrefixPending = false; return }
+  if (e.key === '/') {
+    e.preventDefault()
+    document.querySelector('.search-input')?.focus()
+    return
+  }
+  const key = e.key.toLowerCase()
+  if (goPrefixPending) {
+    goPrefixPending = false
+    clearTimeout(goPrefixTimer)
+    const view = { e: 'epg', s: 'sort', k: 'category', g: 'update' }[key]
+    if (view) {
+      e.preventDefault()
+      activeView.value = view
+    }
+    return
+  }
+  if (key === 'g') {
+    goPrefixPending = true
+    clearTimeout(goPrefixTimer)
+    goPrefixTimer = setTimeout(() => { goPrefixPending = false }, 1000)
+  }
+}
+
+onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
+onUnmounted(() => {
+  window.removeEventListener('keydown', onGlobalKeydown)
+  clearTimeout(goPrefixTimer)
+})
+
 onMounted(async () => {
   try {
     const [plRes, catRes] = await Promise.all([
@@ -1266,12 +1756,14 @@ onMounted(async () => {
     ])
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
     playlistName.value = pl?.name || 'Playlist'
+    playlistShared.value = Boolean(pl?.is_shared)
+    applyAutoSyncSettings(pl)
     if (pl?.xtream_server_url) {
       savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
       savedXtreamTypes.value = pl.xtream_stream_types ? JSON.parse(pl.xtream_stream_types) : ['live']
     }
     categories.value = catRes.data
-    await Promise.all([loadChannels(), loadTotalCount(), loadStreamTypeCounts()])
+    await Promise.all([loadChannels(), loadTotalCount(), loadStreamTypeCounts(), loadFilterRules(), loadSources()])
   } catch { toast(t('toast.loadError'), 'error') }
   finally { pageLoading.value = false }
 })
@@ -1280,8 +1772,11 @@ onMounted(async () => {
 watch(activeView, v => {
   mobileNavOpen.value = false
   mobileCategoriesOpen.value = false
-  if (v === 'epg') { loadEpgSources(); loadGuide() }
+  if (v === 'epg') { loadEpgSources(); loadGuide(); loadEpgProfiles() }
 })
+
+// Load the source library lazily when the sources tab is opened
+watch(epgTab, v => { if (v === 'sources' && activeView.value === 'epg') loadEpgLibrary() })
 
 // Load EPG data when editing channel changes
 watch(editingChannel, ch => { if (ch) loadEditChannelEpg() })
@@ -1296,13 +1791,14 @@ async function loadChannels() {
   try {
     const params = { page: page.value, limit: 50, streamType: activeStreamType.value }
     if (search.value) params.search = search.value
+    if (activeFilter.value) params.filter = activeFilter.value
     if (selectedCatId.value) params.categoryId = selectedCatId.value
     const { data } = await api.get(`/playlists/${playlistId}/channels`, { params })
     if (requestId !== channelsRequestId) return
     channels.value = data.channels || data
     totalPages.value = data.totalPages || 1
     tableTotal.value = data.total || channels.value.length
-    if (!selectedCatId.value && !search.value) totalChannelCount.value = data.total || channels.value.length
+    if (!selectedCatId.value && !search.value && !activeFilter.value) totalChannelCount.value = data.total || channels.value.length
   } catch {
     if (requestId === channelsRequestId) toast(t('toast.channelsLoadError'), 'error')
   }
@@ -1347,6 +1843,13 @@ function debouncedSearch() {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(() => { page.value = 1; clearSelection(); loadChannels() }, 300)
 }
+function onFilterChange() {
+  page.value = 1; clearSelection(); loadChannels()
+}
+function clearAdvFilter() {
+  if (!activeFilter.value) return
+  activeFilter.value = ''; onFilterChange()
+}
 function toggleSelect(id) { const s = new Set(selectedIds.value); if (s.has(id)) s.delete(id); else s.add(id); selectedIds.value = s }
 function toggleSelectAll() { if (allSelected.value) selectedIds.value = new Set(); else selectedIds.value = new Set(channels.value.map(ch => ch.id)) }
 function shortenUrl(url) { if (!url) return '-'; try { return url.length > 60 ? '...' + url.slice(-50) : url } catch { return url } }
@@ -1375,8 +1878,11 @@ async function saveChannel() {
   } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
 }
 
-async function deleteChannel(ch) {
-  if (!confirm(`"${ch.name}" ${t('toast.deleteChannelConfirm', { count: 1 })}`)) return
+function deleteChannel(ch) {
+  askConfirm(t('common.delete'), `"${ch.name}" ${t('toast.deleteChannelConfirm', { count: 1 })}`, () => performDeleteChannel(ch))
+}
+
+async function performDeleteChannel(ch) {
   try {
     await api.delete(`/channels/${ch.id}`)
     if (editingChannel.value?.id === ch.id) editingChannel.value = null
@@ -1423,8 +1929,11 @@ async function handleLogoUpload(event) {
   event.target.value = ''
 }
 
-async function bulkDelete() {
-  if (!confirm(t('toast.deleteChannelConfirm', { count: selectedIds.value.size }))) return
+function bulkDelete() {
+  askConfirm(t('common.delete'), t('toast.deleteChannelConfirm', { count: selectedIds.value.size }), performBulkDelete)
+}
+
+async function performBulkDelete() {
   try {
     await api.post('/channels/bulk', { action: 'delete', channelIds: [...selectedIds.value] })
     selectedIds.value = new Set(); toast(t('toast.deleted'), 'success')
@@ -1532,6 +2041,24 @@ async function catDrop(idx) {
   }
 }
 
+async function moveSortCat(idx, dir) {
+  const target = idx + dir
+  if (target < 0 || target >= categories.value.length) return
+  const previousOrder = [...categories.value]
+  const moved = categories.value.splice(idx, 1)[0]
+  categories.value.splice(target, 0, moved)
+  const movedIndex = categories.value.findIndex(cat => cat.id === moved.id)
+  const payload = movedIndex === 0
+    ? { beforeCategoryId: categories.value[1]?.id }
+    : { afterCategoryId: categories.value[movedIndex - 1]?.id }
+
+  try { await api.put(`/categories/${moved.id}/order`, payload) }
+  catch {
+    categories.value = previousOrder
+    toast(t('toast.sortingError'), 'error')
+  }
+}
+
 async function selectSortCat(cat) {
   sortSelectedCat.value = cat
   sortCatLoading.value = true
@@ -1564,7 +2091,61 @@ async function chanDrop(idx) {
   }
 }
 
+async function moveSortChan(idx, dir) {
+  const target = idx + dir
+  if (target < 0 || target >= sortCatChannels.value.length) return
+  const previousOrder = [...sortCatChannels.value]
+  const moved = sortCatChannels.value.splice(idx, 1)[0]
+  sortCatChannels.value.splice(target, 0, moved)
+  const movedIndex = sortCatChannels.value.findIndex(ch => ch.id === moved.id)
+  const payload = movedIndex === 0
+    ? { beforeChannelId: sortCatChannels.value[1]?.id }
+    : { afterChannelId: sortCatChannels.value[movedIndex - 1]?.id }
+
+  try { await api.put(`/channels/${moved.id}/order`, payload) }
+  catch {
+    sortCatChannels.value = previousOrder
+    toast(t('toast.sortingError'), 'error')
+  }
+}
+
 function openXtream() { showXtreamModal.value = true }
+
+// Xtream hesap duzenleme (kayitli kimlik bilgileri)
+const accountEditOpen = ref(false)
+const accountEditSaving = ref(false)
+const accountEditForm = ref({ serverUrl: '', username: '', password: '' })
+
+function toggleAccountEdit() {
+  accountEditOpen.value = !accountEditOpen.value
+  if (accountEditOpen.value) {
+    accountEditForm.value = {
+      serverUrl: savedXtream.value?.serverUrl || '',
+      username: savedXtream.value?.username || '',
+      password: ''
+    }
+  }
+}
+
+async function saveAccountEdit() {
+  if (accountEditSaving.value) return
+  accountEditSaving.value = true
+  try {
+    const payload = {
+      xtreamServerUrl: accountEditForm.value.serverUrl.trim(),
+      xtreamUsername: accountEditForm.value.username.trim()
+    }
+    if (accountEditForm.value.password) payload.xtreamPassword = accountEditForm.value.password
+    await api.put(`/playlists/${playlistId}`, payload)
+    savedXtream.value = { ...savedXtream.value, serverUrl: payload.xtreamServerUrl, username: payload.xtreamUsername }
+    accountEditOpen.value = false
+    toast(t('xtream.accountUpdated'), 'success')
+  } catch (e) {
+    toast(e.response?.data?.error?.message || t('common.error'), 'error')
+  } finally {
+    accountEditSaving.value = false
+  }
+}
 async function handleXtreamImported(data) {
   toast(t('toast.importSuccess', {
     channels: data.totalChannels ?? 0,
@@ -1574,6 +2155,8 @@ async function handleXtreamImported(data) {
   try {
     const plRes = await api.get('/playlists')
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
+    playlistShared.value = Boolean(pl?.is_shared)
+    applyAutoSyncSettings(pl)
     if (pl?.xtream_server_url) {
       savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
       savedXtreamTypes.value = pl.xtream_stream_types ? JSON.parse(pl.xtream_stream_types) : ['live']
@@ -1659,6 +2242,117 @@ async function doSync() {
   finally { syncing.value = false }
 }
 
+// ---- Filtre kurallari ----
+async function loadFilterRules() {
+  try {
+    const { data } = await api.get(`/playlists/${playlistId}/filter-rules`)
+    filterRules.value = data
+  } catch { filterRules.value = [] }
+}
+
+async function addFilterRule() {
+  if (!newRule.pattern.trim() || ruleSaving.value) return
+  ruleSaving.value = true
+  ruleTestResult.value = null
+  try {
+    await api.post(`/playlists/${playlistId}/filter-rules`, {
+      field: newRule.field,
+      pattern: newRule.pattern.trim(),
+      exclude: newRule.exclude,
+    })
+    newRule.pattern = ''
+    toast(t('filterRules.added'), 'success')
+    await loadFilterRules()
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  finally { ruleSaving.value = false }
+}
+
+async function deleteFilterRule(rule) {
+  try {
+    await api.delete(`/filter-rules/${rule.id}`)
+    toast(t('filterRules.deleted'), 'success')
+    await loadFilterRules()
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+}
+
+async function toggleFilterRule(rule) {
+  try {
+    await api.put(`/filter-rules/${rule.id}`, { enabled: !rule.enabled })
+    await loadFilterRules()
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+}
+
+async function moveFilterRule(rule, direction) {
+  try {
+    await api.put(`/filter-rules/${rule.id}/order`, { direction })
+    await loadFilterRules()
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+}
+
+async function testFilterRule() {
+  if (!newRule.pattern.trim() || ruleTesting.value) return
+  ruleTesting.value = true
+  try {
+    const { data } = await api.post(`/playlists/${playlistId}/filter-rules/test`, {
+      field: newRule.field,
+      pattern: newRule.pattern.trim(),
+    })
+    ruleTestResult.value = data
+  } catch (e) {
+    ruleTestResult.value = null
+    toast(e.response?.data?.error?.message || t('common.error'), 'error')
+  } finally { ruleTesting.value = false }
+}
+
+// ---- Ek kaynaklar (coklu kaynak) ----
+async function loadSources() {
+  try {
+    const { data } = await api.get(`/playlists/${playlistId}/sources`)
+    extraSources.value = data
+  } catch { extraSources.value = [] }
+}
+
+async function addSource() {
+  if (sourceSaving.value) return
+  sourceSaving.value = true
+  try {
+    await api.post(`/playlists/${playlistId}/sources`, {
+      label: newSource.label.trim() || undefined,
+      serverUrl: newSource.serverUrl.trim(),
+      username: newSource.username.trim(),
+      password: newSource.password,
+    })
+    newSource.label = ''; newSource.serverUrl = ''; newSource.username = ''; newSource.password = ''
+    toast(t('multiSource.added'), 'success')
+    await loadSources()
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  finally { sourceSaving.value = false }
+}
+
+async function deleteSource(source) {
+  try {
+    await api.delete(`/sources/${source.id}`)
+    toast(t('multiSource.deleted'), 'success')
+    await loadSources()
+  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+}
+
+async function syncAllSources() {
+  if (syncingAll.value || syncing.value) return
+  syncingAll.value = true
+  syncAllResult.value = null
+  try {
+    const { data } = await api.post(`/playlists/${playlistId}/sync-all`)
+    syncAllResult.value = data
+    toast(t('multiSource.syncResult', { added: data.added, updated: data.updated, removed: data.removed }), data.failedSources ? 'error' : 'success')
+    const plRes = await api.get('/playlists')
+    const pl = plRes.data.find(p => String(p.id) === String(playlistId))
+    if (pl?.last_synced_at) savedXtream.value = { ...savedXtream.value, lastSynced: pl.last_synced_at }
+    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
+  } catch (e) { toast(e.response?.data?.error?.message || t('toast.updateError'), 'error') }
+  finally { syncingAll.value = false }
+}
+
 async function doAddTypes(types) {
   addingTypes.value = true
   addTypesResult.value = null
@@ -1704,6 +2398,21 @@ async function doEditorM3uImport() {
 }
 
 async function loadEpgSources() { try { const { data } = await api.get('/epg/sources'); epgSources.value = data } catch {} }
+async function saveEpgRefreshInterval(s, raw) {
+  const minutes = raw === '' ? null : Number(raw)
+  if (s._savingInterval) return
+  s._savingInterval = true
+  try {
+    await api.put(`/epg/sources/${s.id}/refresh-settings`, { refreshIntervalMinutes: minutes })
+    s.refresh_interval_minutes = minutes
+    toast(t('autoSync.saved'), 'success')
+  } catch (e) {
+    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+    loadEpgSources()
+  } finally {
+    s._savingInterval = false
+  }
+}
 async function addEpgSource() {
   if (!newEpgUrl.value.trim()) return; addingEpg.value = true
   try { const { data } = await api.post('/epg/sources', { url: newEpgUrl.value.trim() }); toast(t('toast.epgAdded', { channels: data.channelCount, programs: data.programCount }), 'success'); newEpgUrl.value = ''; loadEpgSources(); loadGuide() }
@@ -1716,11 +2425,107 @@ async function refreshEpgSource(source) {
   catch (e) { toast(e.response?.data?.error?.message || t('toast.epgRefreshError'), 'error') }
   finally { source._refreshing = false }
 }
-async function deleteEpgSource(source) {
-  if (!confirm(t('toast.categoryDeleteConfirm'))) return
+function deleteEpgSource(source) {
+  askConfirm(t('common.delete'), t('toast.categoryDeleteConfirm'), () => performDeleteEpgSource(source))
+}
+
+async function performDeleteEpgSource(source) {
   try { await api.delete(`/epg/sources/${source.id}`); toast(t('toast.epgSourceDeleted'), 'success'); loadEpgSources(); loadGuide() }
   catch (e) { toast(e.response?.data?.error?.message || t('toast.deletionError'), 'error') }
 }
+function parseWordList(text) {
+  return String(text || '').split(',').map(w => w.trim()).filter(Boolean)
+}
+function profileSettingsSummary(profile) {
+  const s = profile.settings || {}
+  const parts = []
+  if (s.stripPrefixes?.length) parts.push(`− ${s.stripPrefixes.join(', ')}`)
+  if (s.stripSuffixes?.length) parts.push(`${s.stripSuffixes.join(', ')} −`)
+  if (s.ignoreWords?.length) parts.push(`⊘ ${s.ignoreWords.join(', ')}`)
+  return parts.join('  ·  ')
+}
+async function loadEpgProfiles() {
+  try { const { data } = await api.get(`/playlists/${playlistId}/epg-profiles`); epgProfiles.value = data } catch {}
+}
+async function createEpgProfile() {
+  const name = newProfile.value.name.trim()
+  if (!name) { toast(t('epgProfiles.nameRequired'), 'error'); return }
+  savingProfile.value = true
+  try {
+    await api.post(`/playlists/${playlistId}/epg-profiles`, {
+      name,
+      settings: {
+        stripPrefixes: parseWordList(newProfile.value.stripPrefixes),
+        stripSuffixes: parseWordList(newProfile.value.stripSuffixes),
+        ignoreWords: parseWordList(newProfile.value.ignoreWords),
+      },
+    })
+    toast(t('epgProfiles.saved'), 'success')
+    newProfile.value = { name: '', stripPrefixes: '', stripSuffixes: '', ignoreWords: '' }
+    loadEpgProfiles()
+  } catch (e) { toast(e.response?.data?.error?.message || t('epgProfiles.error'), 'error') }
+  finally { savingProfile.value = false }
+}
+async function runEpgProfile(profile) {
+  runningProfileId.value = profile.id
+  try {
+    const { data } = await api.post(`/epg-profiles/${profile.id}/run`)
+    matchResult.value = data.result
+    toast(t('epgProfiles.runDone', { matched: data.result.matched, total: data.result.total }), 'success')
+    loadEpgProfiles(); loadGuide(); loadChannels()
+  } catch (e) { toast(e.response?.data?.error?.message || t('epgProfiles.error'), 'error') }
+  finally { runningProfileId.value = null }
+}
+function deleteEpgProfile(profile) {
+  askConfirm(t('common.delete'), t('epgProfiles.deleteConfirm'), () => performDeleteEpgProfile(profile))
+}
+
+async function performDeleteEpgProfile(profile) {
+  try { await api.delete(`/epg-profiles/${profile.id}`); toast(t('epgProfiles.deleted'), 'success'); loadEpgProfiles() }
+  catch (e) { toast(e.response?.data?.error?.message || t('epgProfiles.error'), 'error') }
+}
+// EPG Source Library (iptv-org)
+const libCountries = ref([])
+const libGuides = ref([])
+const libCountry = ref('')
+const libQuery = ref('')
+const libLoading = ref(false)
+const libError = ref(false)
+const libAdding = ref(null)
+let libCountriesLoaded = false
+let libQueryTimer = null
+
+async function searchLibrary() {
+  libLoading.value = true; libError.value = false
+  try {
+    const params = {}
+    if (libCountry.value) params.country = libCountry.value
+    if (libQuery.value.trim()) params.q = libQuery.value.trim()
+    const { data } = await api.get('/epg-library/guides', { params })
+    libGuides.value = data
+  } catch { libError.value = true }
+  finally { libLoading.value = false }
+}
+async function loadEpgLibrary() {
+  if (!libCountriesLoaded) {
+    libCountriesLoaded = true
+    try { const { data } = await api.get('/epg-library/countries'); libCountries.value = data } catch {}
+    searchLibrary()
+  }
+}
+watch(libCountry, () => { if (libCountriesLoaded) searchLibrary() })
+watch(libQuery, () => {
+  clearTimeout(libQueryTimer)
+  libQueryTimer = setTimeout(() => { if (libCountriesLoaded) searchLibrary() }, 300)
+})
+async function addFromLibrary(g) {
+  if (!g.url || libAdding.value) return
+  libAdding.value = g.site
+  try { const { data } = await api.post('/epg/sources', { url: g.url }); toast(t('toast.epgAdded', { channels: data.channelCount, programs: data.programCount }), 'success'); loadEpgSources(); loadGuide() }
+  catch (e) { toast(e.response?.data?.error?.message || t('toast.epgError'), 'error') }
+  finally { libAdding.value = null }
+}
+
 async function doAutoMatch() {
   autoMatching.value = true
   try { const { data } = await api.post(`/playlists/${playlistId}/epg/auto-match`); matchResult.value = data; toast(t('toast.channelsMatched', { count: `${data.matched}/${data.total}` }), 'success'); loadGuide(); loadChannels() }
@@ -1820,7 +2625,44 @@ function getProgramDuration(prog) { return Math.round((new Date(prog.end_time) -
 function getProgramProgress(prog) { const now = Date.now(); const s = new Date(prog.start_time).getTime(); const e = new Date(prog.end_time).getTime(); return Math.min(100, Math.max(0, Math.round(((now - s) / (e - s)) * 100))) }
 // Update now offset every minute
 let _nowTimer = setInterval(updateNowOffset, 60000)
-onUnmounted(() => { if (_nowTimer) clearInterval(_nowTimer) })
+
+// Akis saglik taramasi: baslat + ilerlemeyi 2sn'de bir yokla.
+const healthScan = ref({ running: false, checked: 0, total: 0, dead: 0 })
+let _healthTimer = null
+
+async function pollHealthScan() {
+  try {
+    const { data } = await api.get(`/playlists/${playlistId}/health-scan`)
+    healthScan.value = data
+    if (!data.running) {
+      if (_healthTimer) { clearInterval(_healthTimer); _healthTimer = null }
+      toast(t('streamHealth.scanDone', { checked: data.checked, dead: data.dead }), data.dead ? 'info' : 'success')
+      loadChannels()
+    }
+  } catch {
+    if (_healthTimer) { clearInterval(_healthTimer); _healthTimer = null }
+    healthScan.value = { running: false, checked: 0, total: 0, dead: 0 }
+  }
+}
+
+async function startHealthScan() {
+  if (healthScan.value.running) return
+  try {
+    const { data } = await api.post(`/playlists/${playlistId}/health-scan`, { streamType: activeStreamType.value })
+    healthScan.value = data
+    if (!data.running) return
+    toast(t('streamHealth.scanStarted', { total: data.total }), 'info')
+    if (_healthTimer) clearInterval(_healthTimer)
+    _healthTimer = setInterval(pollHealthScan, 2000)
+  } catch {
+    toast(t('streamHealth.scanError'), 'error')
+  }
+}
+
+onUnmounted(() => {
+  if (_nowTimer) clearInterval(_nowTimer)
+  if (_healthTimer) clearInterval(_healthTimer)
+})
 
 function doShare() {
   showShare.value = true
@@ -1949,6 +2791,10 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .top-bar-left { display: flex; align-items: center; gap: 10px; }
 .playlist-title { font-size: 15px; font-weight: 600; }
 .channel-count-badge { font-size: 11px; color: var(--text-muted); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 10px; }
+.filter-count-badge { font-size: 11px; color: var(--accent); background: var(--bg-tertiary); padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.adv-filter-select { height: 32px; padding: 0 8px; font-size: 12px; width: auto; max-width: 170px; }
+.adv-filter-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--accent); background: var(--bg-tertiary); border: 1px solid var(--accent); padding: 2px 6px 2px 8px; border-radius: 10px; white-space: nowrap; }
+.adv-filter-badge-clear { background: none; border: none; color: inherit; font-size: 13px; line-height: 1; cursor: pointer; padding: 0 2px; }
 .top-bar-right { display: flex; align-items: center; gap: 8px; }
 .search-box { position: relative; }
 .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
@@ -2079,6 +2925,11 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .td-url { max-width: 200px; }
 .url-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 11px; }
 .td-epg { color: var(--text-muted); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.health-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; flex-shrink: 0; vertical-align: middle; }
+.health-ok { background: var(--success, #22c55e); }
+.health-dead { background: var(--danger, #ef4444); }
+.health-unchecked { background: var(--text-muted, #9ca3af); opacity: 0.5; }
+.health-scan-btn:disabled { opacity: 0.7; cursor: default; }
 
 .ch-pagination {
   display: flex; align-items: center; justify-content: center; gap: 12px;
@@ -2113,6 +2964,14 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .sort-item:hover .sort-handle { color: var(--text-secondary); }
 .sort-name { flex: 1; font-size: 13px; font-weight: 500; }
 .sort-count { font-size: 11px; color: var(--text-muted); min-width: 20px; text-align: right; }
+.sort-move { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+.sort-move-btn {
+  display: grid; place-items: center; width: 22px; height: 16px; padding: 0;
+  background: var(--bg-primary); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-muted); cursor: pointer; transition: color 0.15s, border-color 0.15s;
+}
+.sort-move-btn:hover:not(:disabled) { color: var(--text-primary); border-color: var(--accent); }
+.sort-move-btn:disabled { opacity: 0.35; cursor: default; }
 .sort-ch-logo { width: 22px; height: 22px; object-fit: contain; border-radius: 3px; flex-shrink: 0; }
 .sort-empty {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -2329,6 +3188,33 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .epg-add-input-row { display: flex; gap: 8px; }
 .epg-add-input-row .input { flex: 1; }
 
+/* EPG source library (iptv-org) */
+.epg-lib-country { max-width: 200px; flex-shrink: 0; }
+.epg-lib-results { margin-top: 10px; }
+.epg-lib-status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
+.epg-lib-list {
+  display: flex; flex-direction: column; max-height: 320px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.epg-lib-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-bottom: 1px solid var(--border); transition: background var(--transition);
+}
+.epg-lib-item:last-child { border-bottom: none; }
+.epg-lib-item:hover { background: var(--bg-hover); }
+.epg-lib-item-info { flex: 1; min-width: 0; }
+.epg-lib-item-name { font-size: 12px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.epg-lib-item-meta { display: flex; gap: 8px; font-size: 11px; color: var(--text-muted); overflow: hidden; }
+.epg-lib-item-samples { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.epg-lib-no-url { font-size: 10px; color: var(--text-muted); white-space: nowrap; cursor: help; }
+
+/* Match profiles */
+.epg-profile-form { display: flex; flex-direction: column; gap: 8px; }
+.epg-profile-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.epg-profile-field { display: flex; flex-direction: column; gap: 4px; }
+.epg-profile-field span { font-size: 11px; color: var(--text-muted); }
+.epg-profile-settings { font-size: 11px; color: var(--text-muted); margin-top: 4px; word-break: break-word; }
+
 /* Source cards */
 .epg-source-cards { display: flex; flex-direction: column; gap: 8px; }
 .epg-src-card {
@@ -2504,6 +3390,49 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .add-types-current { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
 .add-types-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 .add-types-complete { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--success); margin-top: 8px; }
+
+/* Filtre kurallari */
+.filter-rule-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.filter-rule-row {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.filter-rule-disabled { opacity: 0.5; }
+.filter-rule-field { font-size: 11px; color: var(--text-muted); min-width: 56px; }
+.filter-rule-pattern {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px; color: var(--text-primary); background: var(--bg-tertiary);
+  padding: 2px 6px; border-radius: 4px;
+}
+.filter-rule-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.filter-rule-empty { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+.filter-rule-form { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.filter-rule-select { width: auto; flex: 0 0 auto; }
+.filter-rule-input { flex: 1; min-width: 140px; }
+.filter-rule-test-result {
+  margin-top: 10px; padding: 10px 12px; background: var(--bg-secondary);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.filter-rule-test-summary { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.filter-rule-test-matches { list-style: none; margin: 0; padding: 0; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+.filter-rule-test-group { color: var(--text-muted); margin-left: 6px; }
+
+/* Ek kaynaklar */
+.source-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.source-row {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.source-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.source-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.source-detail { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-form { display: flex; gap: 6px; flex-wrap: wrap; }
+.source-form .input { flex: 1; min-width: 120px; }
+.source-report-list { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.source-report-row { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.source-report-label { font-weight: 600; color: var(--text-primary); }
+.source-report-ok { color: var(--success); }
+.source-report-fail { color: var(--danger); }
 .result-box { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .result-box.success { background: var(--success-soft); color: var(--success); border: 1px solid rgba(16,185,129,0.2); }
 
@@ -2530,6 +3459,31 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .xtream-source-detail { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .xtream-source-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); margin-bottom: 12px; }
 .xtream-source-actions { display: flex; gap: 8px; }
+
+.account-edit-form { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.account-edit-desc { margin: 0 0 12px; font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+.account-edit-form .form-group { margin-bottom: 10px; }
+.account-edit-form .form-group label { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+.account-edit-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+/* Otomatik guncelleme (auto sync) */
+.auto-sync-section {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.auto-sync-header { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); margin-bottom: 8px; }
+.auto-sync-title { font-size: 12px; font-weight: 600; }
+.auto-sync-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.auto-sync-select { width: auto; min-width: 140px; padding: 6px 10px; font-size: 12px; }
+.auto-sync-backup { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+.auto-sync-hint { margin-top: 8px; font-size: 11px; color: var(--text-muted); }
+
+/* EPG kaynak otomatik yenileme */
+.epg-src-autorefresh {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+.epg-src-autorefresh-label { font-size: 11px; color: var(--text-muted); }
+.epg-src-autorefresh-select { width: auto; min-width: 120px; padding: 4px 8px; font-size: 11.5px; }
 
 /* No source state */
 .xtream-no-source {
@@ -2731,6 +3685,8 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
   .top-bar-left, .top-bar-right { gap: 6px; min-width: 0; }
   .playlist-title { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .channel-count-badge, .top-bar-right > .btn { display: none; }
+  .filter-count-badge { display: none; }
+  .adv-filter-select { max-width: 120px; }
   .top-bar-right > .add-channel-btn { display: inline-flex; width: 40px; height: 40px; justify-content: center; padding: 0; }
   .add-channel-label { display: none; }
   .search-input { width: min(34vw, 160px); height: 40px; }

@@ -30,6 +30,10 @@
     </div>
 
     <template #actions>
+      <button v-if="isShared || shareUrl" class="btn btn-danger" type="button" :disabled="generating || revoking" @click="revokeShare">
+        <span v-if="revoking" class="spinner spinner-sm"></span>
+        {{ revoking ? t('share.revoking') : t('share.revoke') }}
+      </button>
       <button class="btn btn-secondary" type="button" :disabled="generating" @click="$emit('close')">{{ t('common.close') }}</button>
       <button class="btn btn-primary" type="button" :disabled="!isValid || generating" @click="createShare">
         <span v-if="generating" class="spinner spinner-sm"></span>
@@ -45,14 +49,18 @@ import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import EditorFeatureModal from './EditorFeatureModal.vue'
 
-const props = defineProps({ playlistId: { type: String, required: true } })
-defineEmits(['close'])
+const props = defineProps({
+  playlistId: { type: String, required: true },
+  isShared: { type: Boolean, default: false }
+})
+const emit = defineEmits(['close', 'shared', 'revoked'])
 const toast = inject('toast')
 const { t } = useI18n()
 
 const expiresInDays = ref('')
 const password = ref('')
 const generating = ref(false)
+const revoking = ref(false)
 const shareUrl = ref('')
 const xmltvUrl = ref('')
 const isValid = computed(() => {
@@ -75,10 +83,26 @@ async function createShare() {
     const { data } = await api.post(`/playlists/${props.playlistId}/share`, body)
     shareUrl.value = absoluteUrl(data.url || `/api/shared/${data.token}`)
     xmltvUrl.value = data.xmltvUrl ? absoluteUrl(data.xmltvUrl) : ''
+    emit('shared')
   } catch (error) {
     toast(error.response?.data?.error?.message || t('toast.shareError'), 'error')
   } finally {
     generating.value = false
+  }
+}
+
+async function revokeShare() {
+  revoking.value = true
+  try {
+    await api.delete(`/playlists/${props.playlistId}/share`)
+    shareUrl.value = ''
+    xmltvUrl.value = ''
+    toast(t('share.revoked'), 'success')
+    emit('revoked')
+  } catch (error) {
+    toast(error.response?.data?.error?.message || t('toast.shareError'), 'error')
+  } finally {
+    revoking.value = false
   }
 }
 

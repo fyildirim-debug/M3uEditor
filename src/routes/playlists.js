@@ -7,6 +7,7 @@ const router = express.Router();
 router.get('/playlists', authMiddleware, playlistController.listPlaylists);
 router.post('/playlists', authMiddleware, playlistController.createPlaylist);
 router.put('/playlists/:id', authMiddleware, playlistController.updatePlaylist);
+router.put('/playlists/:id/sync-settings', authMiddleware, playlistController.updateSyncSettings);
 router.delete('/playlists/:id', authMiddleware, playlistController.deletePlaylist);
 
 module.exports = router;

@@ -150,7 +150,11 @@
     "stageProcessing": "Processing data...",
     "stageSaving": "Saving to database...",
     "stageFinalizing": "Finalizing...",
-    "progressHint": "This may take 10-60 seconds depending on your account size."
+    "progressHint": "This may take 10-60 seconds depending on your account size.",
+    "accountEdit": "Edit Account",
+    "accountEditDesc": "Update the stored Xtream connection credentials. Leave the password blank to keep it.",
+    "passwordKeep": "Leave blank to keep unchanged",
+    "accountUpdated": "Account credentials updated"
   },
   "xtreamWizard": {
     "stepIndicator": "Step {current} / {total}",
@@ -229,7 +233,9 @@
     "selectCategory": "Select a category",
     "selectFromLeft": "Select a category from the left panel",
     "noChannels": "No channels in this category",
-    "truncatedWarning": "Showing the first {limit} channels ({total} total)."
+    "truncatedWarning": "Showing the first {limit} channels ({total} total).",
+    "moveUp": "Move up",
+    "moveDown": "Move down"
   },
   "epg": {
     "guideTab": "TV Guide",
@@ -252,6 +258,45 @@
     "next": "NEXT",
     "noDescription": "No description available",
     "durationSuffix": "min"
+  },
+  "epgProfiles": {
+    "tab": "Profiles",
+    "title": "Create Match Profile",
+    "desc": "Save prefixes, suffixes and ignored words to strip from channel names; match with one click.",
+    "namePlaceholder": "Profile name (e.g. TR provider)",
+    "prefixesLabel": "Prefixes (comma separated)",
+    "prefixesPlaceholder": "TR:, [TR], TR |",
+    "suffixesLabel": "Suffixes (comma separated)",
+    "suffixesPlaceholder": "HD, FHD, 4K, UHD",
+    "ignoreLabel": "Ignored words (comma separated)",
+    "ignorePlaceholder": "tv, channel, live",
+    "create": "Create Profile",
+    "run": "Run",
+    "matched": "{count} matches",
+    "lastRun": "Last run: {date}",
+    "neverRun": "Never run",
+    "empty": "No profiles yet",
+    "emptyHint": "Create a profile with the form above; run it to match with its settings applied.",
+    "saved": "Profile saved",
+    "deleted": "Profile deleted",
+    "deleteConfirm": "Are you sure you want to delete this profile?",
+    "runDone": "{matched}/{total} channels matched",
+    "error": "Profile operation failed",
+    "nameRequired": "Profile name is required"
+  },
+  "epgLibrary": {
+    "title": "Source Library",
+    "desc": "Browse ready-made EPG sources from the iptv-org catalog and add them with one click.",
+    "countryLabel": "Country",
+    "allCountries": "All countries",
+    "searchPlaceholder": "Search site or channel...",
+    "loading": "Loading library...",
+    "loadError": "Failed to load the library",
+    "retry": "Retry",
+    "noResults": "No results found",
+    "channelCount": "{count} channels",
+    "noUrl": "No ready URL",
+    "noUrlHint": "No published ready-made guide URL exists for this site"
   },
   "categoryEditor": {
     "title": "Category Editor",
@@ -276,11 +321,54 @@
     "addedCount": "{count} channels added",
     "updatedCount": "{count} channels updated",
     "removedCount": "{count} channels removed",
+    "filteredOutCount": "{count} channels filtered out",
     "addedCategories": "Added categories ({count})",
     "noAddedCategories": "No new categories added",
     "newChannels": "New channels ({count})",
     "noNewChannels": "No new channels added",
     "andMore": "+{count} more channels"
+  },
+  "filterRules": {
+    "title": "Filter Rules",
+    "desc": "Automatically include or exclude channels during updates by category, name, or URL pattern. Rules apply top to bottom; the first matching rule decides. If any include rule exists, non-matching channels are dropped.",
+    "exclude": "Exclude",
+    "include": "Include",
+    "fields": {
+      "group": "Category",
+      "name": "Channel name",
+      "url": "URL"
+    },
+    "fieldLabel": "Rule field",
+    "modeLabel": "Rule mode",
+    "patternPlaceholder": "Regex pattern, e.g. ^Bein",
+    "add": "Add",
+    "added": "Rule added",
+    "deleted": "Rule deleted",
+    "empty": "No rules yet. Added rules apply on the next update.",
+    "test": "Test",
+    "testSummary": "Scanned {sampled} channels, first {count} matches:",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "enable": "Enable",
+    "disable": "Disable"
+  },
+  "multiSource": {
+    "title": "Extra Sources",
+    "desc": "Link multiple Xtream accounts to this playlist. When all sources are updated, categories with the same name merge into one.",
+    "empty": "No extra sources. The main source is the account above.",
+    "labelPlaceholder": "Label (optional)",
+    "serverPlaceholder": "Server URL",
+    "usernamePlaceholder": "Username",
+    "passwordPlaceholder": "Password",
+    "add": "Add Source",
+    "added": "Source added",
+    "deleted": "Source deleted",
+    "syncAll": "Update All Sources",
+    "syncingAll": "Updating sources...",
+    "syncResult": "All sources: {added} added, {updated} updated, {removed} removed",
+    "reportTitle": "Source Update Report",
+    "sourceOk": "{added} added, {updated} updated",
+    "sourceFailed": "Error: {error}"
   },
   "share": {
     "title": "Share Link",
@@ -294,7 +382,10 @@
     "m3uUrl": "M3U share URL",
     "xmltvUrl": "XMLTV share URL",
     "generating": "Creating link...",
-    "createLink": "Create share link"
+    "createLink": "Create share link",
+    "revoke": "Remove Share",
+    "revoking": "Removing...",
+    "revoked": "Share removed"
   },
   "xtreamOutput": {
     "m3uSection": "Channel List (M3U)",
@@ -485,6 +576,16 @@
     "apply": "Apply changes",
     "result": "{count} channels updated"
   },
+  "advFilter": {
+    "label": "Channel filter",
+    "all": "All Channels",
+    "missingLogo": "No Logo",
+    "missingEpg": "No EPG",
+    "duplicateName": "Duplicates",
+    "dead": "Dead Streams",
+    "unchecked": "Unchecked",
+    "filteredCount": "{count} {unit} (filtered)"
+  },
   "admin": {
     "title": "Admin Panel",
     "subtitle": "System administration and user management",
@@ -533,7 +634,14 @@
     "deleteWarning": "This action cannot be undone. All playlists and channels will be deleted.",
     "passwordChanged": "Password changed",
     "emailChanged": "Email changed",
-    "accountDeleted": "Account deleted"
+    "accountDeleted": "Account deleted",
+    "sessions": "Active Sessions",
+    "sessionsDesc": "Devices signed in to your account. Revoke any session you don't recognize.",
+    "currentDevice": "This device",
+    "revokeSession": "Revoke Session",
+    "sessionRevoked": "Session revoked",
+    "lastUsed": "Last used",
+    "unknownDevice": "Unknown device"
   },
   "share2": {
     "expiry": "Expiry",
@@ -550,7 +658,12 @@
     "delete": "Delete",
     "selectAll": "Select All",
     "search": "Search",
-    "escape": "Cancel / Close"
+    "escape": "Cancel / Close",
+    "focusSearch": "Focus search (/)",
+    "goEpg": "EPG view (g e)",
+    "goSort": "Sort view (g s)",
+    "goCategory": "Category view (g k)",
+    "goUpdate": "Update view (g g)"
   },
   "addTypes": {
     "title": "Add Content Type",
@@ -656,9 +769,79 @@
       "contactBody": "If you have questions about this privacy policy, contact us at info@m3ueditor.com."
     }
   },
+  "backup": {
+    "title": "Backups",
+    "backupNow": "Back Up Now",
+    "creating": "Backing up…",
+    "empty": "No backups have been created for this playlist yet.",
+    "download": "Download",
+    "restore": "Restore",
+    "channels": "{n} channels",
+    "reasonManual": "Manual",
+    "reasonPreSync": "Pre-sync",
+    "reasonScheduled": "Scheduled",
+    "restoreConfirm": "How would you like to restore this backup for \"{name}\"?",
+    "restoreNew": "Restore as New Playlist",
+    "restoreOverwrite": "Overwrite This Playlist",
+    "restoring": "Restoring…",
+    "deleteConfirm": "Permanently delete this backup?",
+    "created": "Backup created",
+    "createError": "Backup could not be created",
+    "loadError": "Backups could not be loaded",
+    "restored": "Restore completed",
+    "restoreError": "Restore failed",
+    "deleted": "Backup deleted",
+    "deleteError": "Backup could not be deleted",
+    "downloadError": "Backup could not be downloaded"
+  },
+  "viewProfiles": {
+    "title": "Views",
+    "description": "Views save which categories are hidden as named templates. Hidden categories are excluded when exporting.",
+    "createFromCurrent": "Save Current State",
+    "namePlaceholder": "View name",
+    "empty": "No saved views yet",
+    "apply": "Apply",
+    "saveCurrent": "Write Current State",
+    "saveCurrentHint": "Saves the current hidden/visible state of categories into this view",
+    "rename": "Rename",
+    "delete": "Delete",
+    "hiddenCount": "{count} hidden categories",
+    "deleteConfirmButton": "Yes, Delete",
+    "selectView": "View (optional)",
+    "noView": "No view",
+    "created": "View created",
+    "updated": "View updated",
+    "deleted": "View deleted",
+    "applied": "View applied to categories",
+    "error": "View operation failed"
+  },
   "notFound": {
     "title": "Page Not Found",
     "desc": "The page you are looking for does not exist or has been moved.",
     "goHome": "Go to Home"
+  },
+  "streamHealth": {
+    "scanButton": "Scan Streams",
+    "scanning": "Scanning {checked}/{total}",
+    "scanStarted": "Stream scan started ({total} channels)",
+    "scanDone": "Scan finished: {checked} channels checked, {dead} dead streams",
+    "scanError": "Stream scan could not be started",
+    "ok": "Stream is healthy",
+    "dead": "Stream is dead",
+    "unchecked": "Not checked yet"
+  },
+  "autoSync": {
+    "title": "Automatic Update",
+    "interval": "Update interval",
+    "off": "Off",
+    "every6h": "Every 6 hours",
+    "every12h": "Every 12 hours",
+    "every24h": "Every 24 hours",
+    "every48h": "Every 48 hours",
+    "weekly": "Weekly",
+    "backupBeforeSync": "Backup before sync",
+    "saved": "Automatic update settings saved",
+    "lastRun": "Last automatic run",
+    "epgRefresh": "Auto refresh"
   }
 }

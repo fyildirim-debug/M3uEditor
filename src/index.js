@@ -2,11 +2,53 @@ require('dotenv').config();
 const logger = require('./config/logger');
 const db = require('./config/database');
 const app = require('./app');
+const SchedulerService = require('./services/SchedulerService');
+const ImportService = require('./services/ImportService');
+const EPGService = require('./services/EPGService');
 
+const importService = new ImportService();
+const epgService = new EPGService();
 const PORT = process.env.PORT || 3000;
+
+// Zamanlanmis playlist senkronizasyonu: onceki secili kategorilerle sync.
+// backup_before_sync aciksa sync oncesi yedek alinir; BackupService baska bir
+// modulde yasiyor — yuklenemezse yedek atlanir, sync yine de calisir.
+SchedulerService.register('playlist-sync', async ({ id, user_id: userId }) => {
+  const playlist = await db('playlists').where({ id, user_id: userId }).first();
+  if (!playlist) return;
+
+  if (playlist.backup_before_sync) {
+    try {
+      // eslint-disable-next-line global-require
+      const BackupService = require('./services/BackupService');
+      await BackupService.createBackup(userId, id, 'scheduled');
+    } catch (error) {
+      if (error.code !== 'MODULE_NOT_FOUND') throw error;
+      logger.info({ playlistId: id }, 'BackupService bulunamadi; zamanlanmis yedek atlandi');
+    }
+  }
+
+  const preview = await importService.previewSync(userId, id);
+  const categories = {};
+  for (const [type, typeData] of Object.entries(preview.types || {})) {
+    if (!typeData?.available) continue;
+    categories[type] = (typeData.categories || [])
+      .filter((category) => category.selected)
+      .map((category) => category.id);
+  }
+
+  await importService.syncFromXtream(userId, id, undefined, undefined, { categories });
+  logger.info({ playlistId: id, userId }, 'Scheduled playlist sync completed');
+});
+
+SchedulerService.register('epg-refresh', async ({ id, user_id: userId }) => {
+  await epgService.refreshSource(userId, id);
+  logger.info({ sourceId: id, userId }, 'Scheduled EPG refresh completed');
+});
 
 const server = app.listen(PORT, () => {
   logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'M3U Playlist Editor API started');
+  SchedulerService.start();
 });
 
 // Graceful shutdown
@@ -23,6 +65,7 @@ async function shutdown(signal) {
 
   server.close(async () => {
     try {
+      SchedulerService.stop();
       await db.destroy();
       clearTimeout(forcedExit);
       logger.info('Server and database pool closed');

@@ -55,6 +55,12 @@
           <span class="status-label">{{ systemOnline === false ? t('status.offline') : t('status.active') }}</span>
         </div>
 
+        <button class="btn btn-ghost btn-sm theme-toggle" @click="cycleTheme" :title="t('theme.' + theme)" :aria-label="t('theme.' + theme)">
+          <svg v-if="theme === 'light'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="7" y2="7"/><line x1="17" y1="17" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="7" y2="17"/><line x1="17" y1="7" x2="19.1" y2="4.9"/></svg>
+          <svg v-else-if="theme === 'dark'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </button>
+
         <div class="lang-switcher" v-if="langs.length > 1">
           <button v-for="l in langs" :key="l.code"
             :class="['lang-btn', { active: lang === l.code }]"
@@ -109,11 +115,18 @@ import { ref, computed, provide, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useI18n } from './langs/useI18n'
+import { useTheme } from './composables/useTheme'
 
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 const { t, lang, setLang, langs } = useI18n()
+const { theme, setTheme } = useTheme()
+
+function cycleTheme() {
+  const order = ['system', 'light', 'dark']
+  setTheme(order[(order.indexOf(theme.value) + 1) % order.length])
+}
 
 const publicPaths = ['/', '/terms', '/privacy']
 const isPublicPage = computed(() => publicPaths.includes(route.path))

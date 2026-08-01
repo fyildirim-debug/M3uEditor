@@ -57,7 +57,7 @@ describe('Export Controller', () => {
       expect(res.headers['content-type']).toMatch(/audio\/x-mpegurl/);
       expect(res.headers['content-disposition']).toBe('attachment; filename="playlist.m3u"');
       expect(res.body).toBe(M3U_CONTENT);
-      expect(mockExportService.exportAsM3U).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID, [], null);
+      expect(mockExportService.exportAsM3U).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID, [], null, null);
     });
 
     it('should return 401 without token', async () => {

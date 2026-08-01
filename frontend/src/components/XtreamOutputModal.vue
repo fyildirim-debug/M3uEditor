@@ -4,6 +4,13 @@
     <section class="m3u-section">
       <h4 class="section-title">{{ t('xtreamOutput.m3uSection') }}</h4>
       <p class="feature-description">{{ t('xtreamOutput.m3uSectionDesc') }}</p>
+      <div v-if="views.length > 0" class="view-select-row">
+        <label for="m3u-view-select">{{ t('viewProfiles.selectView') }}</label>
+        <select id="m3u-view-select" v-model="selectedViewId" class="input">
+          <option value="">{{ t('viewProfiles.noView') }}</option>
+          <option v-for="view in views" :key="view.id" :value="view.id">{{ view.name }}</option>
+        </select>
+      </div>
       <button class="btn btn-primary" type="button" :disabled="downloadingM3u" @click="downloadM3u">
         <span v-if="downloadingM3u" class="spinner spinner-sm"></span>
         {{ downloadingM3u ? t('common.loading') : t('nav.downloadM3u') }}
@@ -189,13 +196,29 @@ const confirmation = ref('')
 const manualCopyValue = ref('')
 const manualCopyInput = ref(null)
 const downloadingM3u = ref(false)
+// Gorunum sablonlari: indirirken opsiyonel gorunum secimi
+const views = ref([])
+const selectedViewId = ref('')
 const isBusy = computed(() => Boolean(action.value))
+
+async function loadViews() {
+  try {
+    const { data } = await api.get(`/playlists/${props.playlistId}/views`)
+    views.value = data
+  } catch {
+    // Gorunumler yuklenemezse indirme gorunumsuz calismaya devam eder.
+    views.value = []
+  }
+}
 
 async function downloadM3u() {
   if (downloadingM3u.value) return
   downloadingM3u.value = true
   try {
-    const { data } = await api.get(`/playlists/${props.playlistId}/export`, { responseType: 'blob' })
+    const { data } = await api.get(`/playlists/${props.playlistId}/export`, {
+      responseType: 'blob',
+      params: selectedViewId.value ? { viewId: selectedViewId.value } : {}
+    })
     const url = URL.createObjectURL(new Blob([data]))
     const a = document.createElement('a')
     a.href = url
@@ -304,7 +327,7 @@ async function copyValue(value) {
   }
 }
 
-onMounted(loadOutput)
+onMounted(() => { loadOutput(); loadViews() })
 </script>
 
 <style scoped>
@@ -312,6 +335,8 @@ onMounted(loadOutput)
 .section-title { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
 .m3u-section { margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
 .m3u-section .feature-description { margin-bottom: 10px; }
+.view-select-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; max-width: 320px; }
+.view-select-row label { color: var(--text-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
 .state-panel, .empty-state { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 140px; color: var(--text-muted); font-size: 13px; }
 .state-panel-error { flex-direction: column; padding: 18px; color: var(--danger); text-align: center; }
 .state-panel-error p { margin: 0; }

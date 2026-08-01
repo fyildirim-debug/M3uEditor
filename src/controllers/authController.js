@@ -139,6 +139,21 @@ async function getProfile(req, res, next) {
   try { res.json(await authService.getProfile(req.userId)); } catch (error) { next(error); }
 }
 
+async function listSessions(req, res, next) {
+  try { res.json(await authService.listSessions(req.userId, req.sessionId)); } catch (error) { next(error); }
+}
+
+async function revokeSession(req, res, next) {
+  try {
+    const { familyId } = req.params;
+    if (typeof familyId !== 'string' || familyId.length > 64) {
+      throw createAppError('VALIDATION_ERROR', 'Geçersiz oturum kimliği');
+    }
+    await authService.revokeSessionFamily(req.userId, familyId);
+    res.status(204).end();
+  } catch (error) { next(error); }
+}
+
 async function forgotPassword(req, res, next) {
   try {
     const { email } = req.body;
@@ -170,4 +185,6 @@ module.exports = {
   getProfile,
   forgotPassword,
   resetPassword,
+  listSessions,
+  revokeSession,
 };

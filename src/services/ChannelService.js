@@ -84,10 +84,10 @@ class ChannelService {
    * List channels with pagination, search, and category filter.
    * @param {string} userId
    * @param {string} playlistId
-   * @param {{ page?: number, limit?: number, search?: string, categoryId?: string }} options
+   * @param {{ page?: number, limit?: number, search?: string, categoryId?: string, streamType?: string, filter?: string }} options
    * @returns {Promise<{ channels: object[], total: number }>}
    */
-  async list(userId, playlistId, { page = 1, limit = 100, search, categoryId, streamType } = {}) {
+  async list(userId, playlistId, { page = 1, limit = 100, search, categoryId, streamType, filter } = {}) {
     await this._verifyPlaylistOwnership(userId, playlistId);
 
     const query = db('channels')
@@ -99,6 +99,39 @@ class ChannelService {
 
     if (categoryId) {
       query.andWhere('channels.category_id', categoryId);
+    }
+
+    if (filter) {
+      switch (filter) {
+        case 'missing_logo':
+          query.andWhere(function () {
+            this.whereNull('channels.logo_url').orWhere('channels.logo_url', '');
+          });
+          break;
+        case 'missing_epg':
+          query.andWhere(function () {
+            this.whereNull('channels.epg_channel_id').orWhere('channels.epg_channel_id', '');
+          });
+          break;
+        case 'duplicate_name':
+          // Ayni playlist icinde ayni name'e sahip 2+ kanal: alt sorgu ile
+          // tekrar eden isimleri bulup ana sorguyu bunlarla sinirlandiriyoruz.
+          query.whereIn('channels.name',
+            db('channels')
+              .select('name')
+              .where('playlist_id', playlistId)
+              .groupBy('name')
+              .havingRaw('COUNT(*) > 1'));
+          break;
+        case 'dead':
+          query.andWhere('channels.last_check_ok', false);
+          break;
+        case 'unchecked':
+          query.whereNull('channels.last_checked_at');
+          break;
+        default:
+          throw createAppError('VALIDATION_ERROR', 'Geçersiz filtre değeri');
+      }
     }
 
     if (search) {

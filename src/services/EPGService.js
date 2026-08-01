@@ -36,7 +36,7 @@ class EPGService {
   async listSources(userId) {
     const sources = await db('epg_sources')
       .where({ user_id: userId })
-      .select('id', 'user_id', 'url', 'status', 'last_fetched_at', 'last_error', 'created_at')
+      .select('id', 'user_id', 'url', 'status', 'last_fetched_at', 'last_error', 'refresh_interval_minutes', 'created_at')
       .orderBy('created_at', 'desc');
     return sources.map((source) => this._publicSource(source));
   }
@@ -290,11 +290,58 @@ class EPGService {
     return String(name || '').toLocaleLowerCase('tr-TR').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
   }
 
-  async autoMatch(userId, playlistId) {
+  // Profil ayarlarini guvenli sekle getir: sadece string listeleri kabul edilir.
+  _sanitizeSettings(settings) {
+    const cleanList = (value) => (Array.isArray(value) ? value : [])
+      .filter((item) => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, 50)
+      .map((item) => item.slice(0, 100));
+    const source = settings && typeof settings === 'object' ? settings : {};
+    return {
+      stripPrefixes: cleanList(source.stripPrefixes),
+      stripSuffixes: cleanList(source.stripSuffixes),
+      ignoreWords: cleanList(source.ignoreWords),
+    };
+  }
+
+  _escapeRegExp(text) {
+    return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  // Ayar kelimelerini kanal adindan temizleyen SQL ifadesini kurar.
+  // settings bos ise `c.name` aynen kullanilir (mevcut davranis korunur).
+  _buildPreprocessClause(settings, params) {
+    const cleaned = this._sanitizeSettings(settings);
+    let expression = 'c.name';
+    const layers = [];
+    if (cleaned.stripPrefixes.length) {
+      const alt = cleaned.stripPrefixes.map((w) => this._escapeRegExp(w)).sort((a, b) => b.length - a.length).join('|');
+      layers.push(`^\\s*(?:${alt})\\s*[-–—:.|/]*\\s*`);
+    }
+    if (cleaned.stripSuffixes.length) {
+      const alt = cleaned.stripSuffixes.map((w) => this._escapeRegExp(w)).sort((a, b) => b.length - a.length).join('|');
+      layers.push(`\\s*[-–—:.|/]*\\s*(?:${alt})\\s*$`);
+    }
+    if (cleaned.ignoreWords.length) {
+      const alt = cleaned.ignoreWords.map((w) => this._escapeRegExp(w)).sort((a, b) => b.length - a.length).join('|');
+      layers.push(`\\y(?:${alt})\\y`);
+    }
+    for (const pattern of layers) {
+      expression = `regexp_replace(${expression}, ?, ' ', 'gi')`;
+      params.push(pattern);
+    }
+    return { expression, cleaned };
+  }
+
+  async autoMatch(userId, playlistId, settings = null) {
+    const preprocessParams = [];
+    const { expression: channelNameExpr } = this._buildPreprocessClause(settings, preprocessParams);
     const result = await db.raw(`
       WITH playlist_channels AS MATERIALIZED (
         SELECT c.id,
-          btrim(regexp_replace(lower(translate(COALESCE(c.name, ''), 'IİĞÜŞÖÇ', 'ıiğüşöç')), '[^[:alnum:]]+', ' ', 'g')) AS normalized
+          btrim(regexp_replace(lower(translate(COALESCE(${channelNameExpr}, ''), 'IİĞÜŞÖÇ', 'ıiğüşöç')), '[^[:alnum:]]+', ' ', 'g')) AS normalized
         FROM channels AS c
         JOIN playlists AS p ON p.id = c.playlist_id
         WHERE p.id = ? AND p.user_id = ?
@@ -365,10 +412,71 @@ class EPGService {
           'epgSourceId', epg_source_id,
           'confidence', confidence
         ) ORDER BY confidence DESC) FROM updated), '[]'::json) AS matches
-    `, [playlistId, userId, userId]);
+    `, [...preprocessParams, playlistId, userId, userId]);
     const row = result.rows[0];
     const matches = typeof row.matches === 'string' ? JSON.parse(row.matches) : row.matches;
     return { matched: matches.length, total: Number(row.total), matches };
+  }
+
+  _publicProfile(profile) {
+    const settings = typeof profile.settings === 'string' ? JSON.parse(profile.settings) : (profile.settings || {});
+    return {
+      id: profile.id,
+      playlist_id: profile.playlist_id,
+      name: profile.name,
+      settings: this._sanitizeSettings(settings),
+      mapped_count: profile.mapped_count,
+      last_run_at: profile.last_run_at,
+      created_at: profile.created_at,
+    };
+  }
+
+  async _assertPlaylistOwnership(userId, playlistId) {
+    const playlist = await db('playlists').where({ id: playlistId, user_id: userId }).first();
+    if (!playlist) throw createAppError('NOT_FOUND', 'Playlist bulunamadı');
+  }
+
+  async _getOwnedProfile(userId, profileId) {
+    const profile = await db('epg_match_profiles').where({ id: profileId }).first();
+    if (!profile) throw createAppError('NOT_FOUND', 'Profil bulunamadı');
+    await this._assertPlaylistOwnership(userId, profile.playlist_id);
+    return profile;
+  }
+
+  async saveProfile(userId, playlistId, { name, settings } = {}) {
+    await this._assertPlaylistOwnership(userId, playlistId);
+    const cleanName = String(name || '').trim().slice(0, 255);
+    if (!cleanName) throw createAppError('VALIDATION_ERROR', 'Profil adı gerekli');
+    const sanitized = this._sanitizeSettings(settings);
+    const [profile] = await db('epg_match_profiles')
+      .insert({ playlist_id: playlistId, name: cleanName, settings: JSON.stringify(sanitized) })
+      .returning('*');
+    logger.info(`[EPG] Eşleştirme profili kaydedildi: ${cleanName} (${playlistId})`);
+    return this._publicProfile(profile);
+  }
+
+  async listProfiles(userId, playlistId) {
+    await this._assertPlaylistOwnership(userId, playlistId);
+    const rows = await db('epg_match_profiles').where({ playlist_id: playlistId }).orderBy('created_at', 'asc');
+    return rows.map((row) => this._publicProfile(row));
+  }
+
+  async deleteProfile(userId, profileId) {
+    const profile = await this._getOwnedProfile(userId, profileId);
+    await db('epg_match_profiles').where({ id: profile.id }).del();
+    logger.info(`[EPG] Eşleştirme profili silindi: ${profile.name} (${profile.id})`);
+  }
+
+  async runProfile(userId, profileId) {
+    const profile = await this._getOwnedProfile(userId, profileId);
+    const settings = this._sanitizeSettings(typeof profile.settings === 'string' ? JSON.parse(profile.settings) : profile.settings);
+    const result = await this.autoMatch(userId, profile.playlist_id, settings);
+    const [updated] = await db('epg_match_profiles')
+      .where({ id: profile.id })
+      .update({ mapped_count: result.matched, last_run_at: db.fn.now(), updated_at: db.fn.now() })
+      .returning('*');
+    logger.info(`[EPG] Profil çalıştırıldı: ${profile.name} — ${result.matched}/${result.total} eşleşti`);
+    return { profile: this._publicProfile(updated), result };
   }
 
   async getPreview(userId, channelId, date, timezoneOffset) {
@@ -403,6 +511,14 @@ class EPGService {
     const source = await db('epg_sources').where({ id: sourceId, user_id: userId }).first();
     if (!source) throw createAppError('NOT_FOUND', 'EPG kaynağı bulunamadı');
     return this.parseAndStore(sourceId, options);
+  }
+
+  async updateRefreshSettings(userId, sourceId, refreshIntervalMinutes) {
+    const source = await db('epg_sources').where({ id: sourceId, user_id: userId }).first();
+    if (!source) throw createAppError('NOT_FOUND', 'EPG kaynağı bulunamadı');
+    await db('epg_sources').where({ id: sourceId }).update({ refresh_interval_minutes: refreshIntervalMinutes });
+    const updated = await db('epg_sources').where({ id: sourceId }).first();
+    return this._publicSource(updated);
   }
 
   async getGuide(userId, playlistId, date, timezoneOffset, page = 1, limit = 100) {

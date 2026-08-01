@@ -36,6 +36,30 @@ async function autoMatch(req, res, next) {
   try { res.json(await epgService.autoMatch(req.userId, req.params.id)); } catch (error) { next(error); }
 }
 
+function profilePayload(body) {
+  const { name, settings } = body || {};
+  if (settings !== undefined && (settings === null || typeof settings !== 'object' || Array.isArray(settings))) {
+    throw createAppError('VALIDATION_ERROR', 'settings alanı nesne olmalı');
+  }
+  return { name, settings };
+}
+
+async function listProfiles(req, res, next) {
+  try { res.json(await epgService.listProfiles(req.userId, req.params.id)); } catch (error) { next(error); }
+}
+
+async function saveProfile(req, res, next) {
+  try { res.status(201).json(await epgService.saveProfile(req.userId, req.params.id, profilePayload(req.body))); } catch (error) { next(error); }
+}
+
+async function runProfile(req, res, next) {
+  try { res.json(await epgService.runProfile(req.userId, req.params.id)); } catch (error) { next(error); }
+}
+
+async function deleteProfile(req, res, next) {
+  try { await epgService.deleteProfile(req.userId, req.params.id); res.json({ success: true }); } catch (error) { next(error); }
+}
+
 async function getPreview(req, res, next) {
   try {
     res.json(await epgService.getPreview(req.userId, req.params.id, req.query.date, req.query.tzOffset));
@@ -84,6 +108,18 @@ async function refreshSource(req, res, next) {
   try { res.json(await epgService.refreshSource(req.userId, req.params.id, forceOptions(req.body))); } catch (error) { next(error); }
 }
 
+const MAX_REFRESH_INTERVAL_MINUTES = 525600; // 1 yil
+
+async function updateRefreshSettings(req, res, next) {
+  try {
+    const { refreshIntervalMinutes } = req.body || {};
+    if (refreshIntervalMinutes !== null && (!Number.isInteger(refreshIntervalMinutes) || refreshIntervalMinutes < 1 || refreshIntervalMinutes > MAX_REFRESH_INTERVAL_MINUTES)) {
+      throw createAppError('VALIDATION_ERROR', 'refreshIntervalMinutes null veya 1-525600 arasi bir tam sayi olmali');
+    }
+    res.json(await epgService.updateRefreshSettings(req.userId, req.params.id, refreshIntervalMinutes));
+  } catch (error) { next(error); }
+}
+
 async function getGuide(req, res, next) {
   try { res.json(await epgService.getGuide(req.userId, req.params.id, req.query.date, req.query.tzOffset, req.query.page, req.query.limit)); } catch (error) { next(error); }
 }
@@ -96,4 +132,4 @@ async function getProgram(req, res, next) {
   try { res.json(await epgService.getProgram(req.userId, req.params.id)); } catch (error) { next(error); }
 }
 
-module.exports = { addSource, listSources, autoMatch, getPreview, assignEpg, deleteSource, refreshSource, getGuide, searchEpgChannels, getProgram };
+module.exports = { addSource, listSources, autoMatch, getPreview, assignEpg, deleteSource, refreshSource, updateRefreshSettings, getGuide, searchEpgChannels, getProgram, listProfiles, saveProfile, runProfile, deleteProfile };

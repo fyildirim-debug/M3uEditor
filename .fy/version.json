@@ -1,6 +1,11 @@
 {
-  "version": "1.8.0.0",
+  "version": "1.9.0.0",
   "history": [
+    {
+      "version": "1.9.0.0",
+      "date": "2026-08-01",
+      "summary": "Otomasyon surumu: zamanlanmis oto-sync (playlist+EPG araligi, sync oncesi yedek secenegi), gzip yedekleme/geri yukleme (retention 10), akis saglik taramasi (SSRF-safe, eszamanli, batch yazim), regex filtre kurallari (sync oncesi include/exclude), coklu Xtream kaynagi birlestirme (sync-all, dogal kategori dedupe, tur-bazli guvenli uzlastirma), gelismis kanal filtreleri (logosuz/EPGsz/duplike/olu/kontrolsuz), iptv-org EPG kaynak kutuphanesi, kalici EPG eslestirme profilleri, gorunum sablonlari (gizli kategori setleri + export entegrasyonu). Quick wins: mobil siralama butonlari, klavye kisayollari, URL deep-link, ConfirmModal, paylasim iptali, Xtream kimlik duzenleme, oturum yonetimi, header tema degistirici, gercek import ilerlemesi."
+    },
     {
       "version": "1.8.0.0",
       "date": "2026-08-01",

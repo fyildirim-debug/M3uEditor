@@ -9,6 +9,7 @@ router.get('/playlists/:id/export', authMiddleware, exportController.exportPlayl
 router.get('/playlists/:id/xmltv', authMiddleware, exportController.exportXmltv);
 router.get('/playlists/:id/epg-coverage', authMiddleware, exportController.getEpgCoverage);
 router.post('/playlists/:id/share', authMiddleware, exportController.sharePlaylist);
+router.delete('/playlists/:id/share', authMiddleware, exportController.revokeShare);
 
 // Public shared playlist endpoint (no auth)
 router.get('/shared/:token/xmltv', exportController.getSharedXmltv);

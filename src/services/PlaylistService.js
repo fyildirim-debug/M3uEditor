@@ -1,7 +1,9 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
 const { createAppError } = require('../utils/AppError');
+const { encrypt } = require('../utils/crypto');
 const { removeChannelLogos } = require('../utils/logoStorage');
+const backupService = require('./BackupService');
 
 class PlaylistService {
   /**
@@ -30,6 +32,8 @@ class PlaylistService {
         'playlists.xtream_username',
         'playlists.xtream_stream_types',
         'playlists.last_synced_at',
+        'playlists.sync_interval_minutes',
+        'playlists.backup_before_sync',
         'playlists.created_at',
         'playlists.updated_at',
         db.raw('(playlists.xtream_password_enc IS NOT NULL) as has_xtream_source'),
@@ -61,13 +65,14 @@ class PlaylistService {
   }
 
   /**
-   * Update a playlist's name. Verifies ownership.
+   * Update a playlist's name and/or Xtream credentials. Verifies ownership.
+   * Password, when provided, is stored encrypted; omitted fields stay unchanged.
    * @param {string} userId
    * @param {string} playlistId
-   * @param {{ name: string }} data
+   * @param {{ name?: string, xtreamServerUrl?: string, xtreamUsername?: string, xtreamPassword?: string }} data
    * @returns {Promise<object>}
    */
-  async update(userId, playlistId, { name }) {
+  async update(userId, playlistId, { name, xtreamServerUrl, xtreamUsername, xtreamPassword }) {
     const playlist = await db('playlists')
       .where({ id: playlistId, user_id: userId })
       .first();
@@ -76,16 +81,50 @@ class PlaylistService {
       throw createAppError('NOT_FOUND');
     }
 
+    const updates = { updated_at: db.fn.now() };
+    if (name !== undefined) updates.name = name;
+    if (xtreamServerUrl !== undefined) updates.xtream_server_url = xtreamServerUrl;
+    if (xtreamUsername !== undefined) updates.xtream_username = xtreamUsername;
+    if (xtreamPassword !== undefined) updates.xtream_password_enc = encrypt(xtreamPassword);
+
     await db('playlists')
       .where('id', playlistId)
-      .update({ name, updated_at: db.fn.now() });
+      .update(updates);
 
     const updated = await db('playlists')
       .where('id', playlistId)
-      .select('id', 'user_id', 'name', 'created_at', 'updated_at')
+      .select('id', 'user_id', 'name', 'xtream_server_url', 'xtream_username', 'created_at', 'updated_at')
       .first();
 
     return updated;
+  }
+
+  /**
+   * Update a playlist's scheduled sync settings. Verifies ownership.
+   * @param {string} userId
+   * @param {string} playlistId
+   * @param {{ syncIntervalMinutes?: number|null, backupBeforeSync?: boolean }} data
+   * @returns {Promise<object>}
+   */
+  async updateSyncSettings(userId, playlistId, { syncIntervalMinutes, backupBeforeSync }) {
+    const playlist = await db('playlists')
+      .where({ id: playlistId, user_id: userId })
+      .first();
+
+    if (!playlist) {
+      throw createAppError('NOT_FOUND');
+    }
+
+    const updates = { updated_at: db.fn.now() };
+    if (syncIntervalMinutes !== undefined) updates.sync_interval_minutes = syncIntervalMinutes;
+    if (backupBeforeSync !== undefined) updates.backup_before_sync = backupBeforeSync;
+
+    await db('playlists').where('id', playlistId).update(updates);
+
+    return db('playlists')
+      .where('id', playlistId)
+      .select('id', 'sync_interval_minutes', 'backup_before_sync', 'updated_at')
+      .first();
   }
 
   /**
@@ -110,6 +149,8 @@ class PlaylistService {
       return channels.map((channel) => channel.id);
     });
     await removeChannelLogos(channelIds);
+    // Yedek satirlari FK ile cascade silinir; gzip dosyalarini da temizle
+    await backupService.removePlaylistBackupDir(playlist.id);
   }
 }
 

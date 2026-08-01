@@ -53,6 +53,7 @@ function acquireJob(userId, playlistId) {
     userKey,
     playlistKey,
     controller,
+    progress: null,
     expiresAt: Date.now() + config.imports.jobTtlMs,
     ttlTimer: null,
   };
@@ -85,6 +86,9 @@ async function runImportJob(req, res, playlistId, worker) {
 
   const jobContext = {
     signal: job.controller.signal,
+    onProgress({ processed, total }) {
+      job.progress = { processed, total };
+    },
     throwIfCancelled() {
       if (!job.controller.signal.aborted) return;
       throw job.controller.signal.reason || createAppError('IMPORT_CANCELLED');
@@ -98,6 +102,21 @@ async function runImportJob(req, res, playlistId, worker) {
     res.removeListener('close', onResponseClose);
     releaseJob(job);
   }
+}
+
+async function getActiveJobs(req, res, next) {
+  try {
+    pruneExpiredJobs();
+    const userKey = String(req.userId);
+    const jobs = [...activeJobs.values()]
+      .filter((job) => job.userKey === userKey)
+      .map((job) => ({
+        playlistId: job.playlistKey,
+        processed: job.progress?.processed ?? 0,
+        total: job.progress?.total ?? null,
+      }));
+    res.json(jobs);
+  } catch (error) { next(error); }
 }
 
 function xtreamCredentials(body) {
@@ -237,13 +256,24 @@ async function addStreamTypes(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function syncAllSources(req, res, next) {
+  try {
+    const result = await runImportJob(req, res, req.params.id, (jobContext) => (
+      importService.syncAllSources(req.userId, req.params.id, undefined, jobContext)
+    ));
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
 module.exports = {
   previewXtream,
   importFromXtream,
   importFromXtreamNew,
   syncPlaylist,
+  syncAllSources,
   syncPreview,
   importFromM3U,
   importM3UToPlaylist,
   addStreamTypes,
+  getActiveJobs,
 };

@@ -115,13 +115,28 @@ class ExportService {
   /**
    * Export a playlist as an M3U string.
    * Channels are ordered by category sort_order, then channel sort_order.
+   * Opsiyonel `viewId` verilirse gorunumun hidden_category_ids listesi,
+   * kategorinin kendi is_hidden bayragiyla birlesik dislama olarak uygulanir.
    * @param {string} userId
    * @param {string} playlistId
    * @returns {Promise<string>} M3U formatted content
    */
-  async exportAsM3U(userId, playlistId, excludeCategories = [], streamType = null) {
+  async exportAsM3U(userId, playlistId, excludeCategories = [], streamType = null, viewId = null) {
     await this._verifyPlaylistOwnership(userId, playlistId);
-    const channelData = await this._getOrderedChannels(playlistId, excludeCategories, streamType);
+
+    let mergedExclusions = excludeCategories;
+    if (viewId) {
+      const view = await db('playlist_views')
+        .where({ id: viewId, playlist_id: playlistId })
+        .first();
+      if (!view) {
+        throw createAppError('NOT_FOUND');
+      }
+      const viewHidden = Array.isArray(view.hidden_category_ids) ? view.hidden_category_ids : [];
+      mergedExclusions = [...new Set([...excludeCategories, ...viewHidden])];
+    }
+
+    const channelData = await this._getOrderedChannels(playlistId, mergedExclusions, streamType);
     return this.formatter.format(channelData);
   }
 
@@ -153,6 +168,21 @@ class ExportService {
       xmltvUrl: `/api/shared/${token}/xmltv`,
       token,
     };
+  }
+
+  /**
+   * Revoke a playlist's share link: clears token, expiry and password.
+   * @param {string} userId
+   * @param {string} playlistId
+   */
+  async revokeShare(userId, playlistId) {
+    await this._verifyPlaylistOwnership(userId, playlistId);
+    await db('playlists').where({ id: playlistId }).update({
+      share_token: null,
+      share_expires_at: null,
+      share_password: null,
+      updated_at: db.fn.now(),
+    });
   }
 
   _sharedXmltvUrl(shareToken) {

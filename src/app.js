@@ -192,6 +192,12 @@ app.use('/api', require('./routes/import'));
 app.use('/api', require('./routes/epg'));
 app.use('/api', require('./routes/export'));
 app.use('/api', require('./routes/playlists'));
+app.use('/api', require('./routes/filterRules'));
+app.use('/api', require('./routes/sources'));
+app.use('/api', require('./routes/views'));
+app.use('/api', require('./routes/backups'));
+app.use('/api', require('./routes/streamHealth'));
+app.use('/api', require('./routes/epgLibrary'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/', require('./routes/xtreamOutput'));
 

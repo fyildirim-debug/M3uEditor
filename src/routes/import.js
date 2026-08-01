@@ -17,6 +17,9 @@ const xtreamPreviewLimiter = rateLimit({
 // Ucuz kategori keşfi, uzun süren import eşzamanlılık kapısına girmez.
 router.post('/import/xtream/preview', authMiddleware, xtreamPreviewLimiter, importController.previewXtream);
 
+// Aktif import/sync işlerinin ilerlemesi
+router.get('/import/jobs/active', authMiddleware, importController.getActiveJobs);
+
 // Xtream Codes import - mevcut playlist'e
 router.post('/playlists/:id/import/xtream', authMiddleware, importController.importFromXtream);
 

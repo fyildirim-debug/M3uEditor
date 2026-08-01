@@ -150,7 +150,11 @@
     "stageProcessing": "Veriler işleniyor...",
     "stageSaving": "Veritabanına kaydediliyor...",
     "stageFinalizing": "Tamamlanıyor...",
-    "progressHint": "Bu işlem hesabınızdaki içerik miktarına göre 10-60 saniye sürebilir."
+    "progressHint": "Bu işlem hesabınızdaki içerik miktarına göre 10-60 saniye sürebilir.",
+    "accountEdit": "Hesap Düzenle",
+    "accountEditDesc": "Kayıtlı Xtream bağlantı bilgilerini güncelle. Şifreyi değiştirmek istemiyorsan boş bırak.",
+    "passwordKeep": "Değiştirmeyeceksen boş bırak",
+    "accountUpdated": "Hesap bilgileri güncellendi"
   },
   "xtreamWizard": {
     "stepIndicator": "Adım {current} / {total}",
@@ -229,7 +233,9 @@
     "selectCategory": "Kategori seçin",
     "selectFromLeft": "Sol panelden bir kategori seçin",
     "noChannels": "Bu kategoride kanal yok",
-    "truncatedWarning": "İlk {limit} kanal gösteriliyor (toplam {total})."
+    "truncatedWarning": "İlk {limit} kanal gösteriliyor (toplam {total}).",
+    "moveUp": "Yukarı taşı",
+    "moveDown": "Aşağı taşı"
   },
   "epg": {
     "guideTab": "TV Rehberi",
@@ -252,6 +258,45 @@
     "next": "SIRADAKI",
     "noDescription": "Açıklama mevcut değil",
     "durationSuffix": "dk"
+  },
+  "epgProfiles": {
+    "tab": "Profiller",
+    "title": "Eşleştirme Profili Oluştur",
+    "desc": "Kanal adlarından otomatik temizlenecek ön ek, son ek ve yoksayılan kelimeleri kaydet; tek tıkla eşleştir.",
+    "namePlaceholder": "Profil adı (örn. TR sağlayıcı)",
+    "prefixesLabel": "Ön ekler (virgülle ayır)",
+    "prefixesPlaceholder": "TR:, [TR], TR |",
+    "suffixesLabel": "Son ekler (virgülle ayır)",
+    "suffixesPlaceholder": "HD, FHD, 4K, UHD",
+    "ignoreLabel": "Yoksayılan kelimeler (virgülle ayır)",
+    "ignorePlaceholder": "tv, kanal, canlı",
+    "create": "Profil Oluştur",
+    "run": "Çalıştır",
+    "matched": "{count} eşleşme",
+    "lastRun": "Son çalışma: {date}",
+    "neverRun": "Henüz çalıştırılmadı",
+    "empty": "Henüz profil yok",
+    "emptyHint": "Yukarıdaki formdan bir profil oluştur; 'Çalıştır' ile ayarları uygulayarak eşleştir.",
+    "saved": "Profil kaydedildi",
+    "deleted": "Profil silindi",
+    "deleteConfirm": "Bu profili silmek istediğine emin misin?",
+    "runDone": "{matched}/{total} kanal eşleşti",
+    "error": "Profil işlemi başarısız oldu",
+    "nameRequired": "Profil adı gerekli"
+  },
+  "epgLibrary": {
+    "title": "Kaynak Kütüphanesi",
+    "desc": "iptv-org kataloğundan hazır EPG kaynaklarına göz at ve tek tıkla ekle.",
+    "countryLabel": "Ülke",
+    "allCountries": "Tüm ülkeler",
+    "searchPlaceholder": "Site veya kanal ara...",
+    "loading": "Kütüphane yükleniyor...",
+    "loadError": "Kütüphane yüklenemedi",
+    "retry": "Tekrar dene",
+    "noResults": "Sonuç bulunamadı",
+    "channelCount": "{count} kanal",
+    "noUrl": "Hazır URL yok",
+    "noUrlHint": "Bu site için yayınlanmış hazır rehber URL'i bulunmuyor"
   },
   "categoryEditor": {
     "title": "Kategori Editörü",
@@ -276,11 +321,54 @@
     "addedCount": "{count} kanal eklendi",
     "updatedCount": "{count} kanal güncellendi",
     "removedCount": "{count} kanal kaldırıldı",
+    "filteredOutCount": "{count} kanal filtreyle elendi",
     "addedCategories": "Eklenen kategoriler ({count})",
     "noAddedCategories": "Yeni kategori eklenmedi",
     "newChannels": "Yeni kanallar ({count})",
     "noNewChannels": "Yeni kanal eklenmedi",
     "andMore": "+{count} kanal daha"
+  },
+  "filterRules": {
+    "title": "Filtre Kuralları",
+    "desc": "Güncelleme sırasında kanalları kategori, isim veya adres deseniyle otomatik dahil et ya da hariç tut. Kurallar yukarıdan aşağıya uygulanır; eşleşen ilk kural karar verir. Dahil etme kuralı varsa eşleşmeyen kanallar elenir.",
+    "exclude": "Hariç tut",
+    "include": "Dahil et",
+    "fields": {
+      "group": "Kategori",
+      "name": "Kanal adı",
+      "url": "Adres"
+    },
+    "fieldLabel": "Kural alanı",
+    "modeLabel": "Kural türü",
+    "patternPlaceholder": "Regex deseni, örn: ^Bein",
+    "add": "Ekle",
+    "added": "Kural eklendi",
+    "deleted": "Kural silindi",
+    "empty": "Henüz kural yok. Eklenen kurallar bir sonraki güncellemede uygulanır.",
+    "test": "Test et",
+    "testSummary": "{sampled} kanal tarandı, ilk {count} eşleşme:",
+    "moveUp": "Yukarı taşı",
+    "moveDown": "Aşağı taşı",
+    "enable": "Etkinleştir",
+    "disable": "Devre dışı bırak"
+  },
+  "multiSource": {
+    "title": "Ek Kaynaklar",
+    "desc": "Bu listeye birden fazla Xtream hesabı bağla. Tüm kaynaklar güncellendiğinde aynı adlı kategoriler tek kategoride birleşir.",
+    "empty": "Ek kaynak yok. Ana kaynak yukarıdaki hesaptır.",
+    "labelPlaceholder": "Etiket (isteğe bağlı)",
+    "serverPlaceholder": "Sunucu adresi",
+    "usernamePlaceholder": "Kullanıcı adı",
+    "passwordPlaceholder": "Şifre",
+    "add": "Kaynak Ekle",
+    "added": "Kaynak eklendi",
+    "deleted": "Kaynak silindi",
+    "syncAll": "Tüm Kaynakları Güncelle",
+    "syncingAll": "Kaynaklar güncelleniyor...",
+    "syncResult": "Tüm kaynaklar: {added} eklendi, {updated} güncellendi, {removed} kaldırıldı",
+    "reportTitle": "Kaynak Güncelleme Raporu",
+    "sourceOk": "{added} eklendi, {updated} güncellendi",
+    "sourceFailed": "Hata: {error}"
   },
   "share": {
     "title": "Paylaşım Linki",
@@ -294,7 +382,10 @@
     "m3uUrl": "M3U paylaşım adresi",
     "xmltvUrl": "XMLTV paylaşım adresi",
     "generating": "Link oluşturuluyor...",
-    "createLink": "Paylaşım linki oluştur"
+    "createLink": "Paylaşım linki oluştur",
+    "revoke": "Paylaşımı Kaldır",
+    "revoking": "Kaldırılıyor...",
+    "revoked": "Paylaşım kaldırıldı"
   },
   "xtreamOutput": {
     "m3uSection": "Kanal Listesi (M3U)",
@@ -485,6 +576,16 @@
     "apply": "Değişiklikleri uygula",
     "result": "{count} kanal güncellendi"
   },
+  "advFilter": {
+    "label": "Kanal filtresi",
+    "all": "Tüm Kanallar",
+    "missingLogo": "Logosuz",
+    "missingEpg": "EPG'siz",
+    "duplicateName": "Duplike",
+    "dead": "Ölü Akış",
+    "unchecked": "Kontrol Edilmemiş",
+    "filteredCount": "{count} {unit} (filtreli)"
+  },
   "admin": {
     "title": "Yönetim Paneli",
     "subtitle": "Sistem yönetimi ve kullanıcı işlemleri",
@@ -533,7 +634,14 @@
     "deleteWarning": "Bu işlem geri alınamaz. Tüm playlist ve kanallarınız silinir.",
     "passwordChanged": "Şifre değiştirildi",
     "emailChanged": "E-posta değiştirildi",
-    "accountDeleted": "Hesap silindi"
+    "accountDeleted": "Hesap silindi",
+    "sessions": "Aktif Oturumlar",
+    "sessionsDesc": "Hesabınıza giriş yapmış cihazlar. Tanımadığınız oturumları kapatın.",
+    "currentDevice": "Bu cihaz",
+    "revokeSession": "Oturumu Kapat",
+    "sessionRevoked": "Oturum kapatıldı",
+    "lastUsed": "Son kullanım",
+    "unknownDevice": "Bilinmeyen cihaz"
   },
   "share2": {
     "expiry": "Süre Sınırı",
@@ -550,7 +658,12 @@
     "delete": "Sil",
     "selectAll": "Tümünü Seç",
     "search": "Arama",
-    "escape": "İptal / Kapat"
+    "escape": "İptal / Kapat",
+    "focusSearch": "Aramaya odaklan (/)",
+    "goEpg": "EPG görünümü (g e)",
+    "goSort": "Sıralama görünümü (g s)",
+    "goCategory": "Kategori görünümü (g k)",
+    "goUpdate": "Güncelleme görünümü (g g)"
   },
   "addTypes": {
     "title": "İçerik Tipi Ekle",
@@ -656,9 +769,79 @@
       "contactBody": "Gizlilik politikamızla ilgili sorularınız için info@m3ueditor.com adresinden bize ulaşabilirsiniz."
     }
   },
+  "viewProfiles": {
+    "title": "Görünümler",
+    "description": "Görünümler, hangi kategorilerin gizli olduğunu isimli şablonlar halinde kaydeder. Dışa aktarırken gizli kategoriler listeden dışlanır.",
+    "createFromCurrent": "Mevcut Durumu Kaydet",
+    "namePlaceholder": "Görünüm adı",
+    "empty": "Henüz kaydedilmiş görünüm yok",
+    "apply": "Uygula",
+    "saveCurrent": "Mevcut Durumu Yaz",
+    "saveCurrentHint": "Kategorilerin şu anki gizli/görünür durumunu bu görünüme kaydeder",
+    "rename": "Yeniden Adlandır",
+    "delete": "Sil",
+    "hiddenCount": "{count} gizli kategori",
+    "deleteConfirmButton": "Evet, Sil",
+    "selectView": "Görünüm (opsiyonel)",
+    "noView": "Görünüm yok",
+    "created": "Görünüm oluşturuldu",
+    "updated": "Görünüm güncellendi",
+    "deleted": "Görünüm silindi",
+    "applied": "Görünüm kategorilere uygulandı",
+    "error": "Görünüm işlemi başarısız"
+  },
+  "backup": {
+    "title": "Yedekler",
+    "backupNow": "Şimdi Yedekle",
+    "creating": "Yedekleniyor…",
+    "empty": "Bu liste için henüz yedek oluşturulmamış.",
+    "download": "İndir",
+    "restore": "Geri Yükle",
+    "channels": "{n} kanal",
+    "reasonManual": "Manuel",
+    "reasonPreSync": "Senkron öncesi",
+    "reasonScheduled": "Zamanlanmış",
+    "restoreConfirm": "\"{name}\" listesi için bu yedeği nasıl geri yüklemek istersiniz?",
+    "restoreNew": "Yeni Liste Olarak Yükle",
+    "restoreOverwrite": "Bu Listenin Üzerine Yaz",
+    "restoring": "Geri yükleniyor…",
+    "deleteConfirm": "Bu yedek kalıcı olarak silinsin mi?",
+    "created": "Yedek oluşturuldu",
+    "createError": "Yedek oluşturulamadı",
+    "loadError": "Yedekler yüklenemedi",
+    "restored": "Geri yükleme tamamlandı",
+    "restoreError": "Geri yükleme başarısız oldu",
+    "deleted": "Yedek silindi",
+    "deleteError": "Yedek silinemedi",
+    "downloadError": "Yedek indirilemedi"
+  },
   "notFound": {
     "title": "Sayfa Bulunamadı",
     "desc": "Aradığınız sayfa mevcut değil veya taşındı.",
     "goHome": "Ana Sayfaya Dön"
+  },
+  "streamHealth": {
+    "scanButton": "Akışları Tara",
+    "scanning": "Taranıyor {checked}/{total}",
+    "scanStarted": "Akış taraması başladı ({total} kanal)",
+    "scanDone": "Tarama tamamlandı: {checked} kanal kontrol edildi, {dead} ölü akış",
+    "scanError": "Akış taraması başlatılamadı",
+    "ok": "Akış sağlam",
+    "dead": "Akış ölü",
+    "unchecked": "Henüz kontrol edilmedi"
+  },
+  "autoSync": {
+    "title": "Otomatik Güncelleme",
+    "interval": "Güncelleme aralığı",
+    "off": "Kapalı",
+    "every6h": "6 saatte bir",
+    "every12h": "12 saatte bir",
+    "every24h": "24 saatte bir",
+    "every48h": "48 saatte bir",
+    "weekly": "Haftada bir",
+    "backupBeforeSync": "Sync öncesi yedek al",
+    "saved": "Otomatik güncelleme ayarları kaydedildi",
+    "lastRun": "Son otomatik çalışma",
+    "epgRefresh": "Otomatik yenileme"
   }
 }

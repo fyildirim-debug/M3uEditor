@@ -3,6 +3,11 @@ mockDb.fn = { now: jest.fn(() => 'NOW') };
 mockDb.transaction = jest.fn();
 jest.mock('../../../src/config/database', () => mockDb);
 
+// Bu suite filtre kurallarini test etmez; applyForPlaylist no-op mock'lanir.
+jest.mock('../../../src/services/FilterRuleService', () => jest.fn().mockImplementation(() => ({
+  applyForPlaylist: jest.fn(async (_playlistId, records) => ({ records, filteredOut: 0 })),
+})));
+
 const ImportService = require('../../../src/services/ImportService');
 const { decrypt } = require('../../../src/utils/crypto');
 

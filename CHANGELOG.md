@@ -3,6 +3,69 @@
 All notable changes to this project are documented here. Dates are ISO-8601.
 Versions follow the four-part scheme recorded in `.fy/version.json`.
 
+## [1.9.0.0] — 2026-08-01
+
+Automation release. The editor can now keep playlists fresh on a schedule,
+snapshost and restore user edits, check whether streams are alive, merge
+multiple providers into one playlist, and filter what ever enters the library.
+
+### Added
+
+- **Scheduled auto-sync.** Playlists and EPG sources accept a refresh interval
+  (off / 6h / 12h / 24h / 48h / weekly). A lightweight scheduler ticks every
+  minute and syncs due playlists using the same category-selection semantics as
+  manual sync (new provider categories are not auto-added), with optional
+  pre-sync backup. `PUT /api/playlists/:id/sync-settings` and
+  `PUT /api/epg/sources/:id/refresh-settings`.
+- **Backup / restore.** One-click gzip snapshots (playlist + categories +
+  channels including every user edit) stored on disk with metadata in the new
+  `backups` table, automatic retention of the last 10 per playlist, download,
+  restore onto a new or existing playlist, and automatic cleanup when the
+  playlist is deleted. `GET/POST /api/playlists/:id/backups`,
+  `GET /api/backups/:id/download`, `POST /api/backups/:id/restore`,
+  `DELETE /api/backups/:id`.
+- **Stream health scanning.** `POST /api/playlists/:id/health-scan` walks every
+  channel with SSRF-safe HEAD/Range requests (10-way concurrency, 8 s timeout,
+  100-row batched writes), records `last_checked_at`/`last_check_ok`/
+  `last_check_status`, and reports live progress. The channel table shows
+  per-channel health dots; new `dead`/`unchecked` filters surface the results.
+- **Regex filter rules.** Ordered include/exclude rules over channel name,
+  category, or stream URL, validated with `safe-regex2` and applied before every
+  sync/import upsert — excluded records never reach the database. Rules are
+  manageable from the Update view with a live pattern tester.
+  `GET/POST /api/playlists/:id/filter-rules`, `PUT/DELETE /api/filter-rules/:id`.
+- **Multiple Xtream sources per playlist.** Additional provider accounts
+  (`playlist_sources` table) sync into the same playlist; same-named categories
+  merge naturally. `POST /api/playlists/:id/sync-all` reconciles every source in
+  sequence and only removes stale channels when all sources of a type complete,
+  so one failing provider cannot delete another's channels.
+- **Advanced channel filters.** `?filter=missing_logo|missing_epg|
+  duplicate_name|dead|unchecked` on the channel list, with a dropdown and a
+  filtered-result counter in the editor.
+- **EPG source library.** Built-in iptv-org catalogue: browse countries and
+  guide sources, search, and add a source in one click (24 h in-memory cache).
+  `GET /api/epg-library/countries`, `GET /api/epg-library/guides`.
+- **Saved EPG match profiles.** Auto-match now accepts strip prefixes/suffixes
+  and ignore words; profiles are saved per playlist and re-runnable with mapped
+  counts and last-run tracking. `GET/POST /api/playlists/:id/epg-profiles`,
+  `POST /api/epg-profiles/:id/run`.
+- **View profiles.** Named hidden-category sets per playlist; apply a profile
+  to re-hide categories instantly, and pick a profile when downloading M3U so
+  the export excludes its hidden categories. `GET/POST /api/playlists/:id/views`.
+- **Quick wins:** up/down move buttons for sorting on mobile, keyboard
+  shortcuts (`/` search, `g`+letter view switching), editor view/stream type in
+  the URL (deep link survives reload), styled ConfirmModal replacing every
+  native `confirm()`, share-link revocation (`DELETE /api/playlists/:id/share`),
+  Xtream credential editing on the playlist, session management
+  (`GET/DELETE /api/auth/sessions`) in Account settings, theme switcher in the
+  header, and real import progress via `GET /api/import/jobs/active` polling
+  instead of a simulated bar.
+
+### Fixed
+
+- Filtered channels were previously indistinguishable in search results — the
+  filtered count now renders next to the total.
+
 ## [1.8.0.0] — 2026-08-01
 
 Sync experience release. The update flow now mirrors the import wizard —

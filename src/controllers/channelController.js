@@ -12,8 +12,8 @@ const { getChannelLogoFilename, getChannelLogoPath, removeChannelLogoVariants } 
 
 async function listChannels(req, res, next) {
   try {
-    const { page, limit, search, categoryId, streamType } = req.query;
-    const options = { ...parsePagination(page, limit), search, categoryId, streamType };
+    const { page, limit, search, categoryId, streamType, filter } = req.query;
+    const options = { ...parsePagination(page, limit), search, categoryId, streamType, filter };
     res.json(await channelService.list(req.userId, req.params.id, options));
   } catch (error) { next(error); }
 }

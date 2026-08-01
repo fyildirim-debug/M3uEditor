@@ -79,6 +79,29 @@
         </form>
       </div>
 
+      <!-- Active Sessions -->
+      <div class="account-section">
+        <h2 class="section-title">{{ t('account.sessions') }}</h2>
+        <div class="card sessions-card">
+          <p class="sessions-desc">{{ t('account.sessionsDesc') }}</p>
+          <div v-if="sessionsLoading" class="sessions-loading"><span class="spinner"></span></div>
+          <ul v-else-if="sessions.length" class="session-list">
+            <li v-for="s in sessions" :key="s.familyId" class="session-item">
+              <div class="session-info">
+                <div class="session-ua">
+                  {{ s.userAgent || t('account.unknownDevice') }}
+                  <span v-if="s.current" class="badge badge-success session-current">{{ t('account.currentDevice') }}</span>
+                </div>
+                <div class="session-meta">{{ s.ipAddress || '—' }} · {{ t('account.lastUsed') }}: {{ formatDateTime(s.lastUsedAt) }}</div>
+              </div>
+              <button v-if="!s.current" class="btn btn-danger btn-sm" :disabled="s._revoking" @click="revokeSession(s)">
+                {{ t('account.revokeSession') }}
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
       <!-- Delete Account -->
       <div class="account-section danger-zone">
         <h2 class="section-title danger-title">{{ t('account.deleteAccount') }}</h2>
@@ -107,6 +130,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useI18n } from '../langs/useI18n'
 import { useTheme } from '../composables/useTheme'
+import api from '../api'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -130,9 +154,37 @@ const emailError = ref('')
 const deletePassword = ref('')
 const deleteLoading = ref(false)
 
+const sessions = ref([])
+const sessionsLoading = ref(true)
+
 onMounted(async () => {
   try { profile.value = await auth.getProfile() } catch {}
+  loadSessions()
 })
+
+async function loadSessions() {
+  sessionsLoading.value = true
+  try { sessions.value = (await api.get('/auth/sessions')).data } catch { sessions.value = [] }
+  finally { sessionsLoading.value = false }
+}
+
+async function revokeSession(s) {
+  s._revoking = true
+  try {
+    await api.delete(`/auth/sessions/${s.familyId}`)
+    toast(t('account.sessionRevoked'), 'success')
+    sessions.value = sessions.value.filter(x => x.familyId !== s.familyId)
+  } catch (e) {
+    toast(e.response?.data?.error?.message || t('toast.genericError'), 'error')
+  } finally {
+    s._revoking = false
+  }
+}
+
+function formatDateTime(d) {
+  if (!d) return '—'
+  return new Date(d).toLocaleString()
+}
 
 function formatDate(d) {
   if (!d) return ''
@@ -215,4 +267,13 @@ async function handleDeleteAccount() {
 .delete-form { display: flex; gap: 0.75rem; }
 .delete-form .input { flex: 1; }
 .back-link { margin-top: 2rem; text-align: center; }
+.sessions-card { padding: 1.25rem; }
+.sessions-desc { color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 1rem; }
+.sessions-loading { display: flex; justify-content: center; padding: 1rem 0; }
+.session-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+.session-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--radius); }
+.session-info { flex: 1; min-width: 0; }
+.session-ua { font-size: 0.85rem; font-weight: 500; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; word-break: break-word; }
+.session-current { font-size: 0.65rem; flex-shrink: 0; }
+.session-meta { font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; }
 </style>
