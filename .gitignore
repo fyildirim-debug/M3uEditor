@@ -29,3 +29,6 @@ test-output.txt
 test-result.txt
 .reports/
 .fy/dev.pid
+
+# Uploads & runtime data
+data/
