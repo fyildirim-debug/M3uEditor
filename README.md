@@ -110,36 +110,36 @@ npm run dev
 
 The frontend defaults to `http://localhost:5173`; the API and health endpoint default to `http://localhost:3000` and `http://localhost:3000/health`.
 
-## İlk yöneticiyi oluşturma
+## Creating the first admin
 
-Önce uygulamada normal bir kullanıcı hesabı oluşturun, ardından kayıtlı e-posta adresine yönetici yetkisi verin:
+First create a regular user account in the application, then grant admin rights to that registered email address:
 
 ```bash
 npm run make-admin -- <email>
 ```
 
-Docker kurulumunda aynı komutu API container'ı içinde çalıştırın:
+On a Docker setup, run the same command inside the API container:
 
 ```bash
 docker compose exec api npm run make-admin -- <email>
 ```
 
-Yetkiyi geri almak için komutun sonuna `--revoke` ekleyin.
+Append `--revoke` to the command to remove the privilege.
 
-## Kayıt ve şifre kurtarma
+## Registration and password recovery
 
-Yeni hesap açılmasını durdurmak için `ALLOW_REGISTRATION=false` ayarlayın. Geriye dönük uyumluluk için varsayılan değer `true`'dur. Temiz kurulumun kilitlenmemesi amacıyla `users` tablosu boşken ilk kullanıcı, bu bayrak kapalı olsa bile kaydolabilir; ilk kullanıcıdan sonra kayıtlar reddedilir. Kimlik doğrulaması gerektirmeyen `GET /api/auth/registration-status` ucu yalnızca etkin durumu `{ "allowed": boolean }` biçiminde döndürür.
+Set `ALLOW_REGISTRATION=false` to stop new accounts from being created. The default is `true` for backward compatibility. So a fresh install never locks itself out, the first user can register even when the flag is off while the `users` table is empty; registrations after the first user are rejected. The unauthenticated `GET /api/auth/registration-status` endpoint returns only the current state as `{ "allowed": boolean }`.
 
-SMTP yapılandırılmadığında kayıtlı bir kullanıcının şifresini güçlü, rastgele üretilen bir değerle sıfırlayın:
+When SMTP is not configured, reset a registered user's password to a strong, randomly generated value:
 
 ```bash
-npm run reset-password -- <e-posta>
+npm run reset-password -- <email>
 ```
 
-Belirli bir şifre vermek için `--password <değer>` ekleyin. Şifre sıfırlandığında kullanıcının tüm aktif oturumları iptal edilir. Docker kurulumunda komutu API container'ı içinde çalıştırın:
+Append `--password <value>` to set a specific password. All of the user's active sessions are revoked when the password is reset. On a Docker setup, run the command inside the API container:
 
 ```bash
-docker compose exec api npm run reset-password -- <e-posta>
+docker compose exec api npm run reset-password -- <email>
 ```
 
 ## Docker deployment
@@ -199,13 +199,13 @@ NODE_MAX_OLD_SPACE_MB=1536
 
 Lower the concurrency values if a provider rate-limits parallel requests. Increase `MAX_XTREAM_BYTES` and `NODE_MAX_OLD_SPACE_MB` together only when a single provider response exceeds the defaults and the host has sufficient memory.
 
-## Xtream Codes çıkışı
+## Xtream Codes output
 
-Bir playlist, kimlik doğrulamalı yönetim API'sindeki `POST /api/playlists/:id/xtream-output` isteğiyle Xtream Codes çıkışı olarak etkinleştirilebilir. Yanıtta player'a girilecek sunucu adresi, rastgele kullanıcı adı ve rastgele şifre bulunur. Şifre AES-256-GCM ile şifreli saklanır ve sahibine her zaman açık gösterilir; yapılandırma `GET` ile her görüntülendiğinde şifre de döner. `POST /api/playlists/:id/xtream-output/regenerate` eski şifreyi hemen geçersiz kılar, `DELETE /api/playlists/:id/xtream-output` ise player erişimini kapatır.
+A playlist can be exposed as an Xtream Codes output via `POST /api/playlists/:id/xtream-output` on the authenticated management API. The response contains the server address, a random username, and a random password to enter into the player. The password is stored AES-256-GCM encrypted and is always shown in plain text to its owner; the configuration — including the password — is returned by every `GET`. `POST /api/playlists/:id/xtream-output/regenerate` immediately invalidates the old password, and `DELETE /api/playlists/:id/xtream-output` turns player access off.
 
-TiviMate, IPTV Smarters ve benzeri istemcilerde sunucu adresi olarak `APP_URL`, kullanıcı adı ve şifre olarak etkinleştirme yanıtındaki değerler kullanılır. Uyumlu kök yollar `/player_api.php`, `/xmltv.php`, `/get.php`, `/live/`, `/movie/` ve `/series/` şeklindedir. Dizi verisi uygulamada bölüm bazında değil dizi bazında tutulduğu için Xtream yanıtı her dizi için oynatılabilir tek bir sentetik sezon/bölüm sunar.
+In TiviMate, IPTV Smarters, and similar clients, use `APP_URL` as the server address and the username and password from the activation response. Supported root paths are `/player_api.php`, `/xmltv.php`, `/get.php`, `/live/`, `/movie/`, and `/series/`. Because series data is stored per series rather than per episode, the Xtream response exposes one playable synthetic season/episode per series.
 
-**Güvenlik notu:** Oynatma yolları akışı proxy'lemez; `302` ile kanalın kayıtlı yukarı akış adresine yönlendirir. Bu adres, Xtream protokolü gereği yukarı akış sağlayıcının kullanıcı adı ve şifresini içerebilir. Dolayısıyla Xtream çıkış bilgilerini paylaşmak, fiilen sağlayıcı hesabını ve düzenlenmiş playlist içindeki tüm akış adreslerini paylaşmak anlamına gelir. Yalnızca güvendiğiniz kişilerle paylaşın ve erişimi geri almak için çıkışı kapatın veya şifreyi yenileyin.
+**Security note:** Playback paths do not proxy the stream; they redirect with `302` to the channel's stored upstream address. That address may contain the upstream provider's username and password by Xtream protocol design. Sharing Xtream output credentials therefore effectively shares the provider account and every stream URL in the edited playlist. Share only with people you trust, and revoke access by disabling the output or regenerating the password.
 
 ## Verification
 
@@ -254,6 +254,33 @@ frontend/src/         Vue application
 screenshot/           UI screenshots used in this README
 tests/                Jest unit and property tests
 ```
+
+## Latest updates
+
+### v1.8.0.0 — 2026-08-01
+
+- **Category-selective sync with a report.** Updating a playlist now asks which
+  categories to pull — previous selections come pre-checked, provider-new
+  categories are badged "New", and unselected categories are never added (a
+  long-standing bug imported them anyway). A report lists added categories,
+  new channel names, and updated/removed counts. Per-type selection is
+  optional; untouched types are preserved.
+- **Xtream output password always visible.** The output password is stored
+  AES-256-GCM encrypted (new migration) and shown to its owner on every view,
+  with one-click regeneration that instantly invalidates the old password.
+  M3U download and Xtream credentials now live in a single "Download Channel
+  List" modal.
+- **EPG scales to 55k+ channels.** The guide loads channels in pages with
+  infinite scroll instead of freezing the browser, program descriptions are
+  fetched lazily only when a program is opened, and grid hour lines moved from
+  24 DOM nodes per channel to one CSS background.
+- **Modal and rendering fixes.** Child component updates suppressed by a toast
+  in the same render flush (modals stuck open), playlist deletion of 55k
+  channels down from ~13 s to ~0.06 s with spinner feedback, EPG controls
+  removed from movie/series editing, and the Xtream import wizard gained a
+  Cancel button, a 150 s timeout, and backdrop-click protection.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full history.
 
 ## License
 
