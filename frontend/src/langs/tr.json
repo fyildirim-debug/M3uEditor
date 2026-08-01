@@ -49,9 +49,8 @@
     "categoryEditor": "Kategori Editörü",
     "update": "Güncelle",
     "dashboard": "Dashboard",
-    "downloadM3u": "M3U İndir",
+    "downloadM3u": "Kanal Listesini İndir",
     "share": "Paylaş",
-    "xtreamCredentials": "Xtream Codes bilgileri",
     "admin": "Yönetim"
   },
   "status": {
@@ -117,6 +116,7 @@
     "namePlaceholder": "Örn: Ana Liste, Spor Kanalları...",
     "nameLabel": "Playlist Adı",
     "deleteConfirm": "playlistini ve tüm kanallarını kalıcı olarak silmek istediğine emin misin?",
+    "deleting": "Siliniyor...",
     "channelCount": "{count} kanal"
   },
   "xtream": {
@@ -187,7 +187,8 @@
     "previewUnavailable": "Kategori önizleme hizmeti henüz kullanılamıyor. Lütfen daha sonra tekrar deneyin.",
     "previewNetworkError": "Kategori önizleme hizmetine ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.",
     "previewError": "Kategoriler bu sağlayıcıdan yüklenemedi. Bilgileri kontrol edip tekrar deneyin.",
-    "importError": "Xtream içe aktarma tamamlanamadı. Lütfen tekrar deneyin."
+    "importError": "Xtream içe aktarma tamamlanamadı. Lütfen tekrar deneyin.",
+    "requestTimeout": "Sunucudan zamanında yanıt alınamadı. İşlem arka planda tamamlanmamış olabilir; bağlantınızı kontrol edip tekrar deneyin."
   },
   "editor": {
     "allChannels": "Tüm Kanallar",
@@ -235,6 +236,7 @@
     "sourcesTab": "Kaynaklar",
     "autoMatch": "Otomatik Eşleştir",
     "loadingGuide": "Program rehberi yükleniyor...",
+    "loadedCount": "{loaded} / {total} kanal yüklendi",
     "noData": "EPG verisi bulunamadı",
     "emptyHint": "Önce \"Kaynaklar\" sekmesinden EPG kaynağı ekleyin, sonra \"Otomatik Eşleştir\" ile kanalları eşleştirin.",
     "rowEmpty": "Veri yok",
@@ -263,7 +265,22 @@
   "updateView": {
     "title": "Güncelle",
     "subtitle": "Xtream Codes kaynağından kanalları yeniden çek",
-    "totalChannels": "Toplam Kanal"
+    "totalChannels": "Toplam Kanal",
+    "loadingCategories": "Kategoriler yükleniyor...",
+    "selectTitle": "Güncellenecek kategorileri seç",
+    "selectDesc": "Önceki seçimlerin işaretli gelir. Sağlayıcıya yeni gelen kategoriler \"Yeni\" rozetiyle gösterilir. Seçmediğin kategoriler sisteme eklenmez.",
+    "newBadge": "Yeni",
+    "startUpdate": "Güncellemeyi Başlat",
+    "selectOne": "Güncellemek için en az bir kategori seç.",
+    "reportTitle": "Güncelleme Raporu",
+    "addedCount": "{count} kanal eklendi",
+    "updatedCount": "{count} kanal güncellendi",
+    "removedCount": "{count} kanal kaldırıldı",
+    "addedCategories": "Eklenen kategoriler ({count})",
+    "noAddedCategories": "Yeni kategori eklenmedi",
+    "newChannels": "Yeni kanallar ({count})",
+    "noNewChannels": "Yeni kanal eklenmedi",
+    "andMore": "+{count} kanal daha"
   },
   "share": {
     "title": "Paylaşım Linki",
@@ -280,7 +297,9 @@
     "createLink": "Paylaşım linki oluştur"
   },
   "xtreamOutput": {
-    "title": "Xtream Codes bilgileri",
+    "m3uSection": "Kanal Listesi (M3U)",
+    "m3uSectionDesc": "Düzenlediğin kanal listesini M3U dosyası olarak indir. Xtream Codes bilgileri aşağıdadır.",
+    "xtreamSection": "Xtream Codes",
     "disabledDescription": "Düzenlediğiniz playlist'i Xtream Codes bilgileriyle player'a eklemek için erişimi etkinleştirin.",
     "enable": "Etkinleştir",
     "enabling": "Etkinleştiriliyor...",
@@ -289,8 +308,7 @@
     "serverUrl": "Sunucu adresi",
     "username": "Kullanıcı adı",
     "password": "Şifre",
-    "passwordOneTime": "Bu şifre yalnızca bir kez gösterilir. Bu pencereyi kapatmadan önce kopyalayın.",
-    "passwordUnavailable": "Şifre yalnızca oluşturulduğu anda gösterilir. Yeni bir şifre almak için şifreyi yenileyin.",
+    "passwordUnavailable": "Bu kayıt, şifre görünürlüğü eklenmeden önce oluşturulmuş. Şifreyi görüntülemek için bir kez yenileyin.",
     "regenerate": "Şifreyi yenile",
     "regenerating": "Şifre yenileniyor...",
     "regenerateTitle": "Şifre yenilensin mi?",

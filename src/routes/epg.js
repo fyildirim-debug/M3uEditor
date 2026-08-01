@@ -13,6 +13,9 @@ router.post('/epg/sources/:id/refresh', authMiddleware, epgController.refreshSou
 // EPG channel search (autocomplete)
 router.get('/epg/channels/search', authMiddleware, epgController.searchEpgChannels);
 
+// Single program detail (description is loaded lazily from the guide)
+router.get('/epg/programs/:id', authMiddleware, epgController.getProgram);
+
 // Playlist-scoped EPG endpoints
 router.post('/playlists/:id/epg/auto-match', authMiddleware, epgController.autoMatch);
 router.get('/playlists/:id/epg/guide', authMiddleware, epgController.getGuide);

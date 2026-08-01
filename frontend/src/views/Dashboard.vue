@@ -192,11 +192,11 @@
     <!-- Delete Confirm -->
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="deletingPl" v-focus-trap class="modal-overlay" @click.self="deletingPl = null">
+        <div v-if="deletingPl" v-focus-trap class="modal-overlay" @click.self="!deletingPlaylist && (deletingPl = null)">
           <div class="modal">
             <div class="modal-header">
               <h3>{{ t('playlist.deleteTitle') }}</h3>
-              <button class="btn btn-ghost btn-icon-sm" :aria-label="t('common.close')" @click="deletingPl = null">
+              <button class="btn btn-ghost btn-icon-sm" :aria-label="t('common.close')" :disabled="deletingPlaylist" @click="deletingPl = null">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
@@ -205,8 +205,11 @@
               <p>"<strong>{{ deletingPl.name }}</strong>" {{ t('playlist.deleteConfirm') }}</p>
             </div>
             <div class="modal-actions">
-              <button class="btn btn-secondary" @click="deletingPl = null">{{ t('common.cancel') }}</button>
-              <button class="btn btn-danger" @click="deletePlaylist">{{ t('common.permanently_delete') }}</button>
+              <button class="btn btn-secondary" :disabled="deletingPlaylist" @click="deletingPl = null">{{ t('common.cancel') }}</button>
+              <button class="btn btn-danger" :disabled="deletingPlaylist" @click="deletePlaylist">
+                <span v-if="deletingPlaylist" class="spinner spinner-sm"></span>
+                {{ deletingPlaylist ? t('playlist.deleting') : t('common.permanently_delete') }}
+              </button>
             </div>
           </div>
         </div>
@@ -257,7 +260,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject } from 'vue'
+import { ref, computed, onMounted, inject, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
@@ -274,6 +277,7 @@ const newName = ref('')
 const editingPl = ref(null)
 const editName = ref('')
 const deletingPl = ref(null)
+const deletingPlaylist = ref(false)
 
 const totalChannels = computed(() =>
   playlists.value.reduce((sum, pl) => sum + (pl.channel_count || 0), 0)
@@ -328,6 +332,9 @@ async function createPlaylist() {
     await api.post('/playlists', { name: newName.value.trim() })
     newName.value = ''
     showCreate.value = false
+    // Modal kapanisi ile toast ayni flush'ta olursa App re-render'i
+    // Transition leave'ini bastiriyor ve modal DOM'da takili kaliyor.
+    await nextTick()
     toast(t('toast.playlistCreated'), 'success')
     loadPlaylists()
   } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
@@ -340,6 +347,7 @@ async function updatePlaylist() {
   try {
     await api.put('/playlists/' + editingPl.value.id, { name: editName.value.trim() })
     editingPl.value = null
+    await nextTick()
     toast(t('toast.updated'), 'success')
     loadPlaylists()
   } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
@@ -348,12 +356,16 @@ async function updatePlaylist() {
 function confirmDelete(pl) { deletingPl.value = pl }
 
 async function deletePlaylist() {
+  if (deletingPlaylist.value) return
+  deletingPlaylist.value = true
   try {
     await api.delete('/playlists/' + deletingPl.value.id)
     deletingPl.value = null
+    await nextTick()
     toast(t('toast.deleted'), 'success')
     loadPlaylists()
   } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  finally { deletingPlaylist.value = false }
 }
 
 function formatDate(d) {

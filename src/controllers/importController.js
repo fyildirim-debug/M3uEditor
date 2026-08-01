@@ -169,12 +169,35 @@ async function importFromXtreamNew(req, res, next) {
   } catch (error) { next(error); }
 }
 
+function validateCategorySelection(categories) {
+  if (categories === undefined) return undefined;
+  if (!categories || typeof categories !== 'object' || Array.isArray(categories)) {
+    throw createAppError('VALIDATION_ERROR', 'Kategori seçimleri bir nesne olmalı');
+  }
+  for (const [type, ids] of Object.entries(categories)) {
+    if (!['live', 'vod', 'series'].includes(type) || !Array.isArray(ids)) {
+      throw createAppError('VALIDATION_ERROR', 'Kategori seçimleri live, vod veya series dizileri olmalı');
+    }
+    if (ids.some((id) => !['string', 'number'].includes(typeof id) || !String(id).trim())) {
+      throw createAppError('VALIDATION_ERROR', 'Kategori kimlikleri boş olmayan metin veya sayı olmalı');
+    }
+  }
+  return categories;
+}
+
 async function syncPlaylist(req, res, next) {
   try {
+    const categories = validateCategorySelection(req.body?.categories);
     const result = await runImportJob(req, res, req.params.id, (jobContext) => (
-      importService.syncFromXtream(req.userId, req.params.id, undefined, jobContext)
+      importService.syncFromXtream(req.userId, req.params.id, undefined, jobContext, { categories })
     ));
     res.json(result);
+  } catch (error) { next(error); }
+}
+
+async function syncPreview(req, res, next) {
+  try {
+    res.json(await importService.previewSync(req.userId, req.params.id));
   } catch (error) { next(error); }
 }
 
@@ -219,6 +242,7 @@ module.exports = {
   importFromXtream,
   importFromXtreamNew,
   syncPlaylist,
+  syncPreview,
   importFromM3U,
   importM3UToPlaylist,
   addStreamTypes,

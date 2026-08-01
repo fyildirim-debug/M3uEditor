@@ -405,13 +405,23 @@ class EPGService {
     return this.parseAndStore(sourceId, options);
   }
 
-  async getGuide(userId, playlistId, date, timezoneOffset) {
+  async getGuide(userId, playlistId, date, timezoneOffset, page = 1, limit = 100) {
     const playlist = await db('playlists').where({ id: playlistId, user_id: userId }).first();
     if (!playlist) throw createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı');
     const { dateStr, start, end } = buildDateRange(date, timezoneOffset);
-    const channels = await db('channels').where({ playlist_id: playlistId }).orderBy('sort_order')
-      .select('id', 'name', 'logo_url', 'epg_channel_id', 'epg_source_id');
-    if (!channels.length) return { channels: [], date: dateStr };
+    const safeLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 100, 1), 500);
+    const safePage = Math.max(Number.parseInt(page, 10) || 1, 1);
+
+    // Buyuk playlistlerde (50k+ kanal) tum kanallari tek yanitta donmek
+    // tarayiciyi kilitler; kanallar sayfali yuklenir.
+    const [channels, totalRow] = await Promise.all([
+      db('channels').where({ playlist_id: playlistId }).orderBy('sort_order')
+        .select('id', 'name', 'logo_url', 'epg_channel_id', 'epg_source_id')
+        .limit(safeLimit).offset((safePage - 1) * safeLimit),
+      db('channels').where({ playlist_id: playlistId }).count('id as count').first(),
+    ]);
+    const total = Number(totalRow?.count) || 0;
+    if (!channels.length) return { channels: [], date: dateStr, total, page: safePage, limit: safeLimit };
 
     const ids = [...new Set(channels.map((channel) => channel.epg_channel_id).filter(Boolean))];
     const epgRows = ids.length ? await db('epg_channels')
@@ -422,10 +432,13 @@ class EPGService {
     const exactMap = new Map(epgRows.map((row) => [`${row.source_id}:${row.channel_id}`, row.id]));
     const fallbackMap = new Map(epgRows.map((row) => [row.channel_id, row.id]));
     const epgUuids = [...new Set(epgRows.map((row) => row.id))];
+    // Grid yalnizca baslik/zaman gosterir; description (50 KB'a kadar) tasimak
+    // yaniti cok buyutur. Detay modalinda GET /epg/programs/:id ile cekilir.
     const programs = epgUuids.length ? await db('epg_programs').whereIn('epg_channel_id', epgUuids)
       .where('start_time', '<', end)
       .andWhere((query) => query.whereNull('end_time').orWhere('end_time', '>=', start))
-      .orderBy('start_time') : [];
+      .orderBy('start_time')
+      .select('id', 'epg_channel_id', 'start_time', 'end_time', 'title') : [];
     const grouped = new Map();
     for (const program of programs) {
       if (!grouped.has(program.epg_channel_id)) grouped.set(program.epg_channel_id, []);
@@ -433,11 +446,25 @@ class EPGService {
     }
     return {
       date: dateStr,
+      total,
+      page: safePage,
+      limit: safeLimit,
       channels: channels.map((channel) => {
         const epgUuid = exactMap.get(`${channel.epg_source_id}:${channel.epg_channel_id}`) || fallbackMap.get(channel.epg_channel_id);
         return { ...channel, programs: grouped.get(epgUuid) || [] };
       }),
     };
+  }
+
+  async getProgram(userId, programId) {
+    const program = await db('epg_programs')
+      .join('epg_channels', 'epg_programs.epg_channel_id', 'epg_channels.id')
+      .join('epg_sources', 'epg_channels.source_id', 'epg_sources.id')
+      .where('epg_programs.id', programId)
+      .where('epg_sources.user_id', userId)
+      .first('epg_programs.id', 'epg_programs.epg_channel_id', 'epg_programs.start_time', 'epg_programs.end_time', 'epg_programs.title', 'epg_programs.description');
+    if (!program) throw createAppError('NOT_FOUND', 'Program bulunamadı');
+    return program;
   }
 
   async searchEpgChannels(userId, query, limit = 15) {

@@ -90,9 +90,15 @@ ensure_postgres() {
   fi
 
   # PostgreSQL container calisiyor mu?
-  if ! docker compose -f "$SCRIPT_DIR/docker-compose.yml" ps db 2>/dev/null | grep -qE "running|Up"; then
+  # docker-compose.yml db portunu host'a acmaz (uretim sertlestirmesi); gelistirmede
+  # backend host'ta calistigi icin dev-ports override'i ile 5432 loopback'e acilir.
+  COMPOSE_FILES=(-f "$SCRIPT_DIR/docker-compose.yml")
+  if [ -f "$SCRIPT_DIR/docker-compose.dev-ports.yml" ]; then
+    COMPOSE_FILES+=(-f "$SCRIPT_DIR/docker-compose.dev-ports.yml")
+  fi
+  if ! docker compose "${COMPOSE_FILES[@]}" ps db 2>/dev/null | grep -qE "running|Up"; then
     echo -e "${YELLOW}  PostgreSQL container baslatiliyor...${RESET}"
-    docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d db 2>&1 | grep -v "^$" || true
+    docker compose "${COMPOSE_FILES[@]}" up -d db 2>&1 | grep -v "^$" || true
   fi
 
   # PostgreSQL hazir olana kadar bekle (max 30 saniye)

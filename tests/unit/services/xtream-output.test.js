@@ -9,7 +9,7 @@ jest.mock('../../../src/services/ExportService', () => mockExportService);
 jest.mock('../../../src/services/XMLTVExportService', () => mockXmltvExportService);
 
 const crypto = require('crypto');
-const { hashToken } = require('../../../src/utils/crypto');
+const { hashToken, encrypt } = require('../../../src/utils/crypto');
 const xtreamOutputService = require('../../../src/services/XtreamOutputService');
 
 function firstQuery(value) {
@@ -76,17 +76,32 @@ describe('XtreamOutputService', () => {
     const update = updateQuery.update.mock.calls[0][0];
     expect(update.output_password_hash).toBe(hashToken(response.password));
     expect(update.output_password_hash).not.toContain(response.password);
+    // Arayuzde goruntuleme icin sifre ayrica sifreli saklanir
+    expect(update.output_password_enc).toBeDefined();
+    expect(update.output_password_enc).not.toContain(response.password);
   });
 
-  test('configuration never includes a password or password query parameter', async () => {
+  test('configuration returns null password for legacy records without encrypted password', async () => {
     mockDb.mockReturnValue(firstQuery(playlist));
 
     const response = await xtreamOutputService.getConfiguration('user-1', 'playlist-1');
 
-    expect(response).not.toHaveProperty('password');
+    // Sifre gorunurlugu oncesi kayitlarda enc kolonu yok: sifre null, URL'ler sifresiz
+    expect(response.password).toBeNull();
     expect(response.playerApiUrl).toBe('https://iptv.example.test/player_api.php?username=existing-user');
     expect(response.xmltvUrl).not.toContain('password');
     expect(response.m3uUrl).not.toContain('password');
+  });
+
+  test('configuration exposes the decrypted password and embeds it in urls when stored encrypted', async () => {
+    mockDb.mockReturnValue(firstQuery({ ...playlist, output_password_enc: encrypt('correct-password') }));
+
+    const response = await xtreamOutputService.getConfiguration('user-1', 'playlist-1');
+
+    expect(response.password).toBe('correct-password');
+    expect(response.playerApiUrl).toContain('password=correct-password');
+    expect(response.m3uUrl).toContain('password=correct-password');
+    expect(response.xmltvUrl).toContain('password=correct-password');
   });
 
   test('accepts a matching hash, rejects a wrong password and rejects disabled output', async () => {

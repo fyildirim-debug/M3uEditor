@@ -222,8 +222,37 @@ describe('Import Controller', () => {
         USER_ID,
         PLAYLIST_ID,
         undefined,
-        expect.objectContaining({ signal: expect.any(AbortSignal) })
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+        { categories: undefined }
       );
+    });
+
+    it('should forward validated category selection to sync', async () => {
+      mockSyncFromXtream.mockResolvedValue({ added: 1, updated: 2, removed: 0 });
+
+      const res = await request(app)
+        .post(`/api/playlists/${PLAYLIST_ID}/sync`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ categories: { live: ['1', '2'], vod: [] } });
+
+      expect(res.status).toBe(200);
+      expect(mockSyncFromXtream).toHaveBeenCalledWith(
+        USER_ID,
+        PLAYLIST_ID,
+        undefined,
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+        { categories: { live: ['1', '2'], vod: [] } }
+      );
+    });
+
+    it('should reject malformed category selection', async () => {
+      const res = await request(app)
+        .post(`/api/playlists/${PLAYLIST_ID}/sync`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ categories: { live: 'not-an-array' } });
+
+      expect(res.status).toBe(400);
+      expect(mockSyncFromXtream).not.toHaveBeenCalled();
     });
 
     it('should return 401 without token', async () => {

@@ -32,6 +32,7 @@ describe('Database Migrations', () => {
       '20240101000018_session_token_families.js',
       '20240101000019_add_xtream_output.js',
       '20240101000020_add_category_visibility.js',
+      '20240101000021_add_output_password_enc.js',
     ]);
   });
 

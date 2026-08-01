@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
-    <div v-focus-trap class="feature-overlay" @click.self="requestClose" @keydown.esc="requestClose">
-      <section class="feature-modal" :class="{ 'feature-modal-wide': wide }" role="dialog" aria-modal="true" :aria-label="title">
+    <div v-focus-trap class="feature-overlay" @click.self="onBackdropClick" @keydown.esc="requestClose">
+      <section ref="modalEl" class="feature-modal" :class="{ 'feature-modal-wide': wide }" role="dialog" aria-modal="true" :aria-label="title" tabindex="-1">
         <header class="feature-header">
           <h3>{{ title }}</h3>
           <button class="btn btn-ghost btn-icon-sm" type="button" :aria-label="t('common.close')" :disabled="closeDisabled" @click="requestClose">✕</button>
@@ -14,19 +14,33 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useI18n } from '../langs/useI18n'
 
 const props = defineProps({
   title: { type: String, required: true },
   wide: { type: Boolean, default: false },
-  closeDisabled: { type: Boolean, default: false }
+  closeDisabled: { type: Boolean, default: false },
+  closeOnBackdrop: { type: Boolean, default: true }
 })
 const emit = defineEmits(['close'])
 
 const { t } = useI18n()
 
+const modalEl = ref(null)
+
 function requestClose() {
   if (!props.closeDisabled) emit('close')
+}
+
+function onBackdropClick() {
+  if (props.closeOnBackdrop) {
+    requestClose()
+  } else {
+    // Kapatilmayan modallarda backdrop tiklamasi focus'u body'ye birakir;
+    // bu da sonraki ESC'nin overlay'e ulasmasini engeller. Focus'u geri al.
+    modalEl.value?.focus()
+  }
 }
 </script>
 

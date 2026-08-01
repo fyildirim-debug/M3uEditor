@@ -90,7 +90,7 @@ describe('ImportService', () => {
       streamTypes: ['live'],
     });
     jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
-    jest.spyOn(service, '_upsertCategories').mockResolvedValue({ 'remote-1': 'category-1' });
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({ map: { 'remote-1': 'category-1' }, addedNames: [] });
     jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
     const { trx, captures } = transactionFixture();
     mockDb.transaction.mockImplementation((callback) => callback(trx));
@@ -114,7 +114,7 @@ describe('ImportService', () => {
       streamTypes: ['live'],
     });
     jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
-    jest.spyOn(service, '_upsertCategories').mockResolvedValue({});
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({ map: {}, addedNames: [] });
     jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
     const { trx, captures } = transactionFixture([
       { source_id: '1', stream_type: 'live' },
@@ -130,7 +130,7 @@ describe('ImportService', () => {
   test('never deletes existing channels when a provider returns an empty list', async () => {
     jest.spyOn(service, '_fetchXtream').mockResolvedValue({ categories: [], channels: [], client, streamTypes: ['live'] });
     jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
-    jest.spyOn(service, '_upsertCategories').mockResolvedValue({});
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({ map: {}, addedNames: [] });
     jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
     const { trx, captures } = transactionFixture([{ source_id: '1', stream_type: 'live' }]);
     mockDb.transaction.mockImplementation((callback) => callback(trx));
@@ -153,7 +153,7 @@ describe('ImportService', () => {
       ],
     });
     jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
-    jest.spyOn(service, '_upsertCategories').mockResolvedValue({});
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({ map: {}, addedNames: [] });
     jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
     const { trx, captures } = transactionFixture([
       { source_id: '1', stream_type: 'live' },
@@ -183,7 +183,7 @@ describe('ImportService', () => {
       types: [{ type: 'live', status: 'complete', error: null }],
     });
     jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
-    jest.spyOn(service, '_upsertCategories').mockResolvedValue({ 1: 'category-a' });
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({ map: { 1: 'category-a' }, addedNames: [] });
     jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
     const { trx, captures } = transactionFixture([
       { source_id: '1', stream_type: 'live', category_id: 'category-a' },
@@ -221,7 +221,7 @@ describe('ImportService', () => {
       ],
     });
     jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
-    jest.spyOn(service, '_upsertCategories').mockResolvedValue({});
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({ map: {}, addedNames: [] });
     jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue();
     const { trx, captures } = transactionFixture([
       { source_id: '1', stream_type: 'live' },
@@ -269,12 +269,14 @@ describe('ImportService', () => {
       category_name: `Category ${index}`,
     }));
 
-    const categoryMap = await service._upsertCategories('playlist-1', categories, connection);
+    const { map: categoryMap, addedNames } = await service._upsertCategories('playlist-1', categories, connection);
 
     expect(select).toHaveBeenCalledTimes(1);
     expect(insertedBatches.map((batch) => batch.length)).toEqual([1000, 1000, 500]);
     expect(categoryMap['0']).toBe('existing-id');
     expect(categoryMap['2500']).toBeTruthy();
+    expect(addedNames).toHaveLength(2500);
+    expect(addedNames).not.toContain('Category 0');
   });
 
   test('writes large channel sets in 1000-row database batches', async () => {

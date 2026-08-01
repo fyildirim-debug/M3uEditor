@@ -73,14 +73,11 @@
           <div class="nav-item" role="button" tabindex="0" @click="$router.push('/dashboard')" @keydown.enter.space.prevent="$router.push('/dashboard')">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> {{ t('nav.dashboard') }}
           </div>
-          <div class="nav-item" role="button" tabindex="0" @click="doExport" @keydown.enter.space.prevent="doExport">
+          <div class="nav-item" role="button" tabindex="0" @click="showXtreamOutput = true" @keydown.enter.space.prevent="showXtreamOutput = true">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> {{ t('nav.downloadM3u') }}
           </div>
           <div class="nav-item" role="button" tabindex="0" @click="doShare" @keydown.enter.space.prevent="doShare">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> {{ t('nav.share') }}
-          </div>
-          <div class="nav-item" role="button" tabindex="0" @click="showXtreamOutput = true" @keydown.enter.space.prevent="showXtreamOutput = true">
-            <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m8 12 2.5 2.5L16 9"/></svg> {{ t('nav.xtreamCredentials') }}
           </div>
         </div>
       </nav>
@@ -456,8 +453,6 @@
                   <div class="epg-grid-body" ref="epgGridBodyRef" @scroll="onGridScroll">
                     <div class="epg-grid-track" :style="{ width: guideTrackWidth + 'px' }">
                       <div v-for="ch in guideChannels" :key="ch.id" class="epg-grid-row">
-                        <!-- Hour grid lines -->
-                        <div v-for="h in 24" :key="'g'+h" class="epg-grid-line" :style="{ left: ((h-1) * hourWidth) + 'px' }"></div>
                         <!-- Program blocks -->
                         <div v-for="prog in ch.programs" :key="prog.id"
                           :class="['epg-prog-block', { live: isProgramLive(prog), past: isProgramPast(prog) }]"
@@ -475,6 +470,10 @@
                         <div class="epg-now-dot"></div>
                       </div>
                     </div>
+                  </div>
+                  <div v-if="guideLoadingMore || guideChannels.length < guideTotal" class="epg-loading-more" role="status">
+                    <span v-if="guideLoadingMore" class="spinner spinner-sm"></span>
+                    <span>{{ t('epg.loadedCount', { loaded: guideChannels.length, total: guideTotal }) }}</span>
                   </div>
                 </div>
               </div>
@@ -585,10 +584,10 @@
                     {{ t('xtream.lastSynced') }} {{ new Date(savedXtream.lastSynced).toLocaleString() }}
                   </div>
                   <div class="xtream-source-actions">
-                    <button class="btn btn-primary" @click="doSync" :disabled="syncing" style="flex:1">
-                      <span v-if="syncing" class="spinner" style="width:14px;height:14px"></span>
+                    <button class="btn btn-primary" @click="startSyncPreview" :disabled="syncPreviewLoading || syncing" style="flex:1">
+                      <span v-if="syncPreviewLoading || syncing" class="spinner" style="width:14px;height:14px"></span>
                       <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                      {{ syncing ? t('xtream.updating') : t('xtream.updateChannels') }}
+                      {{ syncPreviewLoading ? t('updateView.loadingCategories') : (syncing ? t('xtream.updating') : t('xtream.updateChannels')) }}
                     </button>
                     <button class="btn btn-secondary" @click="openXtream" :title="t('xtream.changeAccount')">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -607,6 +606,89 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     {{ t('xtream.addXtream') }}
                   </button>
+                </div>
+
+                <!-- Sync kategori secim paneli -->
+                <div v-if="syncPreview" class="sync-select-panel">
+                  <h4 class="sync-select-title">{{ t('updateView.selectTitle') }}</h4>
+                  <p class="sync-select-desc">{{ t('updateView.selectDesc') }}</p>
+
+                  <fieldset v-for="type in syncAvailableTypes" :key="type" class="sync-type-block" :disabled="syncing">
+                    <legend class="sync-type-legend">{{ t({ live: 'xtream.typeLive', series: 'xtream.typeSeries', vod: 'xtream.typeVod' }[type]) }}</legend>
+
+                    <div class="search-group" v-if="syncPreview.types[type].categories.length > 10">
+                      <input v-model="syncSearches[type]" class="input" type="search" autocomplete="off" :placeholder="t('xtreamWizard.searchPlaceholder')" />
+                    </div>
+
+                    <div class="category-toolbar">
+                      <div class="category-actions">
+                        <button class="btn btn-secondary btn-sm" type="button" :disabled="syncFilteredCategories(type).length === 0" @click="syncSelectVisible(type)">
+                          {{ t('xtreamWizard.selectAll') }}
+                        </button>
+                        <button class="btn btn-ghost btn-sm" type="button" :disabled="syncSelection[type].size === 0" @click="syncDeselectAll(type)">
+                          {{ t('xtreamWizard.deselectAll') }}
+                        </button>
+                      </div>
+                      <span class="selected-counter" aria-live="polite">
+                        {{ t('xtreamWizard.selectedCounter', { selected: syncSelection[type].size, total: syncPreview.types[type].categories.length }) }}
+                      </span>
+                    </div>
+
+                    <div class="category-list" tabindex="0">
+                      <ul v-if="syncFilteredCategories(type).length">
+                        <li v-for="cat in syncFilteredCategories(type)" :key="cat.id" class="category-row">
+                          <input :id="`sync-cat-${type}-${cat.id}`" type="checkbox" :checked="syncSelection[type].has(cat.id)" @change="syncSetCategory(type, cat.id, $event.target.checked)" />
+                          <label :for="`sync-cat-${type}-${cat.id}`">
+                            {{ cat.name || t('xtreamWizard.unnamedCategory', { id: cat.id }) }}
+                            <span v-if="cat.isNew" class="sync-new-badge">{{ t('updateView.newBadge') }}</span>
+                          </label>
+                        </li>
+                      </ul>
+                      <p v-else class="empty-categories">{{ syncSearches[type].trim() ? t('common.noResults') : t('xtreamWizard.noCategories') }}</p>
+                    </div>
+                  </fieldset>
+
+                  <p v-if="!syncCanRun" class="selection-warning" role="alert">{{ t('updateView.selectOne') }}</p>
+
+                  <div class="sync-select-actions">
+                    <button class="btn btn-secondary" type="button" :disabled="syncing" @click="cancelSyncSelection">{{ t('common.cancel') }}</button>
+                    <button class="btn btn-primary" type="button" :disabled="syncing || !syncCanRun" @click="doSync">
+                      <span v-if="syncing" class="spinner" style="width:14px;height:14px"></span>
+                      {{ syncing ? t('xtream.updating') : t('updateView.startUpdate') }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Sync raporu -->
+                <div v-if="syncResult" class="sync-report">
+                  <h4 class="sync-report-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    {{ t('updateView.reportTitle') }}
+                  </h4>
+                  <div class="sync-report-stats">
+                    <span class="badge badge-success">{{ t('updateView.addedCount', { count: syncResult.added }) }}</span>
+                    <span class="badge badge-accent">{{ t('updateView.updatedCount', { count: syncResult.updated }) }}</span>
+                    <span v-if="syncResult.removed" class="badge badge-danger">{{ t('updateView.removedCount', { count: syncResult.removed }) }}</span>
+                  </div>
+
+                  <div class="sync-report-section">
+                    <h5>{{ t('updateView.addedCategories', { count: (syncResult.addedCategories || []).length }) }}</h5>
+                    <div v-if="(syncResult.addedCategories || []).length" class="sync-report-tags">
+                      <span v-for="name in syncResult.addedCategories" :key="name" class="sync-report-tag">{{ name }}</span>
+                    </div>
+                    <p v-else class="sync-report-empty">{{ t('updateView.noAddedCategories') }}</p>
+                  </div>
+
+                  <div class="sync-report-section">
+                    <h5>{{ t('updateView.newChannels', { count: syncResult.added }) }}</h5>
+                    <ul v-if="(syncResult.addedChannelNames || []).length" class="sync-report-channels">
+                      <li v-for="name in syncResult.addedChannelNames" :key="name">{{ name }}</li>
+                      <li v-if="syncResult.added > syncResult.addedChannelNames.length" class="sync-report-more">{{ t('updateView.andMore', { count: syncResult.added - syncResult.addedChannelNames.length }) }}</li>
+                    </ul>
+                    <p v-else class="sync-report-empty">{{ t('updateView.noNewChannels') }}</p>
+                  </div>
+
+                  <button class="btn btn-ghost btn-sm" type="button" @click="syncResult = null">{{ t('common.close') }}</button>
                 </div>
 
                 <!-- Add Stream Types Section -->
@@ -696,7 +778,7 @@
                     </div>
                   </div>
                 </div>
-                <div class="form-row">
+                <div class="form-row" v-if="activeStreamType === 'live'">
                   <div class="form-group epg-ac-wrap" style="flex:1">
                     <label for="channel-epg-id">{{ t('editPanel.epgId') }}</label>
                     <input id="channel-epg-id" class="input" v-model="editForm.epg_channel_id" :placeholder="t('common.optional')" @input="onEpgIdInput" @focus="onEpgIdFocus" @blur="onEpgIdBlur" autocomplete="off" />
@@ -740,8 +822,8 @@
                   </select>
                 </div>
               </div>
-              <!-- EPG Section -->
-              <div v-if="editingChannel.epg_channel_id && getCurrentAndNext().length" class="ep-epg-section">
+              <!-- EPG Section (yalnizca canli TV; film/dizide yayin akisi olmaz) -->
+              <div v-if="activeStreamType === 'live' && editingChannel.epg_channel_id && getCurrentAndNext().length" class="ep-epg-section">
                 <div class="ep-epg-header">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   <span>{{ t('editPanel.broadcast') }}</span>
@@ -858,7 +940,7 @@
       @close="showBulkUpdate = false"
     />
     <SharePlaylistModal v-if="showShare" :playlist-id="playlistId" @close="showShare = false" />
-    <XtreamOutputModal v-if="showXtreamOutput" :playlist-id="playlistId" @close="showXtreamOutput = false" />
+    <XtreamOutputModal v-if="showXtreamOutput" :playlist-id="playlistId" :hidden-count="categories.filter(c => c.is_hidden).length" @close="showXtreamOutput = false" />
     <XtreamImportWizard
       v-if="showXtreamModal"
       :playlist-id="playlistId"
@@ -1056,6 +1138,12 @@ const savedXtreamTypes = ref(['live'])
 const syncing = ref(false)
 const addingTypes = ref(false)
 const addTypesResult = ref(null)
+// Guncelleme oncesi kategori secimi
+const syncPreviewLoading = ref(false)
+const syncPreview = ref(null)
+const syncSelection = reactive({ live: new Set(), series: new Set(), vod: new Set() })
+const syncSearches = reactive({ live: '', series: '', vod: '' })
+const syncResult = ref(null)
 
 // EPG
 const epgSources = ref([])
@@ -1078,6 +1166,10 @@ const epgTab = ref('guide')
 const guideDate = ref(todayStr())
 const guideChannels = ref([])
 const guideLoading = ref(false)
+const guidePage = ref(1)
+const guideTotal = ref(0)
+const guideLoadingMore = ref(false)
+const GUIDE_PAGE_SIZE = 100
 const hourWidth = 240
 const guideTrackWidth = 24 * hourWidth
 const epgGridRef = ref(null)
@@ -1087,6 +1179,7 @@ const epgGridBodyRef = ref(null)
 const selectedProgram = ref(null)
 const selectedProgramChannel = ref(null)
 const nowOffset = ref(0)
+const nowMs = ref(Date.now())
 
 function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 const isGuideToday = computed(() => guideDate.value === todayStr())
@@ -1271,10 +1364,11 @@ function startEditChannel(ch) {
 async function saveChannel() {
   try {
     const { epg_channel_id, epg_source_id, ...channelUpdates } = editForm.value
-    await Promise.all([
-      api.put(`/channels/${editingChannel.value.id}`, channelUpdates),
-      api.put(`/channels/${editingChannel.value.id}/epg`, { epgChannelId: epg_channel_id || null, epgSourceId: epg_source_id || null }),
-    ])
+    const requests = [api.put(`/channels/${editingChannel.value.id}`, channelUpdates)]
+    if (activeStreamType.value === 'live') {
+      requests.push(api.put(`/channels/${editingChannel.value.id}/epg`, { epgChannelId: epg_channel_id || null, epgSourceId: epg_source_id || null }))
+    }
+    await Promise.all(requests)
     toast(t('toast.channelUpdated'), 'success'); editingChannel.value = null
     loadChannels(); loadCategories(); loadTotalCount()
     for (const catId of openAccordions.value) loadAccChannels(catId)
@@ -1490,10 +1584,72 @@ async function handleXtreamImported(data) {
   loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
   for (const catId of openAccordions.value) loadAccChannels(catId)
 }
-async function doSync() {
-  syncing.value = true
+async function startSyncPreview() {
+  if (syncPreviewLoading.value || syncing.value) return
+  syncPreviewLoading.value = true
+  syncResult.value = null
   try {
-    const { data } = await api.post(`/playlists/${playlistId}/sync`)
+    const { data } = await api.get(`/playlists/${playlistId}/sync/preview`)
+    syncPreview.value = data
+    for (const type of ['live', 'series', 'vod']) {
+      const cats = data.types?.[type]?.categories || []
+      syncSelection[type] = new Set(cats.filter((c) => c.selected).map((c) => c.id))
+      syncSearches[type] = ''
+    }
+  } catch (e) {
+    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+  } finally {
+    syncPreviewLoading.value = false
+  }
+}
+
+function cancelSyncSelection() {
+  if (syncing.value) return
+  syncPreview.value = null
+}
+
+function syncFilteredCategories(type) {
+  const cats = syncPreview.value?.types?.[type]?.categories || []
+  const q = syncSearches[type].trim().toLocaleLowerCase()
+  if (!q) return cats
+  return cats.filter((c) => (c.name || '').toLocaleLowerCase().includes(q))
+}
+
+function syncSetCategory(type, id, checked) {
+  if (checked) syncSelection[type].add(id)
+  else syncSelection[type].delete(id)
+}
+
+function syncSelectVisible(type) {
+  for (const cat of syncFilteredCategories(type)) syncSelection[type].add(cat.id)
+}
+
+function syncDeselectAll(type) {
+  syncSelection[type].clear()
+}
+
+const syncAvailableTypes = computed(() => savedXtreamTypes.value.filter((type) => syncPreview.value?.types?.[type]?.available))
+
+const syncCanRun = computed(() => {
+  if (!syncPreview.value) return false
+  // Tip basina zorunluluk yok: tek tip bile secilebilir, bos birakilan tipler korunur.
+  return syncAvailableTypes.value.reduce((sum, type) => sum + syncSelection[type].size, 0) > 0
+})
+
+async function doSync() {
+  if (syncing.value) return
+  syncing.value = true
+  syncResult.value = null
+  try {
+    const payload = {}
+    if (syncPreview.value) {
+      const categories = {}
+      for (const type of syncAvailableTypes.value) categories[type] = [...syncSelection[type]]
+      payload.categories = categories
+    }
+    const { data } = await api.post(`/playlists/${playlistId}/sync`, payload)
+    syncResult.value = data
+    syncPreview.value = null
     toast(t('toast.syncResult', { added: data.added, updated: data.updated, removed: data.removed }), 'success')
     const plRes = await api.get('/playlists')
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
@@ -1573,12 +1729,32 @@ async function doAutoMatch() {
 }
 async function loadGuide() {
   guideLoading.value = true
+  guidePage.value = 1
+  guideChannels.value = []
+  guideTotal.value = 0
   try {
-    const { data } = await api.get(`/playlists/${playlistId}/epg/guide`, { params: { date: guideDate.value, tzOffset: new Date().getTimezoneOffset() } })
+    const { data } = await api.get(`/playlists/${playlistId}/epg/guide`, { params: { date: guideDate.value, tzOffset: new Date().getTimezoneOffset(), page: 1, limit: GUIDE_PAGE_SIZE } })
     guideChannels.value = data.channels || []
+    guideTotal.value = data.total || 0
     updateNowOffset()
-  } catch { guideChannels.value = [] }
+  } catch { guideChannels.value = []; guideTotal.value = 0 }
   finally { guideLoading.value = false }
+}
+async function loadMoreGuide() {
+  if (guideLoading.value || guideLoadingMore.value) return
+  if (guideChannels.value.length >= guideTotal.value) return
+  guideLoadingMore.value = true
+  try {
+    const nextPage = guidePage.value + 1
+    const { data } = await api.get(`/playlists/${playlistId}/epg/guide`, { params: { date: guideDate.value, tzOffset: new Date().getTimezoneOffset(), page: nextPage, limit: GUIDE_PAGE_SIZE } })
+    if ((data.channels || []).length) {
+      guideChannels.value = [...guideChannels.value, ...data.channels]
+      guidePage.value = nextPage
+    } else {
+      guideTotal.value = guideChannels.value.length
+    }
+  } catch { /* sessiz: bir sonraki scroll'da tekrar dener */ }
+  finally { guideLoadingMore.value = false }
 }
 function changeGuideDate(delta) {
   const d = new Date(guideDate.value + 'T00:00:00')
@@ -1588,6 +1764,7 @@ function changeGuideDate(delta) {
 }
 function updateNowOffset() {
   const now = new Date()
+  nowMs.value = now.getTime()
   const mins = now.getHours() * 60 + now.getMinutes()
   nowOffset.value = (mins / 60) * hourWidth
 }
@@ -1602,17 +1779,28 @@ function getProgramStyle(prog) {
   return { left: left + 'px', width: width + 'px' }
 }
 function isProgramPast(prog) {
-  return new Date(prog.end_time) < new Date()
+  return new Date(prog.end_time).getTime() < nowMs.value
 }
 function onGridScroll() {
   const body = epgGridBodyRef.value
   if (!body) return
   if (epgTimeHeaderRef.value) epgTimeHeaderRef.value.scrollLeft = body.scrollLeft
   if (epgChannelColRef.value) epgChannelColRef.value.scrollTop = body.scrollTop
+  // Sona yaklasinca sonraki kanal sayfasini yukle (buyuk playlistlerde tumunu
+  // tek seferde basmak tarayiciyi kilitler)
+  if (body.scrollTop + body.clientHeight > body.scrollHeight - 400) loadMoreGuide()
 }
 function showProgramDetail(prog, ch) {
   selectedProgram.value = prog
   selectedProgramChannel.value = ch
+  // Guide yanitinda description tasinmiyor (agir); modal acilinca cekilir
+  if (prog.description === undefined) {
+    api.get(`/epg/programs/${prog.id}`)
+      .then(({ data }) => {
+        if (selectedProgram.value?.id === prog.id) selectedProgram.value = { ...selectedProgram.value, description: data.description || '' }
+      })
+      .catch(() => {})
+  }
 }
 async function loadEditChannelEpg() {
   if (!editingChannel.value?.id) { editChannelEpg.value = []; return }
@@ -1620,8 +1808,7 @@ async function loadEditChannelEpg() {
   catch { editChannelEpg.value = [] }
 }
 function isProgramLive(prog) {
-  const now = new Date()
-  return new Date(prog.start_time) <= now && now <= new Date(prog.end_time)
+  return new Date(prog.start_time).getTime() <= nowMs.value && nowMs.value <= new Date(prog.end_time).getTime()
 }
 function getCurrentAndNext() {
   const now = new Date()
@@ -1635,20 +1822,13 @@ function getProgramProgress(prog) { const now = Date.now(); const s = new Date(p
 let _nowTimer = setInterval(updateNowOffset, 60000)
 onUnmounted(() => { if (_nowTimer) clearInterval(_nowTimer) })
 
-async function doExport() {
-  try {
-    const { data } = await api.get(`/playlists/${playlistId}/export`, { responseType: 'blob' })
-    const url = URL.createObjectURL(new Blob([data])); const a = document.createElement('a'); a.href = url; a.download = 'playlist.m3u'; a.click(); URL.revokeObjectURL(url)
-    const hiddenCount = categories.value.filter(cat => cat.is_hidden).length
-    toast(hiddenCount > 0 ? t('toast.m3uDownloadedExcluded') : t('toast.m3uDownloaded'), 'success')
-  } catch { toast(t('toast.downloadError'), 'error') }
-}
 function doShare() {
   showShare.value = true
 }
 // EPG Autocomplete functions
 function onNameInput() {
   clearTimeout(epgAcTimer)
+  if (activeStreamType.value !== 'live') { epgAcResults.value = []; return }
   const q = editForm.value.name
   if (!q || q.trim().length < 2) { epgAcResults.value = []; return }
   epgAcTimer = setTimeout(async () => {
@@ -2068,10 +2248,15 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .epg-grid-track { position: relative; min-height: 100%; }
 .epg-grid-row {
   position: relative; height: 52px; border-bottom: 1px solid var(--border);
+  /* Saat cizgileri: kanal basina 24 DOM dugumu yerine tek arka plan */
+  background-image: repeating-linear-gradient(to right, var(--border) 0, var(--border) 1px, transparent 1px, transparent 240px);
+  /* Ekran disi satirlari render'dan atla (binlerce satirda fark yaratir) */
+  content-visibility: auto; contain-intrinsic-size: 52px;
 }
-.epg-grid-line {
-  position: absolute; top: 0; bottom: 0; width: 1px;
-  background: var(--border); pointer-events: none;
+.epg-loading-more {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px; color: var(--text-muted); font-size: 12px;
+  border-top: 1px solid var(--border);
 }
 
 /* Program blocks */
@@ -2224,7 +2409,62 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .cat-editor-actions { display: flex; gap: 4px; }
 
 /* Update view */
-.update-panel { padding: 16px 20px; }
+.update-panel { padding: 16px 20px; flex: 1; min-height: 0; overflow-y: auto; }
+/* Sync kategori secimi + rapor */
+.sync-select-panel {
+  margin-top: 14px; padding: 16px; border: 1px solid var(--border);
+  border-radius: var(--radius-lg); background: var(--bg-secondary);
+}
+.sync-select-title { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.sync-select-desc { margin: 0 0 14px; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.sync-type-block { margin: 0 0 14px; padding: 0; border: none; }
+.sync-type-block:disabled { opacity: 0.6; }
+.sync-type-legend { margin-bottom: 8px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.search-group { margin-bottom: 12px; }
+.category-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.category-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.selected-counter { color: var(--text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.category-list {
+  max-height: 260px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--bg-primary);
+}
+.category-list:focus-visible { outline: 3px solid var(--accent-soft); border-color: var(--accent); }
+.category-list ul { margin: 0; padding: 4px; list-style: none; }
+.category-row {
+  display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 7px 10px; border-radius: 6px;
+  content-visibility: auto; contain-intrinsic-size: 38px;
+}
+.category-row:hover { background: var(--bg-hover); }
+.category-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); flex-shrink: 0; }
+.category-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.category-row label { flex: 1; display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 13px; line-height: 1.35; cursor: pointer; }
+.empty-categories { margin: 0; padding: 28px 16px; color: var(--text-muted); font-size: 13px; text-align: center; }
+.selection-warning { margin: 10px 0 0; color: #fca5a5; font-size: 12px; }
+.sync-new-badge {
+  flex-shrink: 0; padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
+  background: var(--accent-soft); color: var(--accent-hover); border: 1px solid var(--accent);
+}
+.sync-select-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.sync-report {
+  margin-top: 14px; padding: 16px; border: 1px solid rgba(16,185,129,0.25);
+  border-radius: var(--radius-lg); background: var(--bg-secondary);
+}
+.sync-report-title { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+.sync-report-stats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.sync-report-section { margin-bottom: 14px; }
+.sync-report-section h5 { margin: 0 0 8px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.sync-report-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.sync-report-tag {
+  padding: 3px 10px; border-radius: 999px; font-size: 11px;
+  background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border);
+}
+.sync-report-channels { margin: 0; padding: 0 0 0 18px; color: var(--text-secondary); font-size: 12px; line-height: 1.7; }
+.sync-report-more { color: var(--text-muted); font-style: italic; list-style: none; }
+.sync-report-empty { margin: 0; color: var(--text-muted); font-size: 12px; }
+@media (max-width: 600px) {
+  .category-toolbar { flex-direction: column; align-items: flex-start; }
+  .selected-counter { white-space: normal; }
+}
 /* Smart empty state */
 .empty-smart { display: flex; flex-direction: column; align-items: center; padding: 20px 0; max-width: 420px; margin: 0 auto; }
 .empty-smart-icon { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }

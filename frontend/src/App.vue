@@ -105,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, computed, provide, onMounted, onUnmounted } from 'vue'
+import { ref, computed, provide, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useI18n } from './langs/useI18n'
@@ -136,9 +136,14 @@ onMounted(async () => {
 onUnmounted(() => window.removeEventListener('scroll', handleScroll))
 
 function showToast(message, type = 'info') {
-  const id = Date.now() + Math.random()
-  toasts.value.push({ id, message, type })
-  setTimeout(() => dismissToast(id), 4000)
+  // Toast'a bagli App re-render'i, cagiran component'in state degisikligiyle ayni
+  // flush'a denk gelirse Vue scheduler child update'ini bastiriyor (state degisir
+  // ama DOM guncellenmez). Bir sonraki tick'e erteleyerek cakismayi onle.
+  nextTick(() => {
+    const id = Date.now() + Math.random()
+    toasts.value.push({ id, message, type })
+    setTimeout(() => dismissToast(id), 4000)
+  })
 }
 
 function dismissToast(id) {

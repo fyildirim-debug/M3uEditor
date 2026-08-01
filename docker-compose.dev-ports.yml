@@ -1,0 +1,6 @@
+# dev.sh icin gecici override: db portunu host'a (loopback) acar.
+# docker compose -f docker-compose.yml -f docker-compose.dev-ports.yml up -d db
+services:
+  db:
+    ports:
+      - "127.0.0.1:5432:5432"

@@ -51,10 +51,26 @@ async function removeChannelLogoVariants(channelIds, preserveExtension = null) {
       logger.warn({ err: error, channelId }, 'Invalid channel id skipped during logo cleanup');
     }
   }
+  if (!normalizedIds.length) return;
 
-  const files = [...new Set(normalizedIds)].flatMap((channelId) => LOGO_EXTENSIONS
-    .filter((extension) => extension !== preserved)
-    .map((extension) => ({ channelId, extension })));
+  // 50k+ kanalli playlistlerde her kanal x her uzanti icin kör unlink (yuzbinlerce
+  // syscall) saniyeler surer. Dizini bir kez tara, yalnizca var olan dosyalari sil.
+  let existingFiles;
+  try {
+    existingFiles = new Set(await fs.readdir(config.uploadDir));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    return;
+  }
+
+  const files = [];
+  for (const channelId of new Set(normalizedIds)) {
+    for (const extension of LOGO_EXTENSIONS) {
+      if (extension === preserved) continue;
+      const filename = getChannelLogoFilename(channelId, extension);
+      if (existingFiles.has(filename)) files.push({ channelId, extension });
+    }
+  }
 
   for (let offset = 0; offset < files.length; offset += DELETE_CONCURRENCY) {
     await Promise.all(files.slice(offset, offset + DELETE_CONCURRENCY)

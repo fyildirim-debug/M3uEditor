@@ -1,6 +1,11 @@
 {
-  "version": "1.7.0.0",
+  "version": "1.8.0.0",
   "history": [
+    {
+      "version": "1.8.0.0",
+      "date": "2026-08-01",
+      "summary": "Guncelleme deneyimi: kategori secmeli sync (onceki secimler isaretli, yeni kategoriler rozetli, secilmeyen eklenmez), detayli guncelleme raporu (eklenen kategori/kanal listesi). Xtream cikis sifresi sahibine her zaman gorunur (AES-256-GCM saklama, yeni migration) ve birlesik Kanal Listesini Indir modali. EPG: guide yanitindan description cikarildi (lazy detay), sayfali kanal yukleme + sonsuz kaydirma (55k kanalda donma cozuldu), film/dizide EPG alanlari gizlendi. Toast/App re-render cakismasinda child DOM guncellemesinin bastirilmasi duzeltildi. Playlist silme 55k kanalda 13sn -> 0.1sn (logo temizligi dizin taramali)."
+    },
     {
       "version": "1.7.0.0",
       "date": "2026-07-28",

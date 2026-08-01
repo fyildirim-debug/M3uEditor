@@ -28,3 +28,4 @@ public/logos/
 test-output.txt
 test-result.txt
 .reports/
+.fy/dev.pid

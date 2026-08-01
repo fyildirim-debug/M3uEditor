@@ -1,5 +1,5 @@
 <template>
-  <EditorFeatureModal :title="t('xtream.importTitle')" :close-disabled="previewing || importing" wide @close="requestClose">
+  <EditorFeatureModal :title="t('xtream.importTitle')" :close-disabled="previewing || importing" :close-on-backdrop="false" wide @close="requestClose">
     <div class="wizard" :aria-busy="previewing || importing">
       <div class="step-header">
         <span class="step-count">{{ t('xtreamWizard.stepIndicator', { current: currentStep, total: TOTAL_STEPS }) }}</span>
@@ -195,7 +195,13 @@
     </div>
 
     <template #actions>
-      <button class="btn btn-secondary" type="button" :disabled="previewing || importing" @click="requestClose">
+      <button v-if="previewing" class="btn btn-secondary" type="button" @click="cancelPreview">
+        {{ t('common.cancel') }}
+      </button>
+      <button v-else-if="importing" class="btn btn-secondary" type="button" @click="cancelImport">
+        {{ t('common.cancel') }}
+      </button>
+      <button v-else class="btn btn-secondary" type="button" @click="requestClose">
         {{ t('common.close') }}
       </button>
       <button v-if="currentStep > 1 && !importResult" class="btn btn-secondary" type="button" :disabled="importing" @click="goBack">
@@ -261,6 +267,8 @@ const typeState = reactive({
   vod: createTypeState()
 })
 let importProgressTimer = null
+let previewAbortController = null
+let importAbortController = null
 
 function createTypeState() {
   return { available: false, enabled: false, categories: [], selected: new Set(), error: '' }
@@ -327,6 +335,14 @@ function requestClose() {
   if (!previewing.value && !importing.value) emit('close')
 }
 
+function cancelPreview() {
+  previewAbortController?.abort()
+}
+
+function cancelImport() {
+  importAbortController?.abort()
+}
+
 function normalizeCategories(rawCategories) {
   if (!Array.isArray(rawCategories)) return []
   return rawCategories.map((category) => {
@@ -376,6 +392,7 @@ function requestErrorMessage(error, phase) {
     IMPORT_CAPACITY_REACHED: 'xtreamWizard.capacityReached'
   }
   if (codeMessages[code]) return t(codeMessages[code])
+  if (error.code === 'ECONNABORTED') return t('xtreamWizard.requestTimeout')
   if (phase === 'preview' && error.response?.status === 404) return t('xtreamWizard.previewUnavailable')
   if (phase === 'preview' && !error.response) return t('xtreamWizard.previewNetworkError')
   if (error.response?.status === 409) return t('xtreamWizard.importInProgress')
@@ -387,19 +404,21 @@ async function loadPreview() {
   if (!credentialsValid.value || previewing.value) return
   previewing.value = true
   previewError.value = ''
+  previewAbortController = new AbortController()
   try {
     const { data } = await api.post('/import/xtream/preview', {
       serverUrl: form.serverUrl.trim(),
       username: form.username.trim(),
       password: form.password
-    })
+    }, { timeout: 150000, signal: previewAbortController.signal })
     applyPreview(data)
     currentStep.value = 2
     focusStepHeading()
   } catch (error) {
-    previewError.value = requestErrorMessage(error, 'preview')
+    if (error.code !== 'ERR_CANCELED') previewError.value = requestErrorMessage(error, 'preview')
   } finally {
     previewing.value = false
+    previewAbortController = null
   }
 }
 
@@ -479,6 +498,7 @@ async function runImport() {
   importing.value = true
   importResult.value = null
   importError.value = ''
+  importAbortController = new AbortController()
   startImportProgress(streamTypes)
   try {
     const { data } = await api.post(endpoint, {
@@ -488,7 +508,7 @@ async function runImport() {
       playlistName: '',
       streamTypes,
       categories
-    })
+    }, { timeout: 150000, signal: importAbortController.signal })
     clearImportProgress()
     importProgress.value = 100
     importStageKey.value = 'xtream.stageFinalizing'
@@ -496,13 +516,18 @@ async function runImport() {
     emit('imported', data)
   } catch (error) {
     clearImportProgress()
-    importError.value = requestErrorMessage(error, 'import')
+    if (error.code !== 'ERR_CANCELED') importError.value = requestErrorMessage(error, 'import')
   } finally {
     importing.value = false
+    importAbortController = null
   }
 }
 
-onBeforeUnmount(clearImportProgress)
+onBeforeUnmount(() => {
+  clearImportProgress()
+  previewAbortController?.abort()
+  importAbortController?.abort()
+})
 </script>
 
 <style scoped>

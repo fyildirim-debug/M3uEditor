@@ -49,9 +49,8 @@
     "categoryEditor": "Category Editor",
     "update": "Update",
     "dashboard": "Dashboard",
-    "downloadM3u": "Download M3U",
+    "downloadM3u": "Download Channel List",
     "share": "Share",
-    "xtreamCredentials": "Xtream Codes credentials",
     "admin": "Admin"
   },
   "status": {
@@ -117,6 +116,7 @@
     "namePlaceholder": "e.g. Main List, Sports Channels...",
     "nameLabel": "Playlist Name",
     "deleteConfirm": "Are you sure you want to permanently delete this playlist and all its channels?",
+    "deleting": "Deleting...",
     "channelCount": "{count} channels"
   },
   "xtream": {
@@ -187,7 +187,8 @@
     "previewUnavailable": "Category preview is not available yet. Please try again later.",
     "previewNetworkError": "The category preview could not be reached. Check your connection and try again.",
     "previewError": "Categories could not be loaded from this provider. Check the details and try again.",
-    "importError": "The Xtream import could not be completed. Please try again."
+    "importError": "The Xtream import could not be completed. Please try again.",
+    "requestTimeout": "The server did not respond in time. The operation may not have completed in the background; check your connection and try again."
   },
   "editor": {
     "allChannels": "All Channels",
@@ -235,6 +236,7 @@
     "sourcesTab": "Sources",
     "autoMatch": "Auto Match",
     "loadingGuide": "Loading program guide...",
+    "loadedCount": "{loaded} / {total} channels loaded",
     "noData": "No EPG data found",
     "emptyHint": "First add an EPG source from the \"Sources\" tab, then match channels with \"Auto Match\".",
     "rowEmpty": "No data",
@@ -263,7 +265,22 @@
   "updateView": {
     "title": "Update",
     "subtitle": "Re-fetch channels from Xtream Codes source",
-    "totalChannels": "Total Channels"
+    "totalChannels": "Total Channels",
+    "loadingCategories": "Loading categories...",
+    "selectTitle": "Select categories to update",
+    "selectDesc": "Your previous selections come pre-checked. Categories new on the provider are marked with a \"New\" badge. Unselected categories are not added.",
+    "newBadge": "New",
+    "startUpdate": "Start Update",
+    "selectOne": "Select at least one category to update.",
+    "reportTitle": "Update Report",
+    "addedCount": "{count} channels added",
+    "updatedCount": "{count} channels updated",
+    "removedCount": "{count} channels removed",
+    "addedCategories": "Added categories ({count})",
+    "noAddedCategories": "No new categories added",
+    "newChannels": "New channels ({count})",
+    "noNewChannels": "No new channels added",
+    "andMore": "+{count} more channels"
   },
   "share": {
     "title": "Share Link",
@@ -280,7 +297,9 @@
     "createLink": "Create share link"
   },
   "xtreamOutput": {
-    "title": "Xtream Codes credentials",
+    "m3uSection": "Channel List (M3U)",
+    "m3uSectionDesc": "Download your edited channel list as an M3U file. Xtream Codes credentials are below.",
+    "xtreamSection": "Xtream Codes",
     "disabledDescription": "Enable access to add this edited playlist to a player using Xtream Codes credentials.",
     "enable": "Enable",
     "enabling": "Enabling...",
@@ -289,8 +308,7 @@
     "serverUrl": "Server address",
     "username": "Username",
     "password": "Password",
-    "passwordOneTime": "This password is shown only once. Copy it before closing this window.",
-    "passwordUnavailable": "The password is shown only when it is created. Regenerate it to get a new password.",
+    "passwordUnavailable": "This record was created before password visibility was added. Regenerate once to view the password.",
     "regenerate": "Regenerate password",
     "regenerating": "Regenerating...",
     "regenerateTitle": "Regenerate password?",

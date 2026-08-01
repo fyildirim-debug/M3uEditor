@@ -85,11 +85,15 @@ async function refreshSource(req, res, next) {
 }
 
 async function getGuide(req, res, next) {
-  try { res.json(await epgService.getGuide(req.userId, req.params.id, req.query.date, req.query.tzOffset)); } catch (error) { next(error); }
+  try { res.json(await epgService.getGuide(req.userId, req.params.id, req.query.date, req.query.tzOffset, req.query.page, req.query.limit)); } catch (error) { next(error); }
 }
 
 async function searchEpgChannels(req, res, next) {
   try { res.json(await epgService.searchEpgChannels(req.userId, req.query.q, req.query.limit)); } catch (error) { next(error); }
 }
 
-module.exports = { addSource, listSources, autoMatch, getPreview, assignEpg, deleteSource, refreshSource, getGuide, searchEpgChannels };
+async function getProgram(req, res, next) {
+  try { res.json(await epgService.getProgram(req.userId, req.params.id)); } catch (error) { next(error); }
+}
+
+module.exports = { addSource, listSources, autoMatch, getPreview, assignEpg, deleteSource, refreshSource, getGuide, searchEpgChannels, getProgram };

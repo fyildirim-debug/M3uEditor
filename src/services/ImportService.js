@@ -189,7 +189,7 @@ class ImportService {
       });
 
       throwIfCancelled(jobContext);
-      const categoryMap = await this._upsertCategories(playlist.id, categories, trx, jobContext);
+      const { map: categoryMap, addedNames: addedCategories } = await this._upsertCategories(playlist.id, categories, trx, jobContext);
       // Yalnızca eksiksiz çekilebilen türler uzlaştırılır. Kategori filtresi
       // varsa seçilmeyen ve kategorisiz kayıtlar karşılaştırmaya hiç girmez.
       const existing = completedTypes.length
@@ -218,11 +218,17 @@ class ImportService {
       await trx('playlists').where({ id: playlist.id }).update(playlistUpdate);
 
       const added = records.filter((record) => !existingKeys.has(`${record.stream_type}:${record.source_id}`)).length;
+      const addedChannelNames = records
+        .filter((record) => !existingKeys.has(`${record.stream_type}:${record.source_id}`))
+        .slice(0, 20)
+        .map((record) => record.name);
       return {
         playlistId: playlist.id,
         totalChannels: records.length,
         totalCategories: categories.length,
         added,
+        addedCategories,
+        addedChannelNames,
         updated: records.length - added,
         removed,
         syncedTypes: completedTypes,
@@ -242,7 +248,7 @@ class ImportService {
     return { ...result, duration: Date.now() - startedAt };
   }
 
-  async syncFromXtream(userId, playlistId, onProgress, jobContext) {
+  async syncFromXtream(userId, playlistId, onProgress, jobContext, options = {}) {
     throwIfCancelled(jobContext);
     const playlist = await db('playlists').where({ id: playlistId, user_id: userId }).first();
     throwIfCancelled(jobContext);
@@ -256,7 +262,44 @@ class ImportService {
       username: playlist.xtream_username,
       password,
       streamTypes: this._parseStoredTypes(playlist.xtream_stream_types),
+      categories: options.categories,
     }, onProgress, playlistId, jobContext);
+  }
+
+  /**
+   * Guncelleme oncesi kategori secimi icin saglayici kategorilerini ceker.
+   * Her kategori, yerelde ayni adli kategori varsa 'selected' (onceki secim),
+   * yoksa 'isNew' (saglayiciya yeni gelmis) olarak isaretlenir. Eslesme,
+   * _upsertCategories ile ayni sekilde ad uzerinden yapilir.
+   */
+  async previewSync(userId, playlistId) {
+    const playlist = await db('playlists').where({ id: playlistId, user_id: userId }).first();
+    if (!playlist) throw createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı');
+    if (!playlist.xtream_server_url || !playlist.xtream_username || !playlist.xtream_password_enc) {
+      throw createAppError('VALIDATION_ERROR', 'Bu oynatma listesinde Xtream kaynağı yok');
+    }
+    const password = decrypt(playlist.xtream_password_enc);
+    const client = new XtreamClient(playlist.xtream_server_url, playlist.xtream_username, password);
+    const preview = await client.preview();
+
+    const localNames = new Set(
+      (await db('categories').where({ playlist_id: playlistId }).select('name')).map((row) => row.name)
+    );
+    // Import vod/series kategorilerini canli ile cakismamasi icin on ekli kaydeder
+    // ("VOD | X", "Series | X"); eslesme on ekli ve on eksiz adla yapilir.
+    const PREFIX_BY_TYPE = { vod: 'VOD | ', series: 'Series | ' };
+    for (const [type, typeData] of Object.entries(preview.types)) {
+      const prefix = PREFIX_BY_TYPE[type] || '';
+      typeData.categories = typeData.categories.map((category) => {
+        const exists = localNames.has(category.name) || localNames.has(prefix + category.name);
+        return {
+          ...category,
+          selected: exists,
+          isNew: !exists,
+        };
+      });
+    }
+    return preview;
   }
 
   async addStreamTypes(userId, playlistId, newTypes, jobContext) {
@@ -287,7 +330,7 @@ class ImportService {
 
     const added = await db.transaction(async (trx) => {
       throwIfCancelled(jobContext);
-      const categoryMap = await this._upsertCategories(playlist.id, categories, trx, jobContext);
+      const categoryMap = (await this._upsertCategories(playlist.id, categories, trx, jobContext)).map;
       const maxSort = await trx('channels').where({ playlist_id: playlistId }).max('sort_order as max').first();
       const records = channels.map((channel, index) => this._recordForChannel(playlist.id, channel, categoryMap, client, (maxSort?.max ?? -1) + 1 + index));
       const existing = completedTypes.length
@@ -392,7 +435,8 @@ class ImportService {
     for (const category of normalized) {
       categoryMap[category.remoteId] = rowsByName.get(category.name).id;
     }
-    return categoryMap;
+    // Senkron raporu icin: bu calistirmada gercekten yeni eklenen kategori adlari
+    return { map: categoryMap, addedNames: rowsToInsert.map((row) => row.name) };
   }
 
   async _bulkUpsertChannels(playlistId, channelRecords, onProgress, connection = db, jobContext) {
@@ -441,12 +485,12 @@ class ImportService {
       if (!playlist) throw createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı');
 
       const groups = [...new Set(channels.map((channel) => channel.group).filter(Boolean))];
-      const categoryMap = await this._upsertCategories(
+      const categoryMap = (await this._upsertCategories(
         playlist.id,
         groups.map((name, index) => ({ category_id: String(index), category_name: name })),
         trx,
         jobContext
-      );
+      )).map;
       const groupIds = Object.fromEntries(groups.map((name, index) => [name, categoryMap[String(index)]]));
       const records = channels.map((channel, index) => ({
         id: uuidv4(), playlist_id: playlist.id, source_id: null,

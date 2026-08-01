@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const db = require('../config/database');
-const { hashToken } = require('../utils/crypto');
+const { hashToken, encrypt, decrypt } = require('../utils/crypto');
 const { createAppError } = require('../utils/AppError');
 const exportService = require('./ExportService');
 const xmltvExportService = require('./XMLTVExportService');
@@ -119,10 +119,14 @@ class XtreamOutputService {
 
   async getConfiguration(userId, playlistId) {
     const playlist = await this._ownedPlaylist(userId, playlistId);
+    // Sifre kullaniciya acik gosterilir; yalnizca enc kolonu olmayan eski
+    // kayitlarda null doner (bir kez sifirlayinca dolar).
+    const password = playlist.output_password_enc ? decrypt(playlist.output_password_enc) : null;
     return {
       enabled: Boolean(playlist.output_enabled),
       username: playlist.output_username || null,
-      ...this._urls(playlist.output_username || null),
+      password,
+      ...this._urls(playlist.output_username || null, password ?? undefined),
       createdAt: playlist.output_created_at || null,
     };
   }
@@ -142,6 +146,7 @@ class XtreamOutputService {
           .update({
             output_username: username,
             output_password_hash: hashToken(password),
+            output_password_enc: encrypt(password),
             output_enabled: true,
             output_created_at: db.fn.now(),
             updated_at: db.fn.now(),

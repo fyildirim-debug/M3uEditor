@@ -3,6 +3,63 @@
 All notable changes to this project are documented here. Dates are ISO-8601.
 Versions follow the four-part scheme recorded in `.fy/version.json`.
 
+## [1.8.0.0] — 2026-08-01
+
+Sync experience release. The update flow now mirrors the import wizard —
+category selection with previous choices remembered and provider-new categories
+badged — and ends with a detailed report. Xtream output credentials are now
+visible to their owner at all times. Large-playlist EPG no longer freezes the
+browser.
+
+### Added
+
+- **Category-selective sync.** `POST /api/playlists/:id/sync` accepts an optional
+  `categories` selection, and `GET /api/playlists/:id/sync/preview` returns
+  provider categories with `selected` (kept from previous choices, matching the
+  importer's `VOD |`/`Series |` prefixed storage) and `isNew` flags. Previously
+  sync silently imported every provider category, including ones the user had
+  deliberately excluded at import time. The editor's Update view shows the
+  selection panel and a report listing added categories and newly added channel
+  names. Per-type selection is optional; unselected types are left untouched.
+- **Xtream output password is always visible to its owner.** The password is now
+  also stored AES-256-GCM encrypted (migration `20240101000021_add_output_password_enc`)
+  alongside the existing hash used for player authentication, so
+  `GET /api/playlists/:id/xtream-output` returns it and embeds it in the player
+  URLs. Regeneration still invalidates the old password immediately. The editor
+  combines M3U download and Xtream credentials into a single "Kanal Listesini
+  İndir" modal.
+- **EPG guide pagination.** `GET /api/playlists/:id/epg/guide` accepts
+  `page`/`limit` (default 100) and returns `total`; the editor loads channels
+  incrementally with infinite scroll and a loaded-count indicator. Guide rows no
+  longer include program descriptions (up to 50 KB each) — they are fetched
+  lazily via the new `GET /api/epg/programs/:id` when a program is opened. Grid
+  hour lines moved from 24 DOM nodes per channel to a single CSS background,
+  and off-screen rows skip rendering via `content-visibility`.
+
+### Fixed
+
+- **Child component DOM updates were suppressed when a toast fired in the same
+  flush** (state changed, UI stayed stale — e.g. the playlist edit modal not
+  closing after Save). `showToast` is now deferred to `nextTick` in `App.vue`.
+- **Deleting a large playlist took ~13 s with no feedback** because logo cleanup
+  issued a blind `unlink` for every channel × extension (222k syscalls at 55k
+  channels). Cleanup now scans the upload directory once and only unlinks files
+  that exist (~0.06 s), and the delete button shows a spinner and guards against
+  double clicks.
+- **EPG controls leaked into VOD/Series editing** (EPG id input, broadcast
+  section, name autocomplete) — now limited to live TV.
+- The Update view had no page scroll; category lists and action buttons below
+  the fold were unreachable.
+- The Xtream import wizard could trap the user with no way out: it now has a
+  Cancel button with `AbortController`, a 150 s request timeout, and no longer
+  closes on backdrop click (matching its multi-step, form-heavy nature).
+
+### Changed
+
+- `dev.sh` now includes `docker-compose.dev-ports.yml` when present so the
+  development database port is published to loopback (the production compose
+  file intentionally exposes none).
+
 ## [1.7.0.0] — 2026-07-28
 
 Hardening release. The focus is data integrity, authentication strength, and

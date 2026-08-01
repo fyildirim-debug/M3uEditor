@@ -1,5 +1,15 @@
 <template>
-  <EditorFeatureModal :title="t('xtreamOutput.title')" wide @close="$emit('close')">
+  <EditorFeatureModal :title="t('nav.downloadM3u')" wide @close="$emit('close')">
+    <!-- M3U bolumu: her zaman gorunur, Xtream baglantisi gerektirmez -->
+    <section class="m3u-section">
+      <h4 class="section-title">{{ t('xtreamOutput.m3uSection') }}</h4>
+      <p class="feature-description">{{ t('xtreamOutput.m3uSectionDesc') }}</p>
+      <button class="btn btn-primary" type="button" :disabled="downloadingM3u" @click="downloadM3u">
+        <span v-if="downloadingM3u" class="spinner spinner-sm"></span>
+        {{ downloadingM3u ? t('common.loading') : t('nav.downloadM3u') }}
+      </button>
+    </section>
+
     <div v-if="loading" class="state-panel" role="status" aria-live="polite">
       <span class="spinner"></span>
       <span>{{ t('common.loading') }}</span>
@@ -13,6 +23,7 @@
     </div>
 
     <template v-else-if="!output.enabled">
+      <h4 class="section-title">{{ t('xtreamOutput.xtreamSection') }}</h4>
       <p class="feature-description">{{ t('xtreamOutput.disabledDescription') }}</p>
       <div class="empty-state">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -27,6 +38,7 @@
     </template>
 
     <template v-else>
+      <h4 class="section-title">{{ t('xtreamOutput.xtreamSection') }}</h4>
       <div class="status-row">
         <span class="status-dot" aria-hidden="true"></span>
         <span>{{ t('xtreamOutput.active') }}</span>
@@ -64,7 +76,6 @@
                 {{ t('common.copy') }}
               </button>
             </div>
-            <span class="field-hint field-hint-important">{{ t('xtreamOutput.passwordOneTime') }}</span>
             <button class="btn btn-ghost btn-sm regenerate-button" type="button" :disabled="isBusy" @click="confirmation = 'regenerate'">
               {{ t('xtreamOutput.regenerate') }}
             </button>
@@ -160,7 +171,10 @@ import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import EditorFeatureModal from './EditorFeatureModal.vue'
 
-const props = defineProps({ playlistId: { type: String, required: true } })
+const props = defineProps({
+  playlistId: { type: String, required: true },
+  hiddenCount: { type: Number, default: 0 }
+})
 defineEmits(['close'])
 
 const toast = inject('toast')
@@ -174,7 +188,27 @@ const action = ref('')
 const confirmation = ref('')
 const manualCopyValue = ref('')
 const manualCopyInput = ref(null)
+const downloadingM3u = ref(false)
 const isBusy = computed(() => Boolean(action.value))
+
+async function downloadM3u() {
+  if (downloadingM3u.value) return
+  downloadingM3u.value = true
+  try {
+    const { data } = await api.get(`/playlists/${props.playlistId}/export`, { responseType: 'blob' })
+    const url = URL.createObjectURL(new Blob([data]))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'playlist.m3u'
+    a.click()
+    URL.revokeObjectURL(url)
+    toast(props.hiddenCount > 0 ? t('toast.m3uDownloadedExcluded') : t('toast.m3uDownloaded'), 'success')
+  } catch (error) {
+    toast(error.response?.data?.error?.message || t('toast.downloadError'), 'error')
+  } finally {
+    downloadingM3u.value = false
+  }
+}
 
 function createEmptyOutput() {
   return {
@@ -275,6 +309,9 @@ onMounted(loadOutput)
 
 <style scoped>
 .feature-description { margin: 0 0 16px; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.section-title { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+.m3u-section { margin-bottom: 20px; padding-bottom: 18px; border-bottom: 1px solid var(--border); }
+.m3u-section .feature-description { margin-bottom: 10px; }
 .state-panel, .empty-state { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 140px; color: var(--text-muted); font-size: 13px; }
 .state-panel-error { flex-direction: column; padding: 18px; color: var(--danger); text-align: center; }
 .state-panel-error p { margin: 0; }

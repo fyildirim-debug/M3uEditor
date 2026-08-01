@@ -23,6 +23,9 @@ router.post('/playlists/:id/import/xtream', authMiddleware, importController.imp
 // Xtream Codes import - playlistId olmadan (yeni playlist oluşturur veya mevcut olanı bulur)
 router.post('/import/xtream', authMiddleware, importController.importFromXtreamNew);
 
+// Guncelleme oncesi kategori secimi: kayitli kimlikle saglayici kategorileri
+router.get('/playlists/:id/sync/preview', authMiddleware, xtreamPreviewLimiter, importController.syncPreview);
+
 // Mevcut Xtream kaynağından senkronize et
 router.post('/playlists/:id/sync', authMiddleware, importController.syncPlaylist);
 

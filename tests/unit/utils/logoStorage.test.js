@@ -57,6 +57,8 @@ describe('logoStorage', () => {
   });
 
   test('logs unlink failures without rejecting the caller', async () => {
+    // Dosya gercekten var ki readdir taramasi onu bulup unlink'e yönlendirsin
+    await fs.writeFile(path.join(uploadDir, `${CHANNEL_ID}.png`), 'logo');
     const unlinkSpy = jest.spyOn(fs, 'unlink').mockRejectedValueOnce(Object.assign(new Error('denied'), { code: 'EACCES' }));
     const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
 
