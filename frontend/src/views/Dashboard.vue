@@ -351,7 +351,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, inject, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, inject, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
@@ -416,7 +416,12 @@ function getRelativeTime(dateStr) {
 // Xtream import state
 const showXtreamModal = ref(false)
 
-onMounted(loadPlaylists)
+onMounted(() => {
+  loadPlaylists()
+  // Asistan liste olusturdugunda/sildiginde panoyu tazele.
+  window.addEventListener('ai:data-changed', loadPlaylists)
+})
+onUnmounted(() => window.removeEventListener('ai:data-changed', loadPlaylists))
 
 async function loadPlaylists() {
   loading.value = true

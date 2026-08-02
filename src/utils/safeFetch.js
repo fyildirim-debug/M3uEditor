@@ -11,6 +11,8 @@ const { createAppError } = require('./AppError');
 const REDIRECT_CODES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 5;
 const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
+// captureErrorBody istendiginde hata govdesinden okunacak azami bayt.
+const ERROR_BODY_LIMIT = 16 * 1024;
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 function normalizeIp(address) {
@@ -271,10 +273,36 @@ async function requestRemote(input, options, redirectCount, budget, mode) {
       }
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        response.destroy();
         const httpError = createAppError('XTREAM_CONNECTION_FAILED', `Uzak sunucu HTTP ${response.statusCode} döndürdü`);
         httpError.remoteStatus = response.statusCode;
-        fail(httpError);
+        if (!options.captureErrorBody) {
+          response.destroy();
+          fail(httpError);
+          return;
+        }
+
+        // API gecitleri hatanin gerekcesini govdede dondurur ("model does not
+        // support tools" gibi). Yalnizca istenildiginde ve kisa bir sinirla
+        // okunur; buyuk hata sayfalari bellege alinmaz.
+        const errorStream = decompressedStream(response);
+        const chunks = [];
+        let captured = 0;
+        let done = false;
+        const finishWithBody = () => {
+          if (done) return;
+          done = true;
+          httpError.remoteBody = Buffer.concat(chunks).toString('utf8');
+          fail(httpError);
+        };
+        errorStream.on('data', (chunk) => {
+          const room = ERROR_BODY_LIMIT - captured;
+          if (room <= 0) { errorStream.destroy(); finishWithBody(); return; }
+          chunks.push(chunk.length > room ? chunk.subarray(0, room) : chunk);
+          captured += Math.min(chunk.length, room);
+        });
+        errorStream.once('end', finishWithBody);
+        errorStream.once('close', finishWithBody);
+        errorStream.once('error', finishWithBody);
         return;
       }
 
@@ -319,7 +347,9 @@ async function requestRemote(input, options, redirectCount, budget, mode) {
     });
     request.on('error', fail);
     try {
-      request.end();
+      // Gövde yalnızca POST/PUT gibi metotlarda gönderilir; GET çağrıları
+      // options.body vermediği için davranış değişmez.
+      request.end(options.body);
     } catch (error) {
       fail(error);
     }

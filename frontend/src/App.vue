@@ -88,6 +88,8 @@
 
     <router-view />
 
+    <AiAssistant v-if="auth.isLoggedIn" />
+
     <Teleport to="body">
       <TransitionGroup name="toast" tag="div" class="toast-container" aria-live="assertive" aria-atomic="true">
         <div
@@ -116,6 +118,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useI18n } from './langs/useI18n'
 import { useTheme } from './composables/useTheme'
+import AiAssistant from './components/AiAssistant.vue'
 
 const auth = useAuthStore()
 const router = useRouter()

@@ -1742,9 +1742,23 @@ function onGlobalKeydown(e) {
   }
 }
 
-onMounted(() => window.addEventListener('keydown', onGlobalKeydown))
+// Asistan veri degistirdiginde acik ekran kendini tazeler; kullanici F5'e
+// basmak zorunda kalmasin.
+async function refreshAfterAiChange() {
+  try {
+    const { data } = await api.get(`/playlists/${playlistId}/categories`, { params: { streamType: activeStreamType.value } })
+    categories.value = data
+  } catch { /* kategori tazeleme kritik degil */ }
+  await Promise.all([loadChannels(), loadTotalCount(), loadStreamTypeCounts()])
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onGlobalKeydown)
+  window.addEventListener('ai:data-changed', refreshAfterAiChange)
+})
 onUnmounted(() => {
   window.removeEventListener('keydown', onGlobalKeydown)
+  window.removeEventListener('ai:data-changed', refreshAfterAiChange)
   clearTimeout(goPrefixTimer)
 })
 

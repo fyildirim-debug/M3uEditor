@@ -1,6 +1,11 @@
 {
-  "version": "1.9.0.0",
+  "version": "1.10.0.0",
   "history": [
+    {
+      "version": "1.10.0.0",
+      "date": "2026-08-02",
+      "summary": "Yapay zeka surumu: kullanicinin kendi OpenAI uyumlu saglayicisiyla (base URL + API key + saglayicidan cekilen model listesi) calisan, uygulamanin tamamini 162 sunucu tarafi araciyla yoneten sohbet asistani. Playlist/kategori/kanal CRUD, kopyalama, birlestirme ve karsilastirma; ad temizleme (kalite etiketi, buyuk/kucuk harf, on ek/son ek), akis adresi bul-degistir, mukerrer temizleme, cok olcutlu siralama; EPG kaynaklari, otomatik ve tekil eslestirme, oneri, rehberden logo cekme, iptv-org kutuphanesi; M3U/Xtream import (kategori secmeli), sync, filtre kurallari, saglik taramasi, yedekler, gorunumler, paylasim ve Xtream cikisi. Saglayicilarin istek basina arac sinirini asmamak icin her turda 120 arac + katalog arama (search_capabilities/describe_capability/invoke_capability) gonderilir, boylece hicbir yetenek erisilemez kalmaz. Asistan cevaplari Markdown olarak islenir (govde once kacislanir, HTML enjeksiyonu mumkun degil). Ayar formu hem sohbet panelinde hem hesap ayarlarinda. Yetki kullaniciyla birebir esit: kimlik yalnizca oturumdan gelir, model argumanlarindaki userId/is_admin gibi anahtarlar ayiklanir, katalogda yonetici araci yoktur. API anahtari AES-256-GCM ile sifreli saklanir."
+    },
     {
       "version": "1.9.0.0",
       "date": "2026-08-01",

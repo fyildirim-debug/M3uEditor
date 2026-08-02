@@ -37,6 +37,15 @@
         </div>
       </div>
 
+      <!-- AI Assistant -->
+      <div class="account-section">
+        <h2 class="section-title">{{ t('ai.title') }}</h2>
+        <div class="card account-form">
+          <AiSettingsForm id-prefix="ai-account" />
+          <p class="ai-launcher-hint">{{ t('ai.launcherHint') }}</p>
+        </div>
+      </div>
+
       <!-- Change Password -->
       <div class="account-section">
         <h2 class="section-title">{{ t('account.changePassword') }}</h2>
@@ -130,6 +139,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useI18n } from '../langs/useI18n'
 import { useTheme } from '../composables/useTheme'
+import AiSettingsForm from '../components/AiSettingsForm.vue'
 import api from '../api'
 
 const { t } = useI18n()
@@ -256,6 +266,7 @@ async function handleDeleteAccount() {
 .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
 .form-label { font-size: 0.8rem; color: var(--text-secondary); }
 .form-error { color: var(--danger); font-size: 0.8rem; }
+.ai-launcher-hint { font-size: 0.75rem; color: var(--text-secondary); margin: 0; }
 .theme-options { display: flex; gap: 0.5rem; }
 .theme-btn { padding: 0.5rem 1rem; border-radius: var(--radius); border: 1px solid var(--border-light); background: var(--bg-card); color: var(--text-primary); cursor: pointer; transition: var(--transition); font-size: 0.85rem; }
 .theme-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }

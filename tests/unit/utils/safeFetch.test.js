@@ -45,6 +45,25 @@ beforeAll(async () => {
       res.end();
       return;
     }
+    if (req.url === '/bad-request') {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'model does not support tools' } }));
+      return;
+    }
+    if (req.url === '/bad-request-huge') {
+      res.writeHead(400, { 'content-type': 'text/plain' });
+      res.end('x'.repeat(64 * 1024));
+      return;
+    }
+    if (req.url === '/echo-body') {
+      let received = '';
+      req.on('data', (chunk) => { received += chunk; });
+      req.on('end', () => {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ received }));
+      });
+      return;
+    }
     if (req.url === '/big-body') {
       const body = Buffer.alloc(4096, 0x61);
       res.writeHead(200, { 'content-type': 'text/plain', 'content-length': String(body.length) });
@@ -92,5 +111,35 @@ describe('requestBuffer', () => {
   test('reads a GET response that fits within the byte budget', async () => {
     const response = await requestBuffer(`${baseUrl}/big-body`, { maxBytes: 8192, timeoutMs: 5000 });
     expect(response.buffer).toHaveLength(4096);
+  });
+
+  test('sends a request body on POST', async () => {
+    const payload = JSON.stringify({ hello: 'world' });
+    const response = await requestBuffer(`${baseUrl}/echo-body`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(payload)) },
+      body: payload,
+      timeoutMs: 5000,
+    });
+    expect(JSON.parse(response.buffer.toString()).received).toBe(payload);
+  });
+
+  test('discards the error body unless it is explicitly requested', async () => {
+    const error = await requestBuffer(`${baseUrl}/bad-request`, { timeoutMs: 5000 }).catch((caught) => caught);
+    expect(error.remoteStatus).toBe(400);
+    expect(error.remoteBody).toBeUndefined();
+  });
+
+  test('captures the error body when asked, so the caller can explain the failure', async () => {
+    await expect(requestBuffer(`${baseUrl}/bad-request`, { timeoutMs: 5000, captureErrorBody: true }))
+      .rejects.toMatchObject({
+        remoteStatus: 400,
+        remoteBody: expect.stringContaining('model does not support tools'),
+      });
+  });
+
+  test('caps a captured error body instead of buffering the whole page', async () => {
+    await expect(requestBuffer(`${baseUrl}/bad-request-huge`, { timeoutMs: 5000, captureErrorBody: true }))
+      .rejects.toMatchObject({ remoteStatus: 400, remoteBody: 'x'.repeat(16 * 1024) });
   });
 });
