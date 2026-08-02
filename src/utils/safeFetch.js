@@ -319,7 +319,9 @@ async function requestRemote(input, options, redirectCount, budget, mode) {
     });
     request.on('error', fail);
     try {
-      request.end();
+      // Gövde yalnızca POST/PUT gibi metotlarda gönderilir; GET çağrıları
+      // options.body vermediği için davranış değişmez.
+      request.end(options.body);
     } catch (error) {
       fail(error);
     }

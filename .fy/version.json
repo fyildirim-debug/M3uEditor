@@ -1,6 +1,11 @@
 {
-  "version": "1.9.0.0",
+  "version": "1.10.0.0",
   "history": [
+    {
+      "version": "1.10.0.0",
+      "date": "2026-08-02",
+      "summary": "Yapay zeka surumu: kullanicinin kendi OpenAI uyumlu saglayicisiyla (base URL + API key + saglayicidan cekilen model listesi) calisan, uygulamanin tamamini 55 sunucu tarafi araciyla yoneten sohbet asistani. Playlist/kategori/kanal CRUD ve siralama, toplu yeniden adlandirma (dryRun), filtreli silme, EPG kaynaklari + otomatik eslestirme + rehberden logo cekme, iptv-org kutuphane aramasi, M3U/Xtream import ve sync, paylasim/Xtream cikis, filtre kurallari, saglik taramasi, yedekler, gorunumler ve iki playlisti tekillestirerek birlestirme. Yikici araclar izin anahtariyla kapatilabilir, her arac cagrisi sohbette iz olarak gosterilir; API anahtari AES-256-GCM ile sifreli saklanir ve istemciye asla donmez."
+    },
     {
       "version": "1.9.0.0",
       "date": "2026-08-01",

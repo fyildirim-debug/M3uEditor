@@ -3,6 +3,68 @@
 All notable changes to this project are documented here. Dates are ISO-8601.
 Versions follow the four-part scheme recorded in `.fy/version.json`.
 
+## [1.10.0.0] — 2026-08-02
+
+AI release. The editor gained an assistant that operates the application through
+tool calls instead of describing what the user should click, backed by whichever
+OpenAI-compatible provider the user configures.
+
+### Added
+
+- **AI assistant (55 tools).** `POST /api/ai/chat` runs an OpenAI-style function
+  calling loop server-side: the model requests a tool, the API executes it
+  through the existing service layer under the authenticated user's identity,
+  the result is fed back, and the loop repeats until the model answers or the
+  per-user step limit (1–25, default 12) is reached. Tools cover playlists
+  (list/create/rename/delete/stats), categories (bulk create, rename, hide,
+  delete, delete-empty, sort by name/count/explicit order), channels (list,
+  create, update, bulk update, move, find-and-replace rename with dry run, sort,
+  duplicate detection, filtered deletion), EPG (sources, iptv-org library search,
+  auto-match, tvg-id assignment, coverage), imports (M3U URL, Xtream with
+  preview, sync, schedule, extra sources), exports (M3U preview, share links,
+  Xtream output), filter rules, stream-health scans, backups, and view profiles.
+- **Playlist merging.** `merge_playlists` builds a new playlist from two or more
+  existing ones in a single transaction: categories merge by name, channels are
+  copied in source order with keyset-paginated reads (1000 rows at a time) and
+  deduplicated by stream URL or by name.
+- **Logos from the EPG guide.** `apply_epg_logos` copies `icon_url` from matched
+  guide channels onto the playlist's channels — filling only empty logos by
+  default, overwriting on request — and removes the local logo files the update
+  orphans.
+- **Bring-your-own provider settings.** `GET/PUT /api/ai/settings` stores base
+  URL, model, temperature, step limit, destructive permission, and an optional
+  extra system instruction per user; the API key is encrypted with AES-256-GCM
+  and never returned. `POST /api/ai/models` proxies the provider's `GET /models`
+  (accepting not-yet-saved credentials so the list can be fetched before
+  saving), and `GET /api/ai/capabilities` publishes the tool catalogue.
+- **Conversation history.** New `ai_settings`, `ai_conversations`, and
+  `ai_messages` tables persist chats per user, including tool calls and results,
+  so a conversation continues across turns. History is trimmed to the last 40
+  messages without ever splitting a tool call from its result.
+- **Assistant UI.** A launcher on every authenticated page opens a chat panel
+  with provider settings, model dropdown, capability list, suggestion chips, and
+  a per-message trace of the tools that ran (destructive ones highlighted).
+  Editor and dashboard views refresh themselves when the assistant changes data.
+  Turkish and English strings for the whole feature.
+
+### Security
+
+- Assistant tools call the same services as the HTTP API, so tenant ownership,
+  field validation, and business rules apply unchanged; no tool accepts a raw
+  query or SQL.
+- Data-losing tools are marked `[YIKICI]` in the model-visible catalogue and
+  refuse to run when the user's destructive-actions permission is off.
+- Bulk selections are capped at 5000 channels per call and tool output is
+  truncated to 12 000 characters before returning to the model.
+- Provider requests use the SSRF-safe HTTP client (DNS pre-resolution, private
+  address rejection, redirect revalidation, timeouts, response size caps), and
+  `POST /api/ai/chat` and `/api/ai/models` are rate-limited per user.
+
+### Changed
+
+- `safeFetch` now forwards an optional request body, so the SSRF-safe client can
+  issue the POST requests the provider API needs. GET behaviour is unchanged.
+
 ## [1.9.0.0] — 2026-08-01
 
 Automation release. The editor can now keep playlists fresh on a schedule,

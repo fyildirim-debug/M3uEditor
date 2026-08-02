@@ -17,6 +17,7 @@ finding each change closes.
 
 ## Highlights
 
+- AI assistant that drives the whole application through chat with your own OpenAI-compatible provider
 - Xtream Codes imports for Live TV, VOD, and Series
 - Local or remote M3U import and escaped M3U export
 - XMLTV sources, source-scoped channel matching, and timezone-aware guide views
@@ -207,6 +208,68 @@ In TiviMate, IPTV Smarters, and similar clients, use `APP_URL` as the server add
 
 **Security note:** Playback paths do not proxy the stream; they redirect with `302` to the channel's stored upstream address. That address may contain the upstream provider's username and password by Xtream protocol design. Sharing Xtream output credentials therefore effectively shares the provider account and every stream URL in the edited playlist. Share only with people you trust, and revoke access by disabling the output or regenerating the password.
 
+## AI assistant
+
+Every authenticated page carries a chat launcher in the bottom-right corner. The
+assistant is not a help bot: it operates the application through 55 server-side
+tools, so it can do anything the UI can do — and a few things the UI cannot.
+
+### Bring your own provider
+
+Nothing is hard-coded to a vendor. In the assistant's settings panel you enter:
+
+- **Base URL** — any OpenAI-compatible endpoint (`https://api.openai.com/v1`,
+  OpenRouter, Groq, Together, vLLM, LM Studio, Ollama's `/v1`, …).
+- **API key** — stored AES-256-GCM encrypted with `CREDENTIAL_ENCRYPTION_KEY`,
+  never returned to the browser afterwards (the API only reports whether a key
+  exists).
+- **Model** — press *Fetch models* to call the provider's `GET /models` and pick
+  one from the list; providers without that endpoint accept a typed model id.
+
+Temperature, the maximum number of tool steps per turn (1–25), an optional extra
+system instruction, and a **destructive-actions** switch are configured in the
+same panel. Requests to the provider go through the same SSRF-safe HTTP client
+as every other outbound call, so a base URL pointing at a private address is
+rejected unless `ALLOW_PRIVATE_NETWORK_URLS=true` — which is what a local Ollama
+or LM Studio endpoint needs.
+
+### What it can do
+
+Playlists (create, rename, delete, stats, **merge two or more playlists into a
+new deduplicated one**), categories (create in bulk, rename, hide, delete, drop
+empty ones, sort by name or channel count, or apply an explicit order), channels
+(search, create, edit, bulk-update, move between categories, find-and-replace
+rename with a dry run, sort A–Z / by category / by an explicit order, find
+duplicates, delete by filter), EPG (add/refresh/delete XMLTV sources, search the
+iptv-org guide library, auto-match channels, assign tvg-ids, report coverage, and
+**pull channel logos out of the guide**), import and sync (M3U URL, Xtream with
+preview, scheduled sync settings, extra provider sources), export and sharing
+(M3U preview, share links, Xtream output), filter rules, stream-health scans,
+backups (create, list, restore), and view profiles.
+
+`GET /api/ai/capabilities` returns the full tool list with descriptions; the
+settings panel renders it too.
+
+### Safety rails
+
+- Every tool runs as the authenticated user through the normal service layer, so
+  tenant ownership, validation, and business rules are identical to the UI's.
+  The assistant cannot see or touch another account's data.
+- Tools that lose data are labelled `[YIKICI]` for the model, marked in the chat
+  trace, and gated behind the destructive-actions switch. Turning it off makes
+  deletion, restore, overwrite, and share-revocation tools fail with a message
+  telling the model to ask you first.
+- Selections are bounded (at most 5000 channels per bulk call) and tool output is
+  truncated before it goes back to the model.
+- Every executed tool is shown in the chat as a trace line, so a turn's real
+  effects are visible rather than inferred from prose.
+- Conversations are stored per user in `ai_conversations`/`ai_messages` and can
+  be deleted; `POST /api/ai/chat` is rate-limited per user.
+
+Endpoints: `GET/PUT /api/ai/settings`, `POST /api/ai/models`,
+`GET /api/ai/capabilities`, `POST /api/ai/chat`,
+`GET/DELETE /api/ai/conversations[/:id]`.
+
 ## Verification
 
 ```bash
@@ -256,6 +319,17 @@ tests/                Jest unit and property tests
 ```
 
 ## Latest updates
+
+### v1.10.0.0 — 2026-08-02
+
+- **AI assistant with full application access.** A chat panel on every
+  authenticated page drives 55 server-side tools covering playlists, categories,
+  channels, EPG, imports, exports, filter rules, health scans, backups, and
+  views — including playlist merging and pulling logos out of the EPG guide.
+  Bring your own OpenAI-compatible provider: base URL and API key are yours, the
+  model list is fetched from the provider, and the key is stored encrypted.
+  Destructive tools are gated behind a switch and every executed tool is shown
+  in the chat trace. See [AI assistant](#ai-assistant).
 
 ### v1.8.0.0 — 2026-08-01
 
