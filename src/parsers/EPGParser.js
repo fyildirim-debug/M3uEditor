@@ -3,6 +3,23 @@
  * Parses XMLTV format XML content into EPG channel and program data.
  * Uses regex-based parsing for string input and streaming approach for large files.
  */
+/**
+ * Kok elemandan sonra yorum ve isleme yonergesi gelmesi XML'de gecerlidir
+ * (bazi saglayicilar `</tv>` ardina imza yorumu ekliyor). Kesik icerik
+ * kontrolu bunlari yok saymali, aksi halde saglam bir rehber reddedilir.
+ */
+function trimTrailingMisc(text) {
+  let result = String(text).replace(/\s+$/u, '');
+  for (;;) {
+    const previous = result;
+    result = result
+      .replace(/<!--(?:(?!-->)[\s\S])*-->$/u, '')
+      .replace(/<\?(?:(?!\?>)[\s\S])*\?>$/u, '')
+      .replace(/\s+$/u, '');
+    if (result === previous) return result;
+  }
+}
+
 class EPGParser {
   /**
    * Parse XMLTV date string to JavaScript Date object.
@@ -59,7 +76,7 @@ class EPGParser {
     if (!/<tv[\s>]/i.test(xmlContent)) {
       throw new Error('Geçersiz XMLTV: <tv> kök elemanı bulunamadı');
     }
-    if (!/<\/tv>\s*$/i.test(xmlContent)) {
+    if (!trimTrailingMisc(xmlContent).toLowerCase().endsWith('</tv>')) {
       throw new Error('Geçersiz XMLTV: </tv> kapanış etiketi bulunamadı; içerik kesilmiş olabilir');
     }
     const incomplete = this._findUnbalancedElement(xmlContent);
@@ -101,7 +118,8 @@ class EPGParser {
     const append = (text) => {
       if (!text) return;
       buffer += text;
-      documentEnd = `${documentEnd}${text}`.replace(/\s+$/u, '').slice(-64);
+      // Kok etiketten sonra gelebilecek yorum blogu icin yeterli kuyruk tutulur.
+      documentEnd = `${documentEnd}${text}`.replace(/\s+$/u, '').slice(-4096);
       if (!tvTagFound && /<tv[\s>]/i.test(buffer)) tvTagFound = true;
     };
 
@@ -146,7 +164,7 @@ class EPGParser {
     if (!tvTagFound) {
       throw new Error('Geçersiz XMLTV: <tv> kök elemanı bulunamadı');
     }
-    if (!documentEnd.toLowerCase().endsWith('</tv>')) {
+    if (!trimTrailingMisc(documentEnd).toLowerCase().endsWith('</tv>')) {
       throw new Error('Geçersiz XMLTV: </tv> kapanış etiketi bulunamadı; içerik kesilmiş olabilir');
     }
     const incomplete = /<(channel|programme)\b/i.exec(buffer);
