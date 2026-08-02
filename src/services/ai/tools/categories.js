@@ -1,6 +1,5 @@
 /** Kategori araclari. */
 
-const { v4: uuidv4 } = require('uuid');
 const {
   db, assertDestructive, ownedPlaylist, ownedCategory, idList, limitRows, text, compactCategory,
 } = require('../helpers');
@@ -558,7 +557,7 @@ module.exports = {
   },
 
   duplicate_category: {
-    description: 'Bir kategoriyi aynı liste içinde yeni adla kopyalar (kanallar da kopyalanır).',
+    description: 'Bir kategorinin boş bir kopyasını aynı listede oluşturur. Bir kanal aynı listede iki kez bulunamayacağı için kanallar kopyalanmaz; kanalları taşımak için move_channels_to_category, başka listeye kopyalamak için copy_category_to_playlist kullanın.',
     parameters: {
       type: 'object',
       properties: { categoryId: { type: 'string' }, name: { type: 'string' } },
@@ -567,34 +566,15 @@ module.exports = {
     async run(args, ctx) {
       const source = await ownedCategory(ctx.userId, args.categoryId);
       const name = text(args.name, { field: 'name' });
-      return db.transaction(async (trx) => {
-        const max = await trx('categories').where('playlist_id', source.playlist_id).max('sort_order as max').first();
-        const [category] = await trx('categories')
-          .insert({ id: uuidv4(), playlist_id: source.playlist_id, name, sort_order: (max?.max ?? -1) + 1 })
-          .returning('*');
-        const channels = await trx('channels').where('category_id', source.id).orderBy('sort_order');
-        const maxSort = await trx('channels').where('playlist_id', source.playlist_id).max('sort_order as max').first();
-        let order = (maxSort?.max ?? -1) + 1;
-        // Ayni playlist icinde stream_url benzersiz oldugu icin kopyalara
-        // ayirt edici bir sorgu parametresi eklenir.
-        const records = channels.map((channel) => ({
-          id: uuidv4(),
-          playlist_id: source.playlist_id,
-          name: channel.name,
-          original_name: channel.original_name,
-          logo_url: channel.logo_url,
-          original_logo_url: channel.original_logo_url,
-          stream_url: `${channel.stream_url}${channel.stream_url.includes('?') ? '&' : '?'}copy=${category.id.slice(0, 8)}`,
-          epg_channel_id: channel.epg_channel_id,
-          epg_source_id: channel.epg_source_id,
-          category_id: category.id,
-          stream_type: channel.stream_type,
-          sort_order: order++,
-          extras: channel.extras ? JSON.stringify(channel.extras) : JSON.stringify({}),
-        }));
-        if (records.length) await trx('channels').insert(records).onConflict(['playlist_id', 'stream_url']).ignore();
-        return { categoryId: category.id, name, copiedChannels: records.length };
-      });
+      const [{ count }] = await db('channels').where('category_id', source.id).count();
+      const category = await categoryService.create(ctx.userId, source.playlist_id, name);
+      return {
+        categoryId: category.id,
+        name: category.name,
+        copiedChannels: 0,
+        sourceChannelCount: Number(count),
+        note: 'Kanallar kopyalanmadı: aynı akış adresi bir listede yalnızca bir kez bulunabilir.',
+      };
     },
   },
 };
