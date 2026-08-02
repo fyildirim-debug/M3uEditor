@@ -873,6 +873,7 @@
     "placeholder": "Ne yapmamı istersiniz?",
     "send": "Gönder",
     "failed": "Asistan yanıt veremedi",
-    "capabilities": "Asistanın yetenekleri ({count})"
+    "capabilities": "Asistanın yetenekleri ({count})",
+    "launcherHint": "Sohbeti her sayfanın sağ alt köşesindeki asistan düğmesinden açabilirsiniz."
   }
 }

@@ -38,71 +38,8 @@
         </header>
 
         <!-- ── Ayarlar ── -->
-        <section v-if="view === 'settings'" class="ai-body ai-settings">
-          <p class="ai-hint">{{ t('ai.settingsHint') }}</p>
-
-          <div class="form-group">
-            <label for="ai-base-url">{{ t('ai.baseUrl') }}</label>
-            <input id="ai-base-url" v-model="form.baseUrl" class="input" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false" />
-          </div>
-
-          <div class="form-group">
-            <label for="ai-api-key">{{ t('ai.apiKey') }}</label>
-            <input id="ai-api-key" v-model="form.apiKey" class="input" type="password" :placeholder="settings.hasApiKey ? t('ai.apiKeySaved') : 'sk-…'" autocomplete="off" />
-          </div>
-
-          <div class="form-group">
-            <label for="ai-model">{{ t('ai.model') }}</label>
-            <div class="ai-model-row">
-              <select v-if="models.length" id="ai-model" v-model="form.model" class="input">
-                <option v-for="model in models" :key="model" :value="model">{{ model }}</option>
-              </select>
-              <input v-else id="ai-model" v-model="form.model" class="input" :placeholder="t('ai.modelPlaceholder')" autocomplete="off" />
-              <button class="btn btn-secondary btn-sm" type="button" :disabled="loadingModels" @click="fetchModels">
-                <span v-if="loadingModels" class="spinner spinner-sm"></span>
-                {{ t('ai.fetchModels') }}
-              </button>
-            </div>
-          </div>
-
-          <div class="ai-settings-grid">
-            <div class="form-group">
-              <label for="ai-temperature">{{ t('ai.temperature') }}</label>
-              <input id="ai-temperature" v-model.number="form.temperature" class="input" type="number" min="0" max="2" step="0.1" />
-            </div>
-            <div class="form-group">
-              <label for="ai-max-steps">{{ t('ai.maxSteps') }}</label>
-              <input id="ai-max-steps" v-model.number="form.maxSteps" class="input" type="number" min="1" max="25" />
-            </div>
-          </div>
-
-          <label class="ai-check">
-            <input v-model="form.allowDestructive" type="checkbox" />
-            <span>{{ t('ai.allowDestructive') }}</span>
-          </label>
-
-          <div class="form-group">
-            <label for="ai-system-prompt">{{ t('ai.systemPrompt') }}</label>
-            <textarea id="ai-system-prompt" v-model="form.systemPrompt" class="input ai-textarea" rows="3" :placeholder="t('ai.systemPromptPlaceholder')"></textarea>
-          </div>
-
-          <div class="ai-settings-actions">
-            <button class="btn btn-secondary btn-sm" type="button" @click="view = 'chat'">{{ t('common.cancel') }}</button>
-            <button class="btn btn-primary btn-sm" type="button" :disabled="saving" @click="saveSettings">
-              <span v-if="saving" class="spinner spinner-sm"></span>
-              {{ t('common.save') }}
-            </button>
-          </div>
-
-          <button class="ai-capabilities-toggle" type="button" @click="toggleCapabilities">
-            {{ t('ai.capabilities', { count: capabilities.length || '…' }) }}
-          </button>
-          <ul v-if="showCapabilities" class="ai-capabilities">
-            <li v-for="capability in capabilities" :key="capability.name">
-              <code>{{ capability.name }}</code>
-              <span>{{ capability.description }}</span>
-            </li>
-          </ul>
+        <section v-if="view === 'settings'" class="ai-body">
+          <AiSettingsForm id-prefix="ai-panel" show-cancel @cancel="view = 'chat'" @saved="onSettingsSaved" />
         </section>
 
         <!-- ── Sohbet ── -->
@@ -159,30 +96,24 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, inject, nextTick, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
+import AiSettingsForm from './AiSettingsForm.vue'
 
 const { t } = useI18n()
 const route = useRoute()
-const toast = inject('toast', () => {})
 
 const open = ref(false)
 const view = ref('chat')
 const sending = ref(false)
-const saving = ref(false)
-const loadingModels = ref(false)
-const showCapabilities = ref(false)
 const draft = ref('')
 const scroller = ref(null)
 const messages = ref([])
-const models = ref([])
-const capabilities = ref([])
 const conversationId = ref(null)
 
 const settings = reactive({ configured: false, hasApiKey: false, model: null, baseUrl: '' })
-const form = reactive({ baseUrl: '', apiKey: '', model: '', temperature: 0.2, maxSteps: 12, allowDestructive: true, systemPrompt: '' })
 
 // Editördeyken açık liste asistana bağlam olarak geçer; araç çağrıları
 // playlistId verilmediğinde bu listeyi kullanır.
@@ -198,68 +129,23 @@ async function loadSettings() {
   try {
     const { data } = await api.get('/ai/settings')
     Object.assign(settings, data)
-    form.baseUrl = data.baseUrl || 'https://api.openai.com/v1'
-    form.model = data.model || ''
-    form.temperature = data.temperature ?? 0.2
-    form.maxSteps = data.maxSteps ?? 12
-    form.allowDestructive = data.allowDestructive !== false
-    form.systemPrompt = data.systemPrompt || ''
-    if (!data.configured) view.value = 'settings'
   } catch { /* oturum yoksa sessizce geç */ }
 }
 
 function toggle() {
   open.value = !open.value
-  if (open.value && !settings.baseUrl) loadSettings()
+  // Hesap ayarlarından yapılandırıldıysa panel doğrudan sohbetle açılsın.
+  if (open.value) loadSettings().then(() => { if (!settings.configured) view.value = 'settings' })
 }
 
-async function fetchModels() {
-  loadingModels.value = true
-  try {
-    const { data } = await api.post('/ai/models', { baseUrl: form.baseUrl, apiKey: form.apiKey || undefined })
-    models.value = data.models || []
-    if (!models.value.length) toast(t('ai.noModels'), 'info')
-    else if (!form.model || !models.value.includes(form.model)) form.model = models.value[0]
-  } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.modelsFailed'), 'error')
-  } finally {
-    loadingModels.value = false
-  }
+function onSettingsSaved(data) {
+  Object.assign(settings, data)
+  if (data.configured) view.value = 'chat'
 }
 
-async function saveSettings() {
-  saving.value = true
-  try {
-    const payload = {
-      baseUrl: form.baseUrl,
-      model: form.model,
-      temperature: form.temperature,
-      maxSteps: form.maxSteps,
-      allowDestructive: form.allowDestructive,
-      systemPrompt: form.systemPrompt,
-    }
-    // Anahtar alanı boşsa kayıtlı anahtar korunur.
-    if (form.apiKey.trim()) payload.apiKey = form.apiKey.trim()
-    const { data } = await api.put('/ai/settings', payload)
-    Object.assign(settings, data)
-    form.apiKey = ''
-    toast(t('ai.settingsSaved'), 'success')
-    if (data.configured) view.value = 'chat'
-  } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.settingsFailed'), 'error')
-  } finally {
-    saving.value = false
-  }
-}
-
-async function toggleCapabilities() {
-  showCapabilities.value = !showCapabilities.value
-  if (showCapabilities.value && !capabilities.value.length) {
-    try {
-      const { data } = await api.get('/ai/capabilities')
-      capabilities.value = data.tools || []
-    } catch { /* yetenek listesi kritik değil */ }
-  }
+// Hesap ayarları sayfasındaki form kaydettiğinde panel de güncel kalsın.
+function onExternalSettingsChange(event) {
+  if (event.detail) Object.assign(settings, event.detail)
 }
 
 function startNewChat() {
@@ -303,7 +189,12 @@ async function send(preset) {
 }
 
 watch(open, (value) => { if (value) scrollToEnd() })
-loadSettings()
+
+onMounted(() => {
+  loadSettings()
+  window.addEventListener('ai:settings-changed', onExternalSettingsChange)
+})
+onUnmounted(() => window.removeEventListener('ai:settings-changed', onExternalSettingsChange))
 </script>
 
 <style scoped>
@@ -344,7 +235,6 @@ loadSettings()
 .ai-dot.ready { background: var(--success); box-shadow: 0 0 8px rgba(16,185,129,0.6); }
 
 .ai-body { flex: 1; overflow-y: auto; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
-.ai-hint { font-size: 12px; color: var(--text-secondary); line-height: 1.55; margin: 0; }
 
 .ai-empty { margin: auto 0; text-align: center; color: var(--text-secondary); font-size: 13px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
 .ai-suggestions { display: flex; flex-direction: column; gap: 6px; width: 100%; }
@@ -386,23 +276,6 @@ loadSettings()
 
 .ai-footer { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); align-items: flex-end; }
 .ai-input { flex: 1; resize: none; max-height: 120px; font-family: inherit; }
-
-.ai-settings .form-group { display: flex; flex-direction: column; gap: 5px; }
-.ai-settings label { font-size: 12px; color: var(--text-secondary); }
-.ai-settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.ai-model-row { display: flex; gap: 6px; align-items: center; }
-.ai-model-row .input { flex: 1; min-width: 0; }
-.ai-textarea { resize: vertical; font-family: inherit; }
-.ai-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; }
-.ai-settings-actions { display: flex; justify-content: flex-end; gap: 8px; }
-
-.ai-capabilities-toggle {
-  background: none; border: none; cursor: pointer; padding: 0;
-  color: var(--accent-hover); font-size: 12px; text-align: left;
-}
-.ai-capabilities { list-style: none; display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; }
-.ai-capabilities li { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--text-secondary); }
-.ai-capabilities code { color: var(--text-primary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
 @media (max-width: 640px) {
   .ai-panel { right: 8px; left: 8px; bottom: 76px; width: auto; height: calc(100vh - 150px); }

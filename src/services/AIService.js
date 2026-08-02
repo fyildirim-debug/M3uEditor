@@ -47,14 +47,45 @@ function normalizeBaseUrl(value) {
   return url;
 }
 
+/**
+ * Saglayicinin hata govdesinden okunabilir bir sebep cikarir. OpenAI uyumlu
+ * gecitler `{error:{message}}` dondurur; bicimi tutmayanlarda ham metin kirpilir.
+ */
+function providerReason(body) {
+  if (!body) return '';
+  try {
+    const parsed = JSON.parse(body);
+    const message = parsed?.error?.message || parsed?.message || parsed?.error?.metadata?.raw || parsed?.detail;
+    if (typeof message === 'string' && message.trim()) return message.trim().slice(0, 500);
+  } catch { /* JSON degilse ham govdeye dus */ }
+  return String(body).replace(/\s+/g, ' ').trim().slice(0, 500);
+}
+
 function providerError(error) {
   const status = error?.remoteStatus;
-  if (status === 401 || status === 403) return createAppError('VALIDATION_ERROR', 'Yapay zeka sağlayıcısı API anahtarını reddetti (401/403). Anahtarı kontrol edin.');
-  if (status === 404) return createAppError('VALIDATION_ERROR', 'Sağlayıcı adresinde uç bulunamadı (404). Base URL genelde /v1 ile biter.');
-  if (status === 429) return createAppError('VALIDATION_ERROR', 'Yapay zeka sağlayıcısı kota/hız sınırı döndürdü (429). Biraz sonra tekrar deneyin.');
-  if (status >= 500) return createAppError('VALIDATION_ERROR', `Yapay zeka sağlayıcısı hata döndürdü (${status}).`);
-  if (error?.code) return error;
-  return createAppError('VALIDATION_ERROR', `Yapay zeka sağlayıcısına ulaşılamadı: ${error?.message || 'bilinmeyen hata'}`);
+  const reason = providerReason(error?.remoteBody);
+  const suffix = reason ? ` Sağlayıcı: ${reason}` : '';
+
+  let appError;
+  if (status === 400 || status === 422) {
+    appError = createAppError('VALIDATION_ERROR', `Yapay zeka sağlayıcısı isteği reddetti (${status}).${suffix}`);
+  } else if (status === 401 || status === 403) {
+    appError = createAppError('VALIDATION_ERROR', `Yapay zeka sağlayıcısı API anahtarını reddetti (${status}). Anahtarı kontrol edin.${suffix}`);
+  } else if (status === 404) {
+    appError = createAppError('VALIDATION_ERROR', `Sağlayıcı adresinde uç bulunamadı (404). Base URL genelde /v1 ile biter.${suffix}`);
+  } else if (status === 429) {
+    appError = createAppError('VALIDATION_ERROR', `Yapay zeka sağlayıcısı kota/hız sınırı döndürdü (429). Biraz sonra tekrar deneyin.${suffix}`);
+  } else if (status >= 500) {
+    appError = createAppError('VALIDATION_ERROR', `Yapay zeka sağlayıcısı hata döndürdü (${status}).${suffix}`);
+  } else if (error?.code) {
+    return error;
+  } else {
+    appError = createAppError('VALIDATION_ERROR', `Yapay zeka sağlayıcısına ulaşılamadı: ${error?.message || 'bilinmeyen hata'}`);
+  }
+
+  appError.remoteStatus = status;
+  appError.providerReason = reason;
+  return appError;
 }
 
 class AIService {
@@ -145,6 +176,7 @@ class AIService {
         accept: 'application/json',
         timeoutMs: REQUEST_TIMEOUT_MS,
         maxBytes: MAX_RESPONSE_BYTES,
+        captureErrorBody: true,
       });
       try {
         return JSON.parse(response.text);
@@ -152,7 +184,39 @@ class AIService {
         throw createAppError('VALIDATION_ERROR', 'Sağlayıcı geçerli JSON döndürmedi. Base URL doğru mu?');
       }
     } catch (error) {
-      throw providerError(error);
+      const mapped = providerError(error);
+      // Gerekce sunucu gunlugune de yazilir: kullanicidan ekran goruntusu
+      // istemeden hangi alanin reddedildigi gorulebilsin.
+      if (error?.remoteStatus) {
+        logger.warn({ userId, path, status: error.remoteStatus, reason: mapped.providerReason }, 'AI provider rejected request');
+      }
+      throw mapped;
+    }
+  }
+
+  /**
+   * Sohbet tamamlama istegi. Bazi modeller (akil yurutme modelleri, bazi
+   * gecitler) belirli parametreleri 400 ile reddeder; bu durumda istek
+   * sadelestirilerek bir kez daha denenir, boylece asistan calismaya devam eder.
+   */
+  async _chatCompletion(userId, body) {
+    try {
+      return await this._request(userId, '/chat/completions', body);
+    } catch (error) {
+      if (error?.remoteStatus !== 400 && error?.remoteStatus !== 422) throw error;
+      const reason = String(error.providerReason || '').toLowerCase();
+
+      if (body.temperature !== undefined && /temperature/.test(reason)) {
+        const { temperature, ...rest } = body;
+        logger.info({ userId }, 'Retrying AI request without temperature');
+        return this._request(userId, '/chat/completions', rest);
+      }
+      if (body.tool_choice !== undefined && /tool_choice/.test(reason)) {
+        const { tool_choice: _toolChoice, ...rest } = body;
+        logger.info({ userId }, 'Retrying AI request without tool_choice');
+        return this._request(userId, '/chat/completions', rest);
+      }
+      throw error;
     }
   }
 
@@ -297,7 +361,7 @@ class AIService {
     let reply = '';
 
     for (let step = 0; step < maxSteps; step++) {
-      const response = await this._request(userId, '/chat/completions', {
+      const response = await this._chatCompletion(userId, {
         model: settings.model,
         messages,
         tools: tools.definitions(),

@@ -158,9 +158,14 @@ const tools = {
   /* ---------- Oynatma listeleri ---------- */
   list_playlists: {
     description: 'Kullanıcının tüm oynatma listelerini kanal sayısı, Xtream kaynağı ve son senkron zamanıyla listeler.',
-    parameters: { type: 'object', properties: {} },
-    async run(_args, ctx) {
-      const playlists = await playlistService.list(ctx.userId);
+    parameters: {
+      type: 'object',
+      properties: { search: { type: 'string', description: 'Yalnızca adı bu metni içeren listeler' } },
+    },
+    async run(args, ctx) {
+      const search = String(args.search || '').trim().toLocaleLowerCase('tr-TR');
+      let playlists = await playlistService.list(ctx.userId);
+      if (search) playlists = playlists.filter((playlist) => playlist.name.toLocaleLowerCase('tr-TR').includes(search));
       return playlists.map((playlist) => ({
         id: playlist.id,
         name: playlist.name,
@@ -809,9 +814,15 @@ const tools = {
 
   /* ---------- EPG ---------- */
   list_epg_sources: {
-    description: 'Hesaptaki XMLTV/EPG kaynaklarını durum ve son güncelleme zamanıyla listeler.',
-    parameters: { type: 'object', properties: {} },
-    run: (_args, ctx) => epgService.listSources(ctx.userId),
+    description: 'Hesaptaki XMLTV/EPG kaynaklarını durum ve son güncelleme zamanıyla listeler. Durumlar: pending, processing, active, error.',
+    parameters: {
+      type: 'object',
+      properties: { status: { type: 'string', enum: ['pending', 'processing', 'active', 'error'], description: 'Yalnızca bu durumdaki kaynaklar' } },
+    },
+    async run(args, ctx) {
+      const sources = await epgService.listSources(ctx.userId);
+      return args.status ? sources.filter((source) => source.status === args.status) : sources;
+    },
   },
 
   add_epg_source: {
@@ -1320,14 +1331,21 @@ const tools = {
   },
 };
 
-/** OpenAI `tools` dizisi biciminde arac tanimlari. */
+/**
+ * OpenAI `tools` dizisi biciminde arac tanimlari.
+ *
+ * Sema kasitli olarak sade tutulur (yalnizca type/properties/required, birlesik
+ * tip yok, `additionalProperties` yok): OpenAI semasini Anthropic veya Gemini
+ * bicimine ceviren gecitler bu anahtarlari reddedip 400 donebiliyor. Bilinmeyen
+ * alanlar zaten sunucuda yok sayildigi icin ek bir koruma kaybedilmiyor.
+ */
 function definitions() {
   return Object.entries(tools).map(([name, tool]) => ({
     type: 'function',
     function: {
       name,
       description: tool.destructive ? `[YIKICI] ${tool.description}` : tool.description,
-      parameters: { ...tool.parameters, additionalProperties: false },
+      parameters: tool.parameters,
     },
   }));
 }

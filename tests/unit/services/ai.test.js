@@ -87,6 +87,31 @@ describe('AIService settings', () => {
     mockSafeFetchText.mockRejectedValueOnce(Object.assign(new Error('HTTP 401'), { remoteStatus: 401 }));
     await expect(aiService.listModels('user-1')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
+
+  test('surfaces the reason the provider gave for a rejection', async () => {
+    mockDb.mockReturnValue(builder({ first: CONFIGURED }));
+    mockSafeFetchText.mockRejectedValueOnce(Object.assign(new Error('HTTP 400'), {
+      remoteStatus: 400,
+      remoteBody: JSON.stringify({ error: { message: 'model does not support tools' } }),
+    }));
+
+    // Genel "HTTP 400" yerine saglayicinin gerekcesi kullaniciya ulasmali.
+    await expect(aiService.listModels('user-1')).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('model does not support tools'),
+    });
+  });
+
+  test('falls back to the raw body when the error is not JSON', async () => {
+    mockDb.mockReturnValue(builder({ first: CONFIGURED }));
+    mockSafeFetchText.mockRejectedValueOnce(Object.assign(new Error('HTTP 400'), {
+      remoteStatus: 400,
+      remoteBody: '<html>Bad Request</html>',
+    }));
+    await expect(aiService.listModels('user-1')).rejects.toMatchObject({
+      message: expect.stringContaining('Bad Request'),
+    });
+  });
 });
 
 describe('AIService chat loop', () => {
@@ -164,6 +189,36 @@ describe('AIService chat loop', () => {
     const result = await aiService.chat('user-1', { message: 'döngü' });
     expect(mockExecute).toHaveBeenCalledTimes(2);
     expect(result.reply).toMatch(/Adım sınırına/);
+  });
+
+  test('retries without temperature when the model refuses it', async () => {
+    wireConversation();
+    // Akil yurutme modelleri temperature'i 400 ile reddedebiliyor; asistan
+    // parametreyi dusurup devam etmeli.
+    mockSafeFetchText.mockRejectedValueOnce(Object.assign(new Error('HTTP 400'), {
+      remoteStatus: 400,
+      remoteBody: JSON.stringify({ error: { message: "Unsupported value: 'temperature' does not support 0.2" } }),
+    }));
+    respondWith({ choices: [{ message: { content: 'Merhaba.' } }] });
+
+    const result = await aiService.chat('user-1', { message: 'selam' });
+
+    expect(result.reply).toBe('Merhaba.');
+    const retryBody = JSON.parse(mockSafeFetchText.mock.calls[1][1].body);
+    expect(retryBody).not.toHaveProperty('temperature');
+    expect(retryBody.model).toBe('gpt-4o-mini');
+  });
+
+  test('gives up when a 400 is not about a droppable parameter', async () => {
+    wireConversation();
+    mockSafeFetchText.mockRejectedValueOnce(Object.assign(new Error('HTTP 400'), {
+      remoteStatus: 400,
+      remoteBody: JSON.stringify({ error: { message: 'context length exceeded' } }),
+    }));
+
+    await expect(aiService.chat('user-1', { message: 'selam' }))
+      .rejects.toMatchObject({ message: expect.stringContaining('context length exceeded') });
+    expect(mockSafeFetchText).toHaveBeenCalledTimes(1);
   });
 
   test('rejects empty and oversized messages', async () => {
