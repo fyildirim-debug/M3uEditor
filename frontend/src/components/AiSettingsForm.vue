@@ -58,12 +58,15 @@
     <button class="ai-capabilities-toggle" type="button" @click="toggleCapabilities">
       {{ t('ai.capabilities', { count: capabilities.length || '…' }) }}
     </button>
-    <ul v-if="showCapabilities" class="ai-capabilities">
-      <li v-for="capability in capabilities" :key="capability.name">
-        <code>{{ capability.name }}</code>
-        <span>{{ capability.description }}</span>
-      </li>
-    </ul>
+    <template v-if="showCapabilities">
+      <p class="ai-hint">{{ t('ai.capabilitiesNote', { sent: sentPerRequest, total: capabilities.length }) }}</p>
+      <ul class="ai-capabilities">
+        <li v-for="capability in capabilities" :key="capability.name">
+          <code>{{ capability.name }}<span v-if="capability.destructive" class="ai-cap-danger">•</span></code>
+          <span>{{ capability.description }}</span>
+        </li>
+      </ul>
+    </template>
   </div>
 </template>
 
@@ -87,6 +90,7 @@ const settings = reactive({ configured: false, hasApiKey: false, model: null })
 const form = reactive({ baseUrl: '', apiKey: '', model: '', temperature: 0.2, maxSteps: 12, allowDestructive: true, systemPrompt: '' })
 const models = ref([])
 const capabilities = ref([])
+const sentPerRequest = ref(0)
 const saving = ref(false)
 const loadingModels = ref(false)
 const showCapabilities = ref(false)
@@ -155,6 +159,7 @@ async function toggleCapabilities() {
     try {
       const { data } = await api.get('/ai/capabilities')
       capabilities.value = data.tools || []
+      sentPerRequest.value = data.sentPerRequest || 0
     } catch { /* yetenek listesi kritik degil */ }
   }
 }
@@ -181,4 +186,5 @@ defineExpose({ load })
 .ai-capabilities { list-style: none; display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; max-height: 260px; overflow-y: auto; }
 .ai-capabilities li { display: flex; flex-direction: column; gap: 2px; font-size: 11.5px; color: var(--text-secondary); }
 .ai-capabilities code { color: var(--text-primary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.ai-cap-danger { color: var(--warning); margin-left: 4px; }
 </style>

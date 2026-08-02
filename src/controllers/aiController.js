@@ -65,13 +65,13 @@ async function deleteConversation(req, res, next) {
 /** Asistanin sahip oldugu yetenekleri arayuzde gostermek icin. */
 async function listCapabilities(_req, res, next) {
   try {
+    const catalogue = tools.catalogue();
     res.json({
-      count: tools.names.length,
-      tools: tools.definitions().map((tool) => ({
-        name: tool.function.name,
-        description: tool.function.description,
-        destructive: tools.isDestructive(tool.function.name),
-      })),
+      count: catalogue.length,
+      // Saglayici sinirlari nedeniyle her turda yalnizca bir kismi gonderilir;
+      // kalanina asistan arama araclariyla ulasir.
+      sentPerRequest: tools.definitions().length,
+      tools: catalogue,
     });
   } catch (error) { next(error); }
 }

@@ -874,6 +874,7 @@
     "send": "Gönder",
     "failed": "Asistan yanıt veremedi",
     "capabilities": "Asistanın yetenekleri ({count})",
-    "launcherHint": "Sohbeti her sayfanın sağ alt köşesindeki asistan düğmesinden açabilirsiniz."
+    "launcherHint": "Sohbeti her sayfanın sağ alt köşesindeki asistan düğmesinden açabilirsiniz.",
+    "capabilitiesNote": "Her istekte {sent} araç doğrudan modele gönderilir; kalanına asistan katalog aramasıyla ulaşır. Turuncu nokta veri kaybettirebilecek araçları işaretler. Toplam {total} yetenek."
   }
 }

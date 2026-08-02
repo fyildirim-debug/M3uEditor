@@ -11,7 +11,7 @@ OpenAI-compatible provider the user configures.
 
 ### Added
 
-- **AI assistant (55 tools).** `POST /api/ai/chat` runs an OpenAI-style function
+- **AI assistant (162 tools).** `POST /api/ai/chat` runs an OpenAI-style function
   calling loop server-side: the model requests a tool, the API executes it
   through the existing service layer under the authenticated user's identity,
   the result is fed back, and the loop repeats until the model answers or the
@@ -23,6 +23,20 @@ OpenAI-compatible provider the user configures.
   auto-match, tvg-id assignment, coverage), imports (M3U URL, Xtream with
   preview, sync, schedule, extra sources), exports (M3U preview, share links,
   Xtream output), filter rules, stream-health scans, backups, and view profiles.
+  The catalogue is split into per-domain modules under `src/services/ai/tools/`.
+- **Catalogue search for unlimited capabilities.** Providers cap functions per
+  request (128 on OpenAI), so a turn carries the first 120 tools plus
+  `search_capabilities`, `describe_capability` and `invoke_capability`. The model
+  finds anything outside its current list by keyword and invokes it by name
+  through the same permission checks, so the catalogue can grow past any
+  provider limit without a capability becoming unreachable.
+- **Markdown replies.** Assistant messages render bold, italic, strikethrough,
+  inline code, fenced code blocks, bullet and numbered lists, headings, quotes,
+  rules and http(s) links. The renderer escapes the whole message before applying
+  formatting and refuses non-http schemes, so model output cannot inject HTML.
+- **Assistant settings in Account.** The provider form moved into a shared
+  component used by both the chat panel and a new section on the account page;
+  saving in one place updates the other.
 - **Playlist merging.** `merge_playlists` builds a new playlist from two or more
   existing ones in a single transaction: categories merge by name, channels are
   copied in source order with keyset-paginated reads (1000 rows at a time) and
@@ -49,9 +63,14 @@ OpenAI-compatible provider the user configures.
 
 ### Security
 
-- Assistant tools call the same services as the HTTP API, so tenant ownership,
-  field validation, and business rules apply unchanged; no tool accepts a raw
-  query or SQL.
+- The assistant's authority equals its own user's and never exceeds it. Tools
+  call the same services as the HTTP API, so tenant ownership, field validation
+  and business rules apply unchanged; no tool accepts a raw query or SQL. The
+  acting identity comes from the session only — `userId`, `user_id`, `ownerId`,
+  `is_admin` and similar keys are stripped from model-supplied arguments, and a
+  call arriving without a session is refused. No admin capability is catalogued,
+  so an administrator's assistant is still limited to that administrator's own
+  data.
 - Data-losing tools are marked `[YIKICI]` in the model-visible catalogue and
   refuse to run when the user's destructive-actions permission is off.
 - Bulk selections are capped at 5000 channels per call and tool output is

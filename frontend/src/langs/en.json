@@ -874,6 +874,7 @@
     "send": "Send",
     "failed": "The assistant could not respond",
     "capabilities": "Assistant capabilities ({count})",
-    "launcherHint": "Open the chat from the assistant button in the bottom-right corner of any page."
+    "launcherHint": "Open the chat from the assistant button in the bottom-right corner of any page.",
+    "capabilitiesNote": "{sent} tools are sent to the model per request; the assistant reaches the rest through catalogue search. An orange dot marks tools that can lose data. {total} capabilities in total."
   }
 }

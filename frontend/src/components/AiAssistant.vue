@@ -68,7 +68,10 @@
                   <span v-if="step.error" class="ai-step-error">{{ step.error }}</span>
                 </div>
               </div>
-              <div v-if="message.content" class="ai-bubble">{{ message.content }}</div>
+              <div v-if="message.content" class="ai-bubble">
+                <MarkdownText v-if="message.role === 'assistant'" :text="message.content" />
+                <template v-else>{{ message.content }}</template>
+              </div>
             </div>
 
             <div v-if="sending" class="ai-message ai-assistant">
@@ -101,6 +104,7 @@ import { useRoute } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import AiSettingsForm from './AiSettingsForm.vue'
+import MarkdownText from './MarkdownText.vue'
 
 const { t } = useI18n()
 const route = useRoute()

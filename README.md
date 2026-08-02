@@ -210,9 +210,10 @@ In TiviMate, IPTV Smarters, and similar clients, use `APP_URL` as the server add
 
 ## AI assistant
 
-Every authenticated page carries a chat launcher in the bottom-right corner. The
-assistant is not a help bot: it operates the application through 55 server-side
-tools, so it can do anything the UI can do — and a few things the UI cannot.
+Every authenticated page carries a chat launcher in the bottom-right corner, and
+the same settings live under **Account → AI Assistant**. The assistant is not a
+help bot: it operates the application through **162 server-side tools**, so it can
+do anything the UI can do — and a good deal the UI cannot.
 
 ### Bring your own provider
 
@@ -235,26 +236,57 @@ or LM Studio endpoint needs.
 
 ### What it can do
 
-Playlists (create, rename, delete, stats, **merge two or more playlists into a
-new deduplicated one**), categories (create in bulk, rename, hide, delete, drop
-empty ones, sort by name or channel count, or apply an explicit order), channels
-(search, create, edit, bulk-update, move between categories, find-and-replace
-rename with a dry run, sort A–Z / by category / by an explicit order, find
-duplicates, delete by filter), EPG (add/refresh/delete XMLTV sources, search the
-iptv-org guide library, auto-match channels, assign tvg-ids, report coverage, and
-**pull channel logos out of the guide**), import and sync (M3U URL, Xtream with
-preview, scheduled sync settings, extra provider sources), export and sharing
-(M3U preview, share links, Xtream output), filter rules, stream-health scans,
-backups (create, list, restore), and view profiles.
+- **Playlists** — create, rename, duplicate, delete, clear, stats, channel
+  counts, compare two playlists, move or copy channels and categories between
+  playlists, store Xtream credentials, schedule auto-sync, backups
+  (create/list/restore/delete/download).
+- **Categories** — create in bulk, rename, bulk find-and-replace on names,
+  prefix/suffix, normalise, hide/show, delete (with or without their channels),
+  drop empty ones, merge, deduplicate, split by pattern, auto-categorise by
+  keyword rules, sort by name/count/creation/explicit order, move to a position,
+  per-category stats.
+- **Channels** — search (exact and fuzzy), create one or many at once, edit,
+  bulk-update, move between categories, find-and-replace rename with dry run,
+  prefix/suffix/strip, case conversion, strip quality tags, rewrite stream URLs,
+  change stream type, clear logos, reset to provider values, delete by filter,
+  deduplicate, sort A–Z / by category / naturally / EPG-first / explicit order,
+  sort inside every category, move to position or to the top, swap, per-channel
+  and full-playlist health scans, dead-channel reports.
+- **EPG** — add/refresh/delete XMLTV sources, add straight from the iptv-org
+  library, refresh-interval scheduling, auto-match, per-channel matching,
+  match suggestions, bulk tvg-id assignment, clear matches, copy matches between
+  playlists, coverage reports, guide listings, now-playing, and **pulling channel
+  logos out of the guide**.
+- **Import & sync** — M3U by URL or pasted content, Xtream with preview and
+  category selection, credential testing, sync one or all playlists, add stream
+  types, provider sources, filter rules (create/update/test/move/delete).
+- **Export & sharing** — M3U preview, export URLs, JSON export, share links with
+  expiry and password, Xtream output enable/regenerate/disable, XMLTV coverage,
+  view profiles.
+- **Account** — own account summary, usage overview, storage report, recent
+  activity, system status.
 
-`GET /api/ai/capabilities` returns the full tool list with descriptions; the
-settings panel renders it too.
+Providers cap how many functions one request may carry (OpenAI's limit is 128),
+so each turn ships the first 120 tools plus three meta-tools —
+`search_capabilities`, `describe_capability` and `invoke_capability`. The
+assistant searches the catalogue for anything not in its current list and invokes
+it by name, so no capability is ever out of reach.
+
+`GET /api/ai/capabilities` returns the whole catalogue with descriptions; the
+settings panel renders it too. Assistant replies are rendered as Markdown —
+**bold**, *italic*, `code`, lists, headings and links — with the text escaped
+before any formatting is applied, so nothing the model emits can inject HTML.
 
 ### Safety rails
 
-- Every tool runs as the authenticated user through the normal service layer, so
-  tenant ownership, validation, and business rules are identical to the UI's.
-  The assistant cannot see or touch another account's data.
+- **The assistant's authority equals its own user's — never more.** Every tool
+  runs as the authenticated user through the normal service layer, so tenant
+  ownership, validation, and business rules are identical to the UI's. The
+  identity comes from the session alone: `userId`, `is_admin` and similar keys
+  are stripped from model-supplied arguments before a tool sees them, and a tool
+  call without a session is refused. No admin endpoint is in the catalogue, so
+  even an administrator's assistant is confined to that administrator's own
+  playlists, channels and sources.
 - Tools that lose data are labelled `[YIKICI]` for the model, marked in the chat
   trace, and gated behind the destructive-actions switch. Turning it off makes
   deletion, restore, overwrite, and share-revocation tools fail with a message
