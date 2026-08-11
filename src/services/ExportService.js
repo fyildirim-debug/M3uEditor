@@ -94,22 +94,30 @@ class ExportService {
   }
 
   /**
-   * Format an already-authorized Xtream output playlist with local playback
-   * routes. Authentication is resolved by XtreamOutputService before this call.
+   * Format an already-authorized Xtream output playlist. Authentication is
+   * resolved by XtreamOutputService before this call.
+   *
+   * `direct` modda kanal adresi saglayicinin kendi adresidir; oynatici yayini
+   * kaynaktan ceker ve bu sunucu oynatma yolunda hic yer almaz. `proxy` modda
+   * yerel bir adres uretilir ve /live|/movie|/series istegi 302 ile
+   * saglayiciya yonlendirilir — saglayici kimligi playlist icinde gorunmez,
+   * karsiliginda her kanal degisimi bu sunucuya ugrar.
    */
   async createXtreamPlaylist(playlist, username, password, output = 'ts') {
     if (!playlist?.id) throw createAppError('NOT_FOUND');
-    const baseUrl = config.appUrl;
     const channels = await this._getOrderedChannels(playlist.id);
-    const localChannels = channels.map((channel) => {
-      const pathType = channel.streamType === 'vod' ? 'movie' : channel.streamType === 'series' ? 'series' : 'live';
-      const extension = this._xtreamExtension(channel, output);
-      return {
-        ...channel,
-        url: `${baseUrl}/${pathType}/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${encodeURIComponent(channel.xtreamId)}.${encodeURIComponent(extension)}`,
-      };
-    });
-    return this.formatter.format(localChannels);
+    if (playlist.output_stream_mode === 'proxy') {
+      const baseUrl = config.appUrl;
+      return this.formatter.format(channels.map((channel) => {
+        const pathType = channel.streamType === 'vod' ? 'movie' : channel.streamType === 'series' ? 'series' : 'live';
+        const extension = this._xtreamExtension(channel, output);
+        return {
+          ...channel,
+          url: `${baseUrl}/${pathType}/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${encodeURIComponent(channel.xtreamId)}.${encodeURIComponent(extension)}`,
+        };
+      }));
+    }
+    return this.formatter.format(channels);
   }
 
   /**

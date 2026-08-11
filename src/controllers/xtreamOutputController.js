@@ -46,6 +46,12 @@ async function disable(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function setStreamMode(req, res, next) {
+  try {
+    res.json(await xtreamOutputService.setStreamMode(req.userId, req.params.id, req.body?.streamMode));
+  } catch (error) { next(error); }
+}
+
 async function playerApi(req, res, next) {
   try {
     const auth = await authenticatePlayer(req, res, true);
@@ -63,9 +69,9 @@ async function playerApi(req, res, next) {
       case 'get_series_categories':
         return res.json(await xtreamOutputService.getCategories(playlist.id, 'series'));
       case 'get_live_streams':
-        return res.json(await xtreamOutputService.getLiveStreams(playlist.id, req.query.category_id));
+        return res.json(await xtreamOutputService.getLiveStreams(playlist, req.query.category_id));
       case 'get_vod_streams':
-        return res.json(await xtreamOutputService.getVodStreams(playlist.id, req.query.category_id));
+        return res.json(await xtreamOutputService.getVodStreams(playlist, req.query.category_id));
       case 'get_series':
         return res.json(await xtreamOutputService.getSeries(playlist.id, req.query.category_id));
       case 'get_vod_info':
@@ -139,6 +145,7 @@ module.exports = {
   getConfiguration,
   regenerate,
   disable,
+  setStreamMode,
   playerApi,
   xmltv,
   m3u,

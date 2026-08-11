@@ -101,22 +101,32 @@ function xtreamLimiterKey(req) {
   return `${ipKeyGenerator(req.ip)}:${usernameHash}`;
 }
 
-// IPTV players make several requests while loading a playlist, so the normal
-// credential limit is intentionally generous and isolated per username/IP.
+// IPTV oynaticilari bir playlist yuklerken kanal basina istek atar: FyPlayer,
+// TiviMate ve IPTV Smarters her kanal icin ayri bir get_short_epg cagirir, yani
+// 500 kanallik bir listede tek acilis 500+ istek demektir. Limit bu davranisi
+// karsilayacak kadar yuksek ve kullanici adi/IP basina izole olmali; brute
+// force korumasi asagidaki xtreamFailureLimiter'in isi.
 const xtreamPlayerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: config.xtream.playerRateLimit,
   message: { error: { code: 'RATE_LIMITED', message: 'Xtream istemcisi için çok fazla istek yapıldı. Lütfen daha sonra tekrar deneyin.' } },
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: xtreamLimiterKey,
 });
 
-// Successful player traffic is removed from this stricter counter. The
-// controller marks protocol-level auth failures, including auth:0 HTTP 200.
+// Basarili player trafigi bu sayactan dusulur; geriye yalnizca protokol
+// duzeyindeki kimlik hatalari kalir (auth:0 donen HTTP 200 dahil).
+//
+// DIKKAT: skipSuccessfulRequests sayaci once artirip istek bitince geri alir.
+// Oynaticilar acilista onlarca istegi ayni anda gonderdigi icin sayac, hepsi
+// basarili olsa bile gecici olarak paralel istek sayisi kadar sisiyor; tavan
+// dar tutulursa mesru istemci 429 aliyor (30 paralel istekte 15'i reddediliyordu).
+// Bu yuzden tavan burst'u kaldiracak kadar genis: kullanici adi 96 bit rastgele
+// oldugu icin bu deger brute force acisindan hala anlamsiz kucuklukte.
 const xtreamFailureLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 15,
+  max: config.xtream.failureRateLimit,
   message: { error: { code: 'RATE_LIMITED', message: 'Çok fazla başarısız Xtream kimlik doğrulama denemesi yapıldı.' } },
   standardHeaders: true,
   legacyHeaders: false,
@@ -149,8 +159,14 @@ function redactXtreamCredentials(req, _res, next) {
 const generalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 200,
+  message: { error: { code: 'RATE_LIMITED', message: 'Çok fazla istek gönderildi. Lütfen bir dakika sonra tekrar deneyin.' } },
   standardHeaders: true,
   legacyHeaders: false,
+  // Xtream player yollarinin kendi limitleri var (xtreamPlayerLimiter +
+  // xtreamFailureLimiter). Ikisi ust uste binerse dar olan kazanir: 200/dk,
+  // bir oynaticinin acilistaki kanal-basina EPG taramasini 429'a dusurur ve
+  // ozel limiterin genis penceresi anlamsizlasir.
+  skip: (req) => xtreamPlayerPaths.some((prefix) => req.path === prefix || req.path.startsWith(`${prefix}/`)),
 });
 
 app.use(xtreamPlayerPaths, redactXtreamCredentials, xtreamPlayerLimiter, xtreamFailureLimiter);

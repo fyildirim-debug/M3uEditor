@@ -236,7 +236,7 @@ describe('ExportService', () => {
   });
 
   describe('createXtreamPlaylist', () => {
-    it('reuses M3U formatting with local Xtream playback URLs', async () => {
+    function outputChannel() {
       const channelsChain = chainable();
       channelsChain.orderBy = jest.fn().mockResolvedValue([{
         name: 'Output Movie',
@@ -251,24 +251,46 @@ describe('ExportService', () => {
         channel_sort_order: 0,
       }]);
       mockKnex.mockReturnValue(channelsChain);
+    }
+
+    async function withAppUrl(run) {
       const previousAppUrl = process.env.APP_URL;
       process.env.APP_URL = 'https://editor.example';
-
       try {
-        const result = await exportService.createXtreamPlaylist(
-          { id: 'pl-1' },
-          'output-user',
-          'output-password',
-          'ts'
-        );
-
-        expect(result).toContain('#EXTM3U');
-        expect(result).toContain('https://editor.example/movie/output-user/output-password/88.mkv');
-        expect(result).not.toContain('https://provider.example/movie/u/p/1.mkv');
+        return await run();
       } finally {
         if (previousAppUrl === undefined) delete process.env.APP_URL;
         else process.env.APP_URL = previousAppUrl;
       }
+    }
+
+    // Varsayilan mod: oynatici yayini kaynaktan alir, bu sunucu oynatma
+    // yolunda hic yer almaz.
+    it('hands out the provider address in direct mode', async () => {
+      outputChannel();
+      const result = await withAppUrl(() => exportService.createXtreamPlaylist(
+        { id: 'pl-1' },
+        'output-user',
+        'output-password',
+        'ts'
+      ));
+
+      expect(result).toContain('#EXTM3U');
+      expect(result).toContain('https://provider.example/movie/u/p/1.mkv');
+      expect(result).not.toContain('https://editor.example/movie/');
+    });
+
+    it('hides the provider behind a local playback route in proxy mode', async () => {
+      outputChannel();
+      const result = await withAppUrl(() => exportService.createXtreamPlaylist(
+        { id: 'pl-1', output_stream_mode: 'proxy' },
+        'output-user',
+        'output-password',
+        'ts'
+      ));
+
+      expect(result).toContain('https://editor.example/movie/output-user/output-password/88.mkv');
+      expect(result).not.toContain('https://provider.example/movie/u/p/1.mkv');
     });
   });
 

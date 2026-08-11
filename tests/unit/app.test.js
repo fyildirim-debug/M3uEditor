@@ -58,4 +58,37 @@ describe('Express App', () => {
     const differentTokenResponse = await request(app).get('/api/shared/rate-limit-token-b');
     expect(differentTokenResponse.status).not.toBe(429);
   });
+
+  // Oynaticilar bir playlist yuklerken kanal basina get_short_epg atar. Xtream
+  // yollari genel limitten muaf olmazsa 200/dk tavani ozel limiti gecersiz
+  // kilar ve istemci acilis sirasinda 429 alir.
+  test('xtream player paths bypass the general per-minute limit', async () => {
+    const statuses = new Set();
+    // 260 istek: generalLimiter'in 200/dk tavanini asacak kadar. Gruplar
+    // halinde gonderiliyor, aksi halde tek tek beklemek testi yavaslatiyor.
+    for (let sent = 0; sent < 260; sent += 20) {
+      const batch = await Promise.all(Array.from({ length: 20 }, () => request(app)
+        .get('/player_api.php')
+        .query({ username: 'player', password: 'secret' })));
+      for (const res of batch) statuses.add(res.status);
+    }
+
+    expect(statuses.has(429)).toBe(false);
+  });
+
+  // skipSuccessfulRequests sayaci once artirip istek bitince geri aliyor, yani
+  // paralel istekler sayaci gecici olarak sisiriyor. Tavan dar oldugunda
+  // oynaticinin acilistaki es zamanli istekleri 429 aliyordu.
+  test('a burst of concurrent player requests is not mistaken for brute force', async () => {
+    const responses = await Promise.all(Array.from({ length: 40 }, () => request(app)
+      .get('/player_api.php')
+      .query({ username: 'burst-player', password: 'secret', action: 'get_short_epg' })));
+
+    expect(responses.some((res) => res.status === 429)).toBe(false);
+  });
+
+  test('xtream traffic does not consume the general limiter budget', async () => {
+    const res = await request(app).get('/nonexistent-after-xtream-burst');
+    expect(res.status).toBe(404);
+  });
 });

@@ -40,6 +40,7 @@ describe('Database Migrations', () => {
       '20240101000026_create_profiles_and_views.js',
       '20240101000027_create_playlist_sources.js',
       '20240101000028_create_ai_assistant.js',
+      '20240101000029_add_output_stream_mode.js',
     ]);
   });
 

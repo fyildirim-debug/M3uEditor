@@ -126,9 +126,27 @@ class XtreamOutputService {
       enabled: Boolean(playlist.output_enabled),
       username: playlist.output_username || null,
       password,
+      streamMode: playlist.output_stream_mode === 'proxy' ? 'proxy' : 'direct',
       ...this._urls(playlist.output_username || null, password ?? undefined),
       createdAt: playlist.output_created_at || null,
     };
+  }
+
+  /**
+   * Yayin adresinin nasil verilecegini degistirir.
+   * 'direct': oynatici yayini dogrudan saglayicidan alir (bu sunucu oynatma
+   * yolunda degildir). 'proxy': yerel adres verilir, istek 302 ile
+   * saglayiciya yonlendirilir ve saglayici kimligi playlist icinde gorunmez.
+   */
+  async setStreamMode(userId, playlistId, mode) {
+    if (mode !== 'direct' && mode !== 'proxy') {
+      throw createAppError('VALIDATION_ERROR', "streamMode 'direct' veya 'proxy' olmalı");
+    }
+    await this._ownedPlaylist(userId, playlistId);
+    await db('playlists')
+      .where({ id: playlistId, user_id: userId })
+      .update({ output_stream_mode: mode, updated_at: db.fn.now() });
+    return this.getConfiguration(userId, playlistId);
   }
 
   async _rotate(userId, playlistId, regeneratePasswordOnly) {
@@ -158,6 +176,7 @@ class XtreamOutputService {
           enabled: true,
           username,
           password,
+          streamMode: playlist.output_stream_mode === 'proxy' ? 'proxy' : 'direct',
           ...this._urls(username, password),
         };
       } catch (error) {
@@ -291,7 +310,18 @@ class XtreamOutputService {
       .orderBy('channels.xtream_id', 'asc');
   }
 
-  async getLiveStreams(playlistId, requestedCategoryId) {
+  /**
+   * Xtream protokolunde `direct_source` dolu oldugunda oynatici yayini
+   * dogrudan o adresten alir ve /live|/movie|/series yoluna hic ugramaz.
+   * 'direct' modda bunu saglayicinin kendi adresiyle dolduruyoruz; 'proxy'
+   * modda bos birakilir ki oynatici yerel yolu kullansin.
+   */
+  _directSource(playlist, row) {
+    return playlist?.output_stream_mode === 'proxy' ? '' : (row.stream_url || '');
+  }
+
+  async getLiveStreams(playlist, requestedCategoryId) {
+    const playlistId = playlist?.id || playlist;
     const rows = await this._streamRows(playlistId, 'live', requestedCategoryId);
     return rows.map((row, index) => ({
       num: index + 1,
@@ -304,12 +334,13 @@ class XtreamOutputService {
       category_id: categoryId(row.category_xtream_id),
       custom_sid: '',
       tv_archive: 0,
-      direct_source: '',
+      direct_source: this._directSource(playlist, row),
       tv_archive_duration: 0,
     }));
   }
 
-  async getVodStreams(playlistId, requestedCategoryId) {
+  async getVodStreams(playlist, requestedCategoryId) {
+    const playlistId = playlist?.id || playlist;
     const rows = await this._streamRows(playlistId, 'vod', requestedCategoryId);
     return rows.map((row, index) => {
       const extras = parseExtras(row.extras);
@@ -324,7 +355,7 @@ class XtreamOutputService {
         category_id: categoryId(row.category_xtream_id),
         container_extension: containerExtension(row),
         custom_sid: '',
-        direct_source: '',
+        direct_source: this._directSource(playlist, row),
       };
     });
   }

@@ -8,6 +8,7 @@ router.post('/api/playlists/:id/xtream-output', authMiddleware, controller.enabl
 router.get('/api/playlists/:id/xtream-output', authMiddleware, controller.getConfiguration);
 router.post('/api/playlists/:id/xtream-output/regenerate', authMiddleware, controller.regenerate);
 router.delete('/api/playlists/:id/xtream-output', authMiddleware, controller.disable);
+router.put('/api/playlists/:id/xtream-output/stream-mode', authMiddleware, controller.setStreamMode);
 
 router.get('/player_api.php', controller.playerApi);
 router.get('/xmltv.php', controller.xmltv);

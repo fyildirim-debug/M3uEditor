@@ -80,6 +80,17 @@ const config = {
     totalTimeoutMs: parsePositiveInteger(process.env.XTREAM_TOTAL_TIMEOUT_MS, 120_000),
     categoryConcurrency: Math.min(parsePositiveInteger(process.env.XTREAM_CATEGORY_CONCURRENCY, 8), 32),
     typeConcurrency: Math.min(parsePositiveInteger(process.env.XTREAM_TYPE_CONCURRENCY, 2), 3),
+    // 15 dakikalik pencerede kullanici adi+IP basina izin verilen player
+    // istegi. Oynaticilar kanal basina bir get_short_epg atar, yani tek acilis
+    // liste buyuklugu kadar istek demektir; 20.000 hem 5-10 bin kanallik
+    // gercek listelerin birkac kez yenilenmesini kaldirir hem de sonsuz
+    // degildir. Kimlik dogrulamasi basarisiz trafigi ayrica
+    // xtreamFailureLimiter kesiyor.
+    playerRateLimit: parsePositiveInteger(process.env.XTREAM_PLAYER_RATE_LIMIT, 20_000),
+    // Basarisiz Xtream kimlik dogrulamasi tavani. Oynaticilarin paralel
+    // istekleri sayaci gecici olarak sisirdigi icin burst'u kaldiracak kadar
+    // genis; kullanici adi 96 bit rastgele oldugundan brute force riski yok.
+    failureRateLimit: parsePositiveInteger(process.env.XTREAM_FAILURE_RATE_LIMIT, 200),
   },
 };
 

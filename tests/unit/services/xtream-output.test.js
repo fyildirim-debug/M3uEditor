@@ -256,4 +256,48 @@ describe('XtreamOutputService', () => {
     expect(mockExportService.createXtreamPlaylist).toHaveBeenCalledWith(playlist, 'user', 'pass', 'ts');
     expect(mockXmltvExportService.createSharedStream).toHaveBeenCalledWith(playlist, '7');
   });
+
+  // Xtream protokolunde direct_source dolu oldugunda oynatici yayini oradan
+  // alir; 'direct' modun oynaticilara ulasma yolu bu alan.
+  test('live streams carry the provider address as direct_source by default', async () => {
+    mockDb.mockReturnValue(resultQuery([{
+      xtream_id: '5',
+      name: 'Kanal',
+      logo_url: null,
+      epg_channel_id: 'k.tr',
+      stream_url: 'http://provider.example/live/u/p/5.ts',
+      extras: {},
+      created_at: new Date('2026-07-28T10:00:00Z'),
+      sort_order: 0,
+      stream_type: 'live',
+      category_xtream_id: '1',
+    }]));
+
+    const streams = await xtreamOutputService.getLiveStreams(playlist);
+    expect(streams[0].direct_source).toBe('http://provider.example/live/u/p/5.ts');
+  });
+
+  test('proxy mode leaves direct_source empty so the player uses the local route', async () => {
+    mockDb.mockReturnValue(resultQuery([{
+      xtream_id: '5',
+      name: 'Kanal',
+      logo_url: null,
+      epg_channel_id: 'k.tr',
+      stream_url: 'http://provider.example/live/u/p/5.ts',
+      extras: {},
+      created_at: new Date('2026-07-28T10:00:00Z'),
+      sort_order: 0,
+      stream_type: 'live',
+      category_xtream_id: '1',
+    }]));
+
+    const streams = await xtreamOutputService.getLiveStreams({ ...playlist, output_stream_mode: 'proxy' });
+    expect(streams[0].direct_source).toBe('');
+  });
+
+  test('the stream mode only accepts the two known values', async () => {
+    mockDb.mockReturnValue(firstQuery(playlist));
+    await expect(xtreamOutputService.setStreamMode('user-1', 'playlist-1', 'hibrit'))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
 });
