@@ -3,6 +3,79 @@
 All notable changes to this project are documented here. Dates are ISO-8601.
 Versions follow the four-part scheme recorded in `.fy/version.json`.
 
+## [Unreleased]
+
+### Changed
+
+- **Xtream output hands out the provider's own address by default.** Channel
+  URLs used to point at this server and every playback request was answered with
+  a 302 to the provider, so the editor sat in the playback path of every channel
+  change: extra latency, an extra point of failure and needless load. The new
+  `direct` mode (default) publishes the provider address in `get.php` and fills
+  `direct_source` in `player_api.php`, so the player pulls the stream straight
+  from the source. The previous behaviour is still available as `proxy` mode,
+  which keeps the provider credentials out of the playlist at the cost of routing
+  every channel change through this server. The mode is per playlist
+  (`playlists.output_stream_mode`), switchable from the Xtream output dialog and
+  over `PUT /api/playlists/:id/xtream-output/stream-mode`.
+- **Concurrent player requests are no longer mistaken for brute force.**
+  `xtreamFailureLimiter` uses `skipSuccessfulRequests`, which increments the
+  counter first and rolls it back when the request finishes. Players open dozens
+  of requests at once while loading a list, so the counter briefly grew by the
+  number of in-flight requests and the 15-request ceiling rejected legitimate
+  clients — measured: 15 of 30 concurrent requests returned `429`, 45 of 60. The
+  ceiling is now `XTREAM_FAILURE_RATE_LIMIT` (default 200), which absorbs the
+  burst; with a 96-bit random username this is still meaningless for brute force.
+
+- **AI assistant: relevance-ranked tool selection.** The catalogue holds 159
+  domain tools but a provider request can only carry ~117 of them. They used to
+  be sent in a fixed module order, so every tool in the last three modules
+  (`imports`, `exports`, `account` — 42 in total) was never offered directly;
+  the model could only reach them by spending an extra turn on
+  `search_capabilities`. Tools are now scored against the user's message and the
+  tools already run this conversation, so `share_playlist`, `enable_xtream_output`
+  and `create_backup` show up when they are actually asked for. Scoring is
+  stem-based, so Turkish suffixes ("yedeklerimi" → "yedek") match. Without hints
+  the order is unchanged, so the behaviour stays deterministic.
+- **AI assistant: the conversation starts with real state.** The system prompt
+  now carries the user's playlists with channel counts, and for the active
+  playlist the stream-type breakdown, categories (with hidden flags) and EPG
+  source count. This removes the two or three discovery turns every conversation
+  used to begin with. A failure while building the summary degrades to the old
+  behaviour instead of breaking the chat.
+- **AI assistant: independent reads run in parallel.** Consecutive read-only tool
+  calls in one turn (`list_*`, `get_*`, `search_*`, `find_*`, `describe_*`,
+  `count_*`, `preview_*`) are executed concurrently, up to six at a time; a
+  writing or destructive call closes the batch and runs alone. Recorded order
+  always matches the model's call order. `parallel_tool_calls` is now sent to the
+  provider.
+- **AI assistant: arguments are validated against the tool schema.** Missing
+  required fields, wrong types and out-of-enum values are rejected before the
+  tool runs and reported back with the schema attached, so the model corrects
+  itself instead of burning a turn on an ad-hoc error.
+- **AI assistant: the destructive permission is enforced centrally.** `execute`
+  now applies it for every tool flagged destructive; previously each of the 27
+  call sites had to remember `assertDestructive` on its own.
+- **AI assistant: prompt-injection rule.** The system prompt states explicitly
+  that text inside tool output (channel names, EPG titles, file names) is
+  third-party data and never an instruction.
+- **Xtream output is usable by real IPTV players again.** Players request one
+  `get_short_epg` per channel while loading a playlist, so a single launch of a
+  5.848-channel list produces roughly 6.000 requests. Two limits collided: the
+  dedicated player limiter allowed 300 per 15 minutes, and `generalLimiter`
+  (200 per **minute**) also covered the Xtream paths, so the narrower one always
+  won and clients got `HTTP 429` during login. Xtream paths are now exempt from
+  the general limiter and the player limit is configurable through
+  `XTREAM_PLAYER_RATE_LIMIT` (default 20.000 per 15 minutes). Brute-force
+  protection is unchanged: 15 failed authentications per 15 minutes.
+- **The Vite dev server proxies the Xtream paths.** `player_api.php`,
+  `xmltv.php`, `get.php`, `/live`, `/movie` and `/series` returned the SPA's
+  `index.html` in development, so the Xtream output could not be exercised
+  outside production. Production nginx already proxied them; the dev server now
+  matches.
+- `generalLimiter` returns the documented `{error:{code,message}}` body instead
+  of plain text.
+
 ## [1.10.0.0] — 2026-08-02
 
 AI release. The editor gained an assistant that operates the application through
