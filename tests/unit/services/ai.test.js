@@ -13,10 +13,12 @@ jest.mock('../../../src/utils/safeFetch', () => ({
 }));
 
 const mockExecute = jest.fn();
+const mockDefinitions = jest.fn(() => [{ type: 'function', function: { name: 'list_playlists', description: 'x', parameters: { type: 'object', properties: {} } } }]);
 jest.mock('../../../src/services/ai/tools', () => ({
-  definitions: () => [{ type: 'function', function: { name: 'list_playlists', description: 'x', parameters: { type: 'object', properties: {} } } }],
+  definitions: (...args) => mockDefinitions(...args),
   execute: (...args) => mockExecute(...args),
   isDestructive: (name) => name === 'delete_channels',
+  isReadOnly: (name) => name.startsWith('list_') || name.startsWith('get_'),
   names: ['list_playlists', 'delete_channels'],
 }));
 
@@ -25,7 +27,7 @@ const { decrypt } = require('../../../src/utils/crypto');
 
 function builder({ rows = [], first, returning = [] } = {}) {
   const query = {};
-  for (const method of ['where', 'andWhere', 'orderBy', 'select', 'limit', 'insert', 'update', 'del', 'join']) {
+  for (const method of ['where', 'andWhere', 'orderBy', 'select', 'limit', 'insert', 'update', 'del', 'join', 'leftJoin', 'groupBy', 'count']) {
     query[method] = jest.fn(() => query);
   }
   query.first = jest.fn().mockResolvedValue(first);
@@ -224,5 +226,93 @@ describe('AIService chat loop', () => {
   test('rejects empty and oversized messages', async () => {
     await expect(aiService.chat('user-1', { message: '   ' })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
     await expect(aiService.chat('user-1', { message: 'a'.repeat(9000) })).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  // Baglam ozeti olmadan asistan her sohbete list_playlists/list_categories
+  // gibi kesif turlariyla basliyordu; ozet bu turlari siler.
+  test('seeds the system prompt with the real playlist and category state', async () => {
+    const settingsQuery = builder({ first: CONFIGURED });
+    const conversations = builder({ returning: [{ id: 'conv-1', user_id: 'user-1' }] });
+    mockDb.mockImplementation((table) => {
+      if (table === 'ai_settings') return settingsQuery;
+      if (table === 'ai_conversations') return conversations;
+      if (table === 'ai_messages') return builder({ rows: [] });
+      if (table === 'playlists') return builder({ rows: [{ id: 'p1', name: 'Ana Liste', channel_count: '31' }] });
+      if (table === 'categories') return builder({ rows: [{ name: 'Ulusal', is_hidden: false, channel_count: '8' }] });
+      if (table === 'channels') return builder({ rows: [{ stream_type: 'live', total: '31' }] });
+      if (table === 'epg_sources') return builder({ first: { total: '2' } });
+      return builder({ rows: [] });
+    });
+    respondWith({ choices: [{ message: { content: 'Hazırım.' } }] });
+
+    await aiService.chat('user-1', { message: 'durum nedir', playlistId: 'p1' });
+
+    const systemContent = JSON.parse(mockSafeFetchText.mock.calls[0][1].body).messages[0].content;
+    expect(systemContent).toContain('Ana Liste');
+    expect(systemContent).toContain('playlistId: p1');
+    expect(systemContent).toContain('31 kanal');
+    expect(systemContent).toContain('Ulusal (8)');
+    expect(systemContent).toContain('2 EPG kaynağı');
+  });
+
+  test('a failing context summary never breaks the chat', async () => {
+    const settingsQuery = builder({ first: CONFIGURED });
+    mockDb.mockImplementation((table) => {
+      if (table === 'ai_settings') return settingsQuery;
+      if (table === 'ai_conversations') return builder({ returning: [{ id: 'conv-1', user_id: 'user-1' }] });
+      if (table === 'ai_messages') return builder({ rows: [] });
+      if (table === 'playlists') throw new Error('db down');
+      return builder({ rows: [] });
+    });
+    respondWith({ choices: [{ message: { content: 'Yine de buradayım.' } }] });
+
+    const result = await aiService.chat('user-1', { message: 'selam', playlistId: 'p1' });
+    expect(result.reply).toBe('Yine de buradayım.');
+  });
+
+  test('runs independent read-only calls in parallel but keeps writes sequential', async () => {
+    wireConversation();
+    const order = [];
+    let readsInFlight = 0;
+    let maxReadsInFlight = 0;
+    mockExecute.mockImplementation(async (name) => {
+      order.push(name);
+      if (name.startsWith('list_')) {
+        readsInFlight += 1;
+        maxReadsInFlight = Math.max(maxReadsInFlight, readsInFlight);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        readsInFlight -= 1;
+      }
+      return { ok: true, result: {} };
+    });
+    respondWith(
+      { choices: [{ message: { tool_calls: [
+        { id: 'c1', function: { name: 'list_playlists', arguments: '{}' } },
+        { id: 'c2', function: { name: 'list_channels', arguments: '{}' } },
+        { id: 'c3', function: { name: 'delete_channels', arguments: '{}' } },
+      ] } }] },
+      { choices: [{ message: { content: 'Bitti.' } }] }
+    );
+
+    const result = await aiService.chat('user-1', { message: 'topla' });
+
+    expect(maxReadsInFlight).toBe(2);
+    expect(order[2]).toBe('delete_channels');
+    // Adim kaydi her zaman modelin cagri sirasinda olmali.
+    expect(result.steps.map((step) => step.tool)).toEqual(['list_playlists', 'list_channels', 'delete_channels']);
+  });
+
+  test('tool selection is hinted by the user message and the tools already run', async () => {
+    wireConversation();
+    mockExecute.mockResolvedValue({ ok: true, result: {} });
+    respondWith(
+      { choices: [{ message: { tool_calls: [{ id: 'c1', function: { name: 'list_playlists', arguments: '{}' } }] } }] },
+      { choices: [{ message: { content: 'Tamam.' } }] }
+    );
+
+    await aiService.chat('user-1', { message: 'yedek al' });
+
+    expect(mockDefinitions).toHaveBeenNthCalledWith(1, { hints: 'yedek al' });
+    expect(mockDefinitions).toHaveBeenNthCalledWith(2, { hints: 'yedek al list_playlists' });
   });
 });

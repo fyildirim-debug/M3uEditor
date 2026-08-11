@@ -168,4 +168,54 @@ describe('AI tool registry', () => {
     expect(outcome).toMatchObject({ ok: false, code: 'VALIDATION_ERROR' });
     expect(mockDb.raw).not.toHaveBeenCalled();
   });
+
+  // Katalog 159 arac, tek istekte gonderilebilen ~117. Sabit sirada
+  // gonderildiginde son modullerin araclari hicbir zaman dogrudan gorunmuyordu.
+  test('relevance ranking surfaces tools that a fixed order would never send', () => {
+    const fixedOrder = tools.definitions().map((definition) => definition.function.name);
+    const ranked = tools.definitions({ hints: 'paylaşım linki oluştur ve xtream çıkışını aç' })
+      .map((definition) => definition.function.name);
+
+    expect(fixedOrder).not.toContain('share_playlist');
+    expect(fixedOrder).not.toContain('enable_xtream_output');
+    expect(ranked).toContain('share_playlist');
+    expect(ranked).toContain('enable_xtream_output');
+    expect(ranked.length).toBeLessThanOrEqual(tools.DEFAULT_TOOL_LIMIT);
+  });
+
+  test('ranking matches Turkish suffixed words and keeps meta tools', () => {
+    const names = tools.definitions({ hints: 'yedekleri listele' }).map((definition) => definition.function.name);
+    // "yedekleri" -> "yedek" govdesi; create_backup/list_backups yakalanmali.
+    expect(names.slice(0, 20)).toEqual(expect.arrayContaining(['list_backups']));
+    expect(names).toEqual(expect.arrayContaining(['search_capabilities', 'invoke_capability']));
+  });
+
+  test('ranking is deterministic and falls back to module order without hints', () => {
+    expect(tools.definitions()).toEqual(tools.definitions({ hints: '' }));
+    expect(tools.definitions({ hints: 'logo' })).toEqual(tools.definitions({ hints: 'logo' }));
+  });
+
+  test('schema violations are reported to the model with the schema attached', async () => {
+    const outcome = await tools.execute('rename_playlist', { playlistId: 'p1' }, { userId: 'user-1' });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.code).toBe('VALIDATION_ERROR');
+    expect(outcome.error).toContain('name');
+    expect(outcome.schema).toBeDefined();
+    expect(mockDb).not.toHaveBeenCalled();
+  });
+
+  test('wrong argument types are rejected before the tool runs', async () => {
+    const outcome = await tools.execute('list_channels', { playlistId: 'p1', limit: 'hepsi' }, { userId: 'user-1' });
+    expect(outcome).toMatchObject({ ok: false, code: 'VALIDATION_ERROR' });
+    expect(outcome.error).toContain('limit');
+    expect(mockDb).not.toHaveBeenCalled();
+  });
+
+  test('read-only tools are separable from writing ones for parallel execution', () => {
+    expect(tools.isReadOnly('list_channels')).toBe(true);
+    expect(tools.isReadOnly('get_playlist')).toBe(true);
+    expect(tools.isReadOnly('update_channel')).toBe(false);
+    expect(tools.isReadOnly('delete_channels')).toBe(false);
+    expect(tools.isReadOnly('sync_playlist')).toBe(false);
+  });
 });
