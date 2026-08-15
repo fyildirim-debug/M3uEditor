@@ -42,6 +42,12 @@
       <span>{{ t('ai.allowDestructive') }}</span>
     </label>
 
+    <label class="ai-check" :class="{ 'ai-check-disabled': !form.allowDestructive }">
+      <input v-model="form.requireApproval" type="checkbox" :disabled="!form.allowDestructive" />
+      <span>{{ t('ai.requireApproval') }}</span>
+    </label>
+    <p class="ai-hint ai-hint-tight">{{ t('ai.requireApprovalHint') }}</p>
+
     <div class="form-group">
       <label class="form-label" :for="id('system-prompt')">{{ t('ai.systemPrompt') }}</label>
       <textarea :id="id('system-prompt')" v-model="form.systemPrompt" class="input ai-textarea" rows="3" :placeholder="t('ai.systemPromptPlaceholder')"></textarea>
@@ -87,7 +93,7 @@ const { t } = useI18n()
 const toast = inject('toast', () => {})
 
 const settings = reactive({ configured: false, hasApiKey: false, model: null })
-const form = reactive({ baseUrl: '', apiKey: '', model: '', temperature: 0.2, maxSteps: 12, allowDestructive: true, systemPrompt: '' })
+const form = reactive({ baseUrl: '', apiKey: '', model: '', temperature: 0.2, maxSteps: 12, allowDestructive: true, requireApproval: false, systemPrompt: '' })
 const models = ref([])
 const capabilities = ref([])
 const sentPerRequest = ref(0)
@@ -108,6 +114,7 @@ async function load() {
     form.temperature = data.temperature ?? 0.2
     form.maxSteps = data.maxSteps ?? 12
     form.allowDestructive = data.allowDestructive !== false
+    form.requireApproval = data.requireApproval === true
     form.systemPrompt = data.systemPrompt || ''
   } catch { /* oturum yoksa sessizce gec */ }
 }
@@ -135,6 +142,7 @@ async function save() {
       temperature: form.temperature,
       maxSteps: form.maxSteps,
       allowDestructive: form.allowDestructive,
+      requireApproval: form.allowDestructive && form.requireApproval,
       systemPrompt: form.systemPrompt,
     }
     // Anahtar alani bossa kayitli anahtar korunur.
@@ -178,6 +186,8 @@ defineExpose({ load })
 .ai-model-row .input { flex: 1; min-width: 0; }
 .ai-textarea { resize: vertical; font-family: inherit; }
 .ai-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; }
+.ai-check-disabled { opacity: 0.5; cursor: not-allowed; }
+.ai-hint-tight { margin-top: -6px; }
 .ai-settings-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .ai-capabilities-toggle {
   background: none; border: none; cursor: pointer; padding: 0;
