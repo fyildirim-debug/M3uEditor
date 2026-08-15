@@ -199,6 +199,30 @@ describe('AI destructive approval flow', () => {
   });
 });
 
+describe('AI produced files', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('a generated file is recorded on the final assistant message', async () => {
+    const inserts = mockTables({ ai_settings: () => builder({ first: { ...SETTINGS, require_approval: false } }) });
+    providerReplies(
+      { choices: [{ message: { content: null, tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'save_output_file', arguments: '{"filename":"rapor.csv","content":"a,b"}' } }] } }] },
+      { choices: [{ message: { content: 'Rapor hazır.' } }] }
+    );
+    mockExecute.mockResolvedValue({ ok: true, result: { attachmentId: 'out-1', filename: 'rapor.csv' } });
+    const attachmentsMock = require('../../../src/services/ai/attachments');
+    attachmentsMock.require.mockResolvedValue({ id: 'out-1', filename: 'rapor.csv', format: 'csv', kind: 'output', sizeBytes: 3 });
+
+    const result = await aiService.chat('user-1', { message: 'rapor üret' });
+
+    expect(result.files).toEqual([expect.objectContaining({ id: 'out-1' })]);
+    // Sayfa yenilendiginde indirme karti bu satirdan geri cizilir; arac
+    // cagiran ara mesajlara degil, yalnizca nihai mesaja yazilmali.
+    const assistantRows = inserts.ai_messages.filter((row) => row.role === 'assistant');
+    expect(JSON.parse(assistantRows.at(-1).attachments)).toEqual([expect.objectContaining({ id: 'out-1', kind: 'output' })]);
+    expect(assistantRows[0].attachments).toBeNull();
+  });
+});
+
 describe('AI message length', () => {
   beforeEach(() => jest.clearAllMocks());
 

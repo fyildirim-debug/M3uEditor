@@ -28,6 +28,9 @@
             <button class="btn btn-ghost btn-icon-sm" type="button" :title="t('ai.newChat')" :aria-label="t('ai.newChat')" @click="startNewChat">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
+            <button class="btn btn-ghost btn-icon-sm" type="button" :title="t('ai.history')" :aria-label="t('ai.history')" @click="openHistory">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/><polyline points="12 8 12 12 15 14"/></svg>
+            </button>
             <button class="btn btn-ghost btn-icon-sm" type="button" :title="t('ai.tasks')" :aria-label="t('ai.tasks')" @click="openTasks">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
             </button>
@@ -75,6 +78,21 @@
           </div>
         </section>
 
+        <!-- ── Geçmiş sohbetler ── -->
+        <section v-else-if="view === 'history'" class="ai-body">
+          <p class="ai-hint">{{ t('ai.historyHint') }}</p>
+          <p v-if="!conversations.length" class="ai-empty-inline">{{ t('ai.historyEmpty') }}</p>
+          <div v-for="item in conversations" :key="item.id" class="ai-history-row" :class="{ active: item.id === conversationId }">
+            <button class="ai-history-open" type="button" @click="openConversation(item.id)">
+              <span class="ai-history-title">{{ item.title || t('ai.untitledChat') }}</span>
+              <span class="ai-history-date">{{ formatDate(item.updated_at || item.updatedAt) }}</span>
+            </button>
+            <button class="btn btn-ghost btn-icon-sm ai-danger" type="button" :aria-label="t('common.delete')" @click="deleteConversation(item)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+            </button>
+          </div>
+        </section>
+
         <!-- ── Sohbet ── -->
         <section v-else class="ai-body" ref="scroller">
           <div v-if="!settings.configured" class="ai-empty">
@@ -83,7 +101,11 @@
           </div>
 
           <template v-else>
-            <div v-if="!messages.length" class="ai-empty">
+            <div v-if="restoring" class="ai-empty">
+              <span class="spinner"></span>
+            </div>
+
+            <div v-else-if="!messages.length" class="ai-empty">
               <p>{{ t('ai.welcome') }}</p>
               <div class="ai-suggestions">
                 <button v-for="(suggestion, index) in suggestions" :key="index" class="ai-suggestion" type="button" @click="send(suggestion)">
@@ -220,6 +242,8 @@ const messages = ref([])
 const conversationId = ref(null)
 const pendingFiles = ref([])
 const tasks = ref([])
+const conversations = ref([])
+const restoring = ref(false)
 const busyTaskId = ref(null)
 // Akış sırasında içeriği büyüyen asistan mesajı; akış bitince sıfırlanır.
 const streamingMessage = ref(null)
@@ -259,10 +283,83 @@ function onExternalSettingsChange(event) {
   if (event.detail) Object.assign(settings, event.detail)
 }
 
+/**
+ * Açık sohbetin kimliği tarayıcıda saklanır: sayfa yenilendiğinde ya da yeni
+ * sekmede aynı yerden devam edilsin. Sohbetin kendisi zaten sunucuda
+ * (ai_conversations / ai_messages); burada tutulan yalnızca "en son neredeydim"
+ * bilgisi. Anahtar kullanıcıya göre ayrılır ki aynı tarayıcıda hesap
+ * değiştirildiğinde başkasının sohbeti açılmasın.
+ */
+function storageKey() {
+  try {
+    const user = JSON.parse(sessionStorage.getItem('user') || 'null')
+    return user?.id ? `ai:conversation:${user.id}` : null
+  } catch {
+    return null
+  }
+}
+
+function rememberConversation(id) {
+  const key = storageKey()
+  if (!key) return
+  if (id) localStorage.setItem(key, id)
+  else localStorage.removeItem(key)
+}
+
+/** Sunucudaki mesajları panelin beklediği biçime çevirir. */
+function toPanelMessages(rows) {
+  return (rows || []).map((row) => {
+    const files = row.attachments || []
+    return {
+      role: row.role,
+      content: row.content || '',
+      steps: [],
+      // Kullanıcının eklediği dosyalar ile asistanın ürettikleri ayrı gösterilir.
+      attachments: files.filter((file) => file.kind !== 'output'),
+      outputs: files.filter((file) => file.kind === 'output'),
+      pending: null,
+      streaming: false,
+    }
+  })
+}
+
+async function loadConversation(id, { silent = false } = {}) {
+  if (!id) return false
+  if (!silent) restoring.value = true
+  try {
+    const { data } = await api.get(`/ai/conversations/${id}`)
+    messages.value = toPanelMessages(data.messages)
+    conversationId.value = id
+    rememberConversation(id)
+
+    // Yenilemeden önce onay bekleyen bir işlem varsa kartı geri getir;
+    // yoksa kullanıcı neyi onayladığını bilmeden askıda kalırdı.
+    try {
+      const { data: approvals } = await api.get(`/ai/conversations/${id}/approvals`)
+      const [pending] = approvals.pending || []
+      if (pending) {
+        const last = messages.value[messages.value.length - 1]
+        if (last?.role === 'assistant') last.pending = pending
+        else messages.value.push({ role: 'assistant', content: '', steps: [], outputs: [], attachments: [], pending })
+      }
+    } catch { /* onay listesi kritik değil */ }
+
+    scrollToEnd()
+    return true
+  } catch (error) {
+    // Sohbet silinmişse hafızadaki kimlik de temizlenir.
+    if (error.response?.status === 404) rememberConversation(null)
+    return false
+  } finally {
+    restoring.value = false
+  }
+}
+
 function startNewChat() {
   conversationId.value = null
   messages.value = []
   pendingFiles.value = []
+  rememberConversation(null)
   view.value = 'chat'
 }
 
@@ -405,6 +502,7 @@ async function streamChat(payload, onEvent) {
 function applyEvent(event, target) {
   if (event.type === 'start') {
     conversationId.value = event.conversationId
+    rememberConversation(event.conversationId)
   } else if (event.type === 'delta') {
     target.content += event.text
   } else if (event.type === 'tool') {
@@ -456,6 +554,7 @@ async function send(preset) {
       // Akışsız yedek yol: axios token tazelemeyi de üstlenir.
       const { data } = await api.post('/ai/chat', payload)
       conversationId.value = data.conversationId
+      rememberConversation(data.conversationId)
       assistant.content = data.reply || ''
       assistant.steps = data.steps || []
       assistant.outputs = data.files || []
@@ -498,6 +597,35 @@ async function resolveApproval(message, approved) {
     assistant.streaming = false
     sending.value = false
     scrollToEnd()
+  }
+}
+
+/* ─────────────── Geçmiş sohbetler ─────────────── */
+
+async function loadConversations() {
+  try {
+    const { data } = await api.get('/ai/conversations')
+    conversations.value = Array.isArray(data) ? data : (data.conversations || [])
+  } catch { /* geçmiş listesi kritik değil */ }
+}
+
+function openHistory() {
+  view.value = view.value === 'history' ? 'chat' : 'history'
+  if (view.value === 'history') loadConversations()
+}
+
+async function openConversation(id) {
+  view.value = 'chat'
+  await loadConversation(id)
+}
+
+async function deleteConversation(item) {
+  try {
+    await api.delete(`/ai/conversations/${item.id}`)
+    conversations.value = conversations.value.filter((row) => row.id !== item.id)
+    if (conversationId.value === item.id) startNewChat()
+  } catch (error) {
+    toast(error.response?.data?.error?.message || t('ai.failed'), 'error')
   }
 }
 
@@ -556,8 +684,11 @@ async function deleteTask(task) {
 
 watch(open, (value) => { if (value) scrollToEnd() })
 
-onMounted(() => {
-  loadSettings()
+onMounted(async () => {
+  await loadSettings()
+  // Panel kapalıyken de geri yüklenir: kullanıcı açtığında sohbeti hazır bulur.
+  const saved = storageKey() && localStorage.getItem(storageKey())
+  if (saved && settings.configured) await loadConversation(saved, { silent: true })
   window.addEventListener('ai:settings-changed', onExternalSettingsChange)
 })
 onUnmounted(() => window.removeEventListener('ai:settings-changed', onExternalSettingsChange))
@@ -589,13 +720,16 @@ onUnmounted(() => window.removeEventListener('ai:settings-changed', onExternalSe
 }
 
 .ai-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 12px 12px 12px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 12px 10px 12px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-tertiary);
 }
-.ai-title { display: flex; align-items: center; gap: 8px; font-size: 13.5px; min-width: 0; }
-.ai-model { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Başlık artık beş düğmeyle yan yana: tek satırda kalsın, taşan kısım
+   model rozetinden kısılsın. */
+.ai-title { display: flex; align-items: center; gap: 8px; font-size: 13.5px; min-width: 0; flex: 1; overflow: hidden; }
+.ai-title strong { white-space: nowrap; }
+.ai-model { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; min-width: 0; }
 .ai-header-actions { display: flex; gap: 2px; flex-shrink: 0; }
 .ai-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-disabled); flex-shrink: 0; }
 .ai-dot.ready { background: var(--success); box-shadow: 0 0 8px rgba(16,185,129,0.6); }
@@ -677,6 +811,22 @@ onUnmounted(() => window.removeEventListener('ai:settings-changed', onExternalSe
 .ai-approval-tool { font-size: 11.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-primary); }
 .ai-approval-impact { font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
 .ai-approval-actions { display: flex; justify-content: flex-end; gap: 6px; }
+
+.ai-history-row {
+  display: flex; align-items: center; gap: 4px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-tertiary); padding: 2px 6px 2px 2px;
+}
+.ai-history-row.active { border-color: var(--accent); }
+.ai-history-open {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+  background: none; border: none; cursor: pointer; text-align: left; padding: 8px 10px;
+}
+.ai-history-title {
+  font-size: 12.5px; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ai-history-date { font-size: 11px; color: var(--text-muted); }
 
 .ai-task {
   display: flex; flex-direction: column; gap: 5px;

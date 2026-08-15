@@ -910,6 +910,10 @@
     "everyHours": "{count} saatte bir",
     "everyDays": "{count} günde bir",
     "assistantLabel": "Asistan",
-    "writing": "yazıyor…"
+    "writing": "yazıyor…",
+    "history": "Geçmiş sohbetler",
+    "historyHint": "Sohbetleriniz sunucuda saklanır. Sayfayı yenilediğinizde son sohbet kaldığı yerden açılır; buradan eski sohbetlere de dönebilirsiniz.",
+    "historyEmpty": "Henüz kayıtlı sohbet yok.",
+    "untitledChat": "Başlıksız sohbet"
   }
 }

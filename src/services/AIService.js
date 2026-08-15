@@ -726,7 +726,7 @@ class AIService {
    * Model dongusu. Yeni bir kullanici mesajiyla da (chat) onaydan sonra
    * kaldigi yerden de (resolveApproval) ayni dongu kullanilir.
    */
-  async _loop(userId, { conversation, settings, ctx, messages, hints, requireApproval, emit, steps = [], usage = { promptTokens: 0, completionTokens: 0 }, stream = false }) {
+  async _loop(userId, { conversation, settings, ctx, messages, hints, requireApproval, emit, steps = [], produced = [], usage = { promptTokens: 0, completionTokens: 0 }, stream = false }) {
     const maxSteps = Math.min(settings.max_steps || 12, MAX_STEPS_LIMIT);
     let reply = '';
     let pending = null;
@@ -778,6 +778,11 @@ class AIService {
         role: 'assistant',
         content: assistantMessage.content ?? null,
         tool_calls: toolCalls.length ? toolCalls : null,
+        // Yalnizca nihai (arac cagirmayan) mesaja: gecmis yeniden yuklendiginde
+        // indirme kartlari dogru mesajin altinda cikar.
+        attachments: toolCalls.length ? null : produced.map((file) => ({
+          id: file.id, filename: file.filename, format: file.format, kind: 'output', sizeBytes: file.sizeBytes,
+        })),
       });
 
       if (!toolCalls.length) {
@@ -789,7 +794,7 @@ class AIService {
         conversation,
         requireApproval,
         emit,
-        onOutcome: this._makeOutcomeWriter(userId, { conversation, messages, steps, emit }),
+        onOutcome: this._makeOutcomeWriter(userId, { conversation, messages, steps, emit, produced }),
       });
 
       if (result.paused) {
@@ -805,8 +810,6 @@ class AIService {
     }
 
     await db('ai_conversations').where({ id: conversation.id }).update({ updated_at: db.fn.now() });
-    const outputs = await attachments.list(userId, { conversationId: conversation.id, kind: 'output', limit: 10 });
-    const produced = outputs.filter((file) => steps.some((item) => item.result?.includes(file.id)));
 
     logger.info({ userId, conversationId: conversation.id, toolCalls: steps.length, paused: Boolean(pending) }, 'AI chat completed');
     const payload = { conversationId: conversation.id, reply, steps, usage, files: produced, pendingApproval: pending };
@@ -815,7 +818,7 @@ class AIService {
   }
 
   /** `_outcomeWriter`in userId'yi de kapatan hali. */
-  _makeOutcomeWriter(userId, { conversation, messages, steps, emit }) {
+  _makeOutcomeWriter(userId, { conversation, messages, steps, emit, produced }) {
     return async ({ call, name, args, outcome }) => {
       const content = this._summarize(outcome.ok
         ? outcome.result
@@ -836,7 +839,13 @@ class AIService {
 
       if (outcome.ok && outcome.result?.attachmentId) {
         const row = await attachments.require(userId, outcome.result.attachmentId).catch(() => null);
-        if (row) emit?.({ type: 'attachment', file: attachments.rowToPublic(row) });
+        if (row) {
+          const file = attachments.rowToPublic(row);
+          emit?.({ type: 'attachment', file });
+          // Uretilen dosya nihai asistan mesajina iliştirilir; boylece sayfa
+          // yenilendiginde sohbetle birlikte indirme karti da geri gelir.
+          if (produced && !produced.some((item) => item.id === file.id)) produced.push(file);
+        }
       }
     };
   }
@@ -961,7 +970,8 @@ class AIService {
       allowDestructive: settings.allow_destructive !== false,
     };
     const steps = [];
-    const write = this._makeOutcomeWriter(userId, { conversation, messages, steps, emit });
+    const produced = [];
+    const write = this._makeOutcomeWriter(userId, { conversation, messages, steps, emit, produced });
 
     if (approved) {
       // Onaylanan cagri calistirilir; kuyruktaki digerleri normal akista devam eder
@@ -983,7 +993,7 @@ class AIService {
             reply: '',
             steps,
             usage: { promptTokens: 0, completionTokens: 0 },
-            files: [],
+            files: produced,
             pendingApproval: this._publicPending(result.paused),
           };
           emit?.({ type: 'done', ...payload });
@@ -1010,6 +1020,7 @@ class AIService {
       requireApproval: settings.require_approval === true,
       emit,
       steps,
+      produced,
       stream,
     });
   }

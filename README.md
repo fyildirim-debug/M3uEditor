@@ -357,7 +357,9 @@ before any formatting is applied, so nothing the model emits can inject HTML.
 - Every executed tool is shown in the chat as a trace line, so a turn's real
   effects are visible rather than inferred from prose.
 - Conversations are stored per user in `ai_conversations`/`ai_messages` and can
-  be deleted; `POST /api/ai/chat` is rate-limited per user.
+  be deleted; `POST /api/ai/chat` is rate-limited per user. The panel remembers
+  the open conversation across reloads and lists past ones in its history tab —
+  only the conversation id lives in the browser, the content stays on the server.
 - Attachments are stored under a generated id, never under the supplied filename,
   so a crafted name cannot escape the user's own directory. Every read, download
   and delete goes through an ownership check, and deleting a conversation removes

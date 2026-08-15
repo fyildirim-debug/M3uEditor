@@ -51,6 +51,16 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ### Fixed
 
+- **Refreshing the page wiped the assistant conversation.** Chats were being
+  stored server-side all along (`ai_conversations` / `ai_messages`) but the panel
+  never asked for them, so every reload started from an empty box. The panel now
+  remembers which conversation is open — per user, in `localStorage` — and
+  restores it on load, along with the files exchanged in it and any approval that
+  was still waiting when the page went away. A new history tab lists past
+  conversations so an older one can be reopened or deleted, and *New chat* clears
+  the remembered id. Downloadable output is recorded on the assistant message that
+  produced it, so the download cards come back with the conversation instead of
+  being matched by searching truncated tool output for an id.
 - **Refreshing the page logged you out.** The SPA refreshes the session on every
   page load, but `/api/auth/refresh` was capped at 10 requests per 15 minutes
   *and* also passed through the general auth limiter (20), so the fifth reload of

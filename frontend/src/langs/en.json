@@ -910,6 +910,10 @@
     "everyHours": "every {count} hours",
     "everyDays": "every {count} days",
     "assistantLabel": "Assistant",
-    "writing": "writing…"
+    "writing": "writing…",
+    "history": "Chat history",
+    "historyHint": "Your chats are stored on the server. Reloading the page reopens the last one where you left off; you can also return to older chats from here.",
+    "historyEmpty": "No saved chats yet.",
+    "untitledChat": "Untitled chat"
   }
 }
