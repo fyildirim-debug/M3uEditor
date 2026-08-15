@@ -23,6 +23,8 @@ const MODULES = [
   require('./epg'),
   require('./imports'),
   require('./exports'),
+  require('./attachments'),
+  require('./tasks'),
   require('./account'),
 ];
 
@@ -287,7 +289,7 @@ function isDestructive(name) {
 // Salt-okuma araclari birbirinden bagimsizdir, ayni turda paralel
 // calistirilabilir. Yazan araclarda sira onemli oldugu icin liste bilincli
 // olarak dar tutuldu: yalnizca evrensel okuma onekleri.
-const READ_ONLY_PREFIXES = ['list_', 'get_', 'search_', 'find_', 'describe_', 'count_', 'preview_'];
+const READ_ONLY_PREFIXES = ['list_', 'get_', 'search_', 'find_', 'describe_', 'count_', 'preview_', 'read_'];
 
 function isReadOnly(name) {
   if (!tools[name] && !metaTools[name]) return false;

@@ -46,6 +46,15 @@ SchedulerService.register('epg-refresh', async ({ id, user_id: userId }) => {
   logger.info({ sourceId: id, userId }, 'Scheduled EPG refresh completed');
 });
 
+// Zamanlanmis asistan gorevleri. Once sahiplenilir (ayni gorev iki kez
+// baslamasin), sonra asistan turu calistirilir; sonuc gorev satirina yazilir.
+SchedulerService.register('ai-task', async ({ id, user_id: userId }) => {
+  const aiTaskService = require('./services/ai/tasks');
+  if (!await aiTaskService.claim(id)) return;
+  await aiTaskService.run(userId, id);
+  logger.info({ taskId: id, userId }, 'Scheduled AI task completed');
+});
+
 const server = app.listen(PORT, () => {
   logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'M3U Playlist Editor API started');
   SchedulerService.start();

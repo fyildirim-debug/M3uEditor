@@ -59,6 +59,21 @@ class SchedulerService {
           });
         }
       }
+      if (this.handlers.has('ai-task')) {
+        const dueTasks = await db('ai_tasks')
+          .where({ enabled: true })
+          .andWhereRaw(`(last_run_at IS NULL OR last_run_at + (interval_minutes || ' minutes')::interval <= ?)`, [now])
+          .select('id', 'user_id');
+        for (const row of dueTasks) {
+          // Bir asistan gorevi dakikalarca surebilir. Beklenirse sonraki tick
+          // gecikir, beklenmezse gorev her tick'te yeniden baslar; bu yuzden
+          // handler once gorevi sahiplenir (last_run_at'i ileri alir), sonra
+          // arka planda calistirir ve tick beklemeden devam eder.
+          this.handlers.get('ai-task')(row).catch((error) => {
+            logger.warn({ err: error, taskId: row.id }, 'Scheduled AI task failed');
+          });
+        }
+      }
       if (this.handlers.has('epg-refresh')) {
         const dueSources = await db('epg_sources')
           .whereNotNull('refresh_interval_minutes')

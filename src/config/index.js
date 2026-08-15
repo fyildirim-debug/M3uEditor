@@ -66,11 +66,29 @@ const config = {
     .map((origin) => origin.trim())
     .filter(Boolean),
   uploadDir: process.env.UPLOAD_DIR || require('path').join(__dirname, '..', '..', 'data', 'logos'),
+  // Asistan ekleri logolarla ayni veri biriminde ama ayri klasorde durur:
+  // logo klasoru web'den servis edilir, ekler yalnizca kimlik dogrulamali
+  // indirme ucundan okunur.
+  aiAttachmentDir: process.env.AI_ATTACHMENT_DIR
+    || require('path').join(require('path').dirname(process.env.UPLOAD_DIR || require('path').join(__dirname, '..', '..', 'data', 'logos')), 'ai-attachments'),
   limits: {
     jsonBody: process.env.MAX_JSON_BODY || '25mb',
     m3uBytes: parsePositiveInteger(process.env.MAX_M3U_BYTES, 20 * 1024 * 1024),
     epgBytes: parsePositiveInteger(process.env.MAX_EPG_BYTES, 100 * 1024 * 1024),
     xtreamBytes: parsePositiveInteger(process.env.MAX_XTREAM_BYTES, 256 * 1024 * 1024),
+  },
+  ai: {
+    // Sohbet mesajinin ust siniri. Eskiden 8.000 karakterdi ve yapistirilan
+    // listeler reddediliyordu; artik pratikte sinirsiz: esigi asan metin
+    // otomatik olarak eke donusturulur ve modele onizleme + arac erisimi verilir.
+    maxMessageChars: parsePositiveInteger(process.env.AI_MAX_MESSAGE_CHARS, 1_000_000),
+    // Bu uzunlugun ustundeki mesaj govdesi modele oldugu gibi gitmez; ek dosya
+    // olarak saklanip onizlemesi gonderilir (baglam penceresini korur).
+    inlineMessageChars: parsePositiveInteger(process.env.AI_INLINE_MESSAGE_CHARS, 12_000),
+    attachmentBytes: parsePositiveInteger(process.env.AI_ATTACHMENT_MAX_BYTES, 20 * 1024 * 1024),
+    attachmentQuotaBytes: parsePositiveInteger(process.env.AI_ATTACHMENT_QUOTA_BYTES, 200 * 1024 * 1024),
+    // Zamanlanmis gorevlerde tek turda izin verilen en dusuk aralik.
+    minTaskIntervalMinutes: parsePositiveInteger(process.env.AI_MIN_TASK_INTERVAL_MINUTES, 15),
   },
   imports: {
     maxConcurrent: Math.min(parsePositiveInteger(process.env.MAX_CONCURRENT_IMPORTS, 4), 64),
