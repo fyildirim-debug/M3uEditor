@@ -212,8 +212,11 @@ In TiviMate, IPTV Smarters, and similar clients, use `APP_URL` as the server add
 
 Every authenticated page carries a chat launcher in the bottom-right corner, and
 the same settings live under **Account → AI Assistant**. The assistant is not a
-help bot: it operates the application through **162 server-side tools**, so it can
-do anything the UI can do — and a good deal the UI cannot.
+help bot: it operates the application through **175 server-side tools**, so it can
+do anything the UI can do — and a good deal the UI cannot. It also accepts file
+attachments, streams its answer as it is produced, can pause for your approval
+before destructive work, hands finished output back as downloadable files, and
+can be given recurring jobs that run on the server without a browser.
 
 ### Bring your own provider
 
@@ -263,8 +266,66 @@ or LM Studio endpoint needs.
 - **Export & sharing** — M3U preview, export URLs, JSON export, share links with
   expiry and password, Xtream output enable/regenerate/disable, XMLTV coverage,
   view profiles.
+- **Attachments & output files** — list, describe, page through and search an
+  attached file, import an attached M3U straight into a playlist, write a report
+  or converted list to a downloadable file, export a playlist to an M3U file.
+- **Scheduled tasks** — create, list, update, delete and run recurring jobs.
 - **Account** — own account summary, usage overview, storage report, recent
   activity, system status.
+
+### Attaching files
+
+The paperclip in the composer accepts `.m3u`, `.m3u8`, `.txt`, `.xml`, `.xmltv`,
+`.json` and `.csv` up to 20 MB each (`AI_ATTACHMENT_MAX_BYTES`), with a 200 MB
+per-account ceiling (`AI_ATTACHMENT_QUOTA_BYTES`). The format is detected from
+the content, not the extension. The file is stored on disk under
+`AI_ATTACHMENT_DIR` (by default a sibling of the logo directory, so it lives in
+the same volume) while only metadata, a short preview and a content summary —
+entry count for M3U, channel/programme counts for XMLTV, columns for CSV — go
+into the database.
+
+**The file is never handed to the model in one piece.** The message carries the
+attachment id and its summary; from there the assistant pages through it with
+`read_attachment` (line windows), narrows it with `search_attachment`, or imports
+it wholesale with `import_attachment`. A 20 MB playlist is therefore workable
+without ever filling the context window. XMLTV attachments can be read and
+searched but not imported — EPG ingestion streams from a URL, so add those as an
+EPG source instead.
+
+Anything the assistant produces — a CSV report, a converted list, a filtered M3U
+— comes back as a download card in the chat, served from
+`GET /api/ai/attachments/:id/download` with the owner's session required.
+
+There is **no practical message length limit**. Text beyond
+`AI_INLINE_MESSAGE_CHARS` (12.000) is stored as an attachment automatically and
+the model receives a preview plus the id, so pasting a whole playlist into the
+box works the same way as attaching it. The hard ceiling is
+`AI_MAX_MESSAGE_CHARS` (1.000.000).
+
+### Live streaming, approvals and scheduled tasks
+
+`POST /api/ai/chat/stream` returns Server-Sent Events: text arrives token by
+token and every tool step appears the moment it starts, so a long chain is
+visible while it runs instead of after it finishes. Gateways that do not support
+streaming are detected on the first response and the panel falls back to the
+plain `POST /api/ai/chat` endpoint with no visible difference beyond the text
+landing at once.
+
+With **Ask for my approval before destructive actions** enabled, a `[YIKICI]`
+call does not run: it stops in the chat as a confirmation card carrying the tool
+name and an impact estimate, and the rest of that turn's calls wait in a queue so
+the provider never sees a half-finished turn. Approving runs exactly the stored
+call; declining closes it and the queued calls with a "not approved" result, and
+the assistant is told so it can react.
+
+Recurring work — *"test dead channels every night and delete them"* — becomes a
+scheduled task. Tasks live in `ai_tasks`, run on the server via
+`SchedulerService` (minimum interval 15 minutes, `AI_MIN_TASK_INTERVAL_MINUTES`),
+and each run starts a fresh conversation so context does not accumulate.
+Destructive permission is **per task and off by default**; a task cannot ask for
+approval, so an unattended run that hits one stops and records why. The task
+panel in the assistant lists every task with its last result and can pause,
+run-now or delete it.
 
 Providers cap how many functions one request may carry (OpenAI's limit is 128),
 so each turn ships the first 120 tools plus three meta-tools —
@@ -297,6 +358,16 @@ before any formatting is applied, so nothing the model emits can inject HTML.
   effects are visible rather than inferred from prose.
 - Conversations are stored per user in `ai_conversations`/`ai_messages` and can
   be deleted; `POST /api/ai/chat` is rate-limited per user.
+- Attachments are stored under a generated id, never under the supplied filename,
+  so a crafted name cannot escape the user's own directory. Every read, download
+  and delete goes through an ownership check, and deleting a conversation removes
+  its files from disk as well as its rows.
+- File contents are third-party data. The system prompt states this explicitly
+  and the attachment manifest repeats it per message, so instructions embedded in
+  a playlist or guide are treated as text, not as commands.
+- Scheduled tasks run with their owner's authority and their own destructive
+  switch; they cannot create or trigger other tasks, which rules out runaway
+  loops.
 
 Endpoints: `GET/PUT /api/ai/settings`, `POST /api/ai/models`,
 `GET /api/ai/capabilities`, `POST /api/ai/chat`,

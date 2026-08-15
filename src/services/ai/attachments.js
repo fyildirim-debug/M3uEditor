@@ -130,7 +130,9 @@ class AiAttachmentStore {
   async save(userId, { conversationId = null, filename, content, kind = 'upload', format } = {}) {
     const text = typeof content === 'string' ? content : String(content ?? '');
     const bytes = Buffer.byteLength(text, 'utf8');
-    if (!bytes) throw createAppError('VALIDATION_ERROR', 'Dosya içeriği boş');
+    // Yalnizca bosluk iceren dosya da bostur: modele verilecek bir seyi yok,
+    // ama kotadan yer yer ve sohbette dosya karti olarak gorunur.
+    if (!text.trim()) throw createAppError('VALIDATION_ERROR', 'Dosya içeriği boş');
     if (bytes > config.ai.attachmentBytes) {
       const limitMb = Math.round(config.ai.attachmentBytes / (1024 * 1024));
       throw createAppError('VALIDATION_ERROR', `Dosya en fazla ${limitMb} MB olabilir`);

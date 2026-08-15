@@ -5,6 +5,62 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ## [Unreleased]
 
+### Added
+
+- **The assistant accepts file attachments.** The composer now carries a
+  paperclip: `.m3u`, `.m3u8`, `.txt`, `.xml`, `.xmltv`, `.json` and `.csv` files
+  up to 20 MB (`AI_ATTACHMENT_MAX_BYTES`, 200 MB per account) are stored on disk
+  under `AI_ATTACHMENT_DIR` with only metadata, a preview and a content summary
+  in `ai_attachments`. The format is read from the content, never the extension,
+  and the file is written under a generated id rather than the supplied name, so
+  a crafted filename cannot leave the user's own directory. The model does not
+  receive the file: it gets the id and the summary, then works through
+  `describe_attachment`, `read_attachment` (line windows with a continuation
+  cursor), `search_attachment` (grep by line) or `import_attachment`, which hands
+  an attached M3U to the normal import path. A 20 MB playlist is therefore usable
+  without filling the context window. XMLTV attachments can be read and searched
+  but not imported — EPG ingestion streams from a URL.
+- **Downloadable output.** `save_output_file` and `export_playlist_to_file` write
+  the assistant's reports, converted lists and filtered M3Us to real files that
+  appear as download cards in the chat, served by
+  `GET /api/ai/attachments/:id/download` behind the owner's session.
+- **Live streaming of answers and tool steps.** `POST /api/ai/chat/stream`
+  emits Server-Sent Events — `delta`, `tool`, `tool-result`, `attachment`,
+  `approval`, `done`, `error` — so a long tool chain is visible while it runs
+  instead of after it. Gateways that reject `stream: true` or answer with plain
+  JSON are detected on the first response and the turn silently completes over
+  the non-streaming path; the browser falls back the same way, which also keeps
+  token refresh on the axios client that already handles it.
+- **Approval gate for destructive work.** With the new *require approval*
+  setting, a `[YIKICI]` call stops before it runs and returns a confirmation card
+  carrying the tool name and an impact estimate. The rest of that turn's calls
+  are held in `ai_pending_actions.queued_calls`, because a provider rejects a
+  turn where some `tool_call`s have no result — approving runs exactly the stored
+  call and continues, declining closes the whole queue with a "not approved"
+  result the model can react to.
+- **Scheduled assistant tasks.** `ai_tasks` holds recurring jobs ("test dead
+  channels every night") that `SchedulerService` runs on the server with no
+  browser open, minimum interval 15 minutes. Each run opens a fresh conversation
+  so context does not accumulate, and a run is claimed by moving `last_run_at`
+  forward before it starts, so a task that takes minutes is not restarted by the
+  next tick. Destructive permission is per task and **off by default**; a task
+  cannot ask for approval, so an unattended run that hits one stops and records
+  why. Tasks are managed from a new panel tab and through five tools; a task
+  cannot create or trigger another task, which rules out runaway loops.
+- 13 new tools: the catalogue is now **175**.
+
+### Changed
+
+- **The 8.000-character message limit is gone.** Pasting a playlist into the box
+  used to fail with a validation error. Text beyond `AI_INLINE_MESSAGE_CHARS`
+  (12.000) is now stored as an attachment automatically and the model receives a
+  preview plus the id, so long input behaves exactly like an attached file. The
+  remaining ceiling is `AI_MAX_MESSAGE_CHARS` (1.000.000), configurable.
+- Deleting a conversation now removes its attachment files from disk as well as
+  its rows.
+- An attachment whose content is only whitespace is rejected by the store, not
+  just by the upload endpoint.
+
 ### Changed
 
 - **Xtream output hands out the provider's own address by default.** Channel
