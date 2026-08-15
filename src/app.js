@@ -61,13 +61,25 @@ const authLimiter = rateLimit({
   message: { error: { code: 'RATE_LIMITED', message: 'Çok fazla istek. Lütfen 15 dakika sonra tekrar deneyin.' } },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => ['/logout', '/profile'].includes(req.path),
+  // `/refresh` has its own limiter (refreshLimiter) mounted before this one.
+  // Leaving it in here as well meant the stricter of the two won and a session
+  // refreshed on every page load ran into the 20-request ceiling meant for
+  // login and password operations.
+  skip: (req) => ['/logout', '/profile', '/refresh'].includes(req.path),
 });
 
 // Refresh attempts are limited independently from the other auth operations.
+//
+// The SPA refreshes the session on every page load, so a ceiling of 10 per 15
+// minutes counted legitimate navigation as abuse: the eleventh page load of a
+// working session answered 429. What is worth limiting here is *guessing* a
+// refresh token, so successful refreshes are not counted and the ceiling
+// applies to failures only. A success additionally rotates the token, which
+// bounds replay on its own.
 const refreshLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 60,
+  skipSuccessfulRequests: true,
   message: { error: { code: 'RATE_LIMITED', message: 'Çok fazla oturum yenileme isteği. Lütfen 15 dakika sonra tekrar deneyin.' } },
   standardHeaders: true,
   legacyHeaders: false,

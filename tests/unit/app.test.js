@@ -36,9 +36,22 @@ describe('Express App', () => {
     expect(res.status).toBe(404);
   });
 
-  test('refresh endpoint has a dedicated rate limit', async () => {
+  // Tarayici her sayfa acilisinda oturum yeniliyor. Bu ucun tavani bir zamanlar
+  // 10'du ve genel auth limitinden (20) de gectigi icin birkac kez F5 yapan
+  // kullanici 429 aliyor, arayuz de bunu gecersiz oturum sayip cikis
+  // yaptiriyordu. Tavan artik yalnizca BASARISIZ denemeleri sayar.
+  test('a normal number of page-load refreshes is not rate limited', async () => {
+    for (let attempt = 0; attempt < 25; attempt += 1) {
+      const response = await request(app).post('/api/auth/refresh').send({});
+      // Cerez yok: 401 beklenir. 429 gorursek limit mesru gezinmeyi kesiyor demektir.
+      expect(response.status).not.toBe(429);
+    }
+  });
+
+  test('refresh still has a ceiling for repeated failed attempts', async () => {
     let response;
-    for (let attempt = 0; attempt < 11; attempt += 1) {
+    // Onceki test 25 basarisiz deneme harcadi; tavan 60.
+    for (let attempt = 0; attempt < 40; attempt += 1) {
       response = await request(app).post('/api/auth/refresh').send({});
     }
 

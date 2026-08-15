@@ -908,6 +908,8 @@
     "taskRanOk": "Task \"{name}\" was run",
     "everyMinutes": "every {count} minutes",
     "everyHours": "every {count} hours",
-    "everyDays": "every {count} days"
+    "everyDays": "every {count} days",
+    "assistantLabel": "Assistant",
+    "writing": "writing…"
   }
 }

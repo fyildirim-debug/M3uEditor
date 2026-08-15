@@ -93,6 +93,15 @@
             </div>
 
             <div v-for="(message, index) in messages" :key="index" :class="['ai-message', 'ai-' + message.role]">
+              <!-- Yanıtın kimden geldiği ve hâlâ yazılıp yazılmadığı her zaman görünür olmalı. -->
+              <div v-if="message.role === 'assistant'" class="ai-author">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"/>
+                </svg>
+                <span>{{ t('ai.assistantLabel') }}</span>
+                <span v-if="message.streaming" class="ai-author-state">{{ t('ai.writing') }}</span>
+              </div>
+
               <div v-if="message.role === 'assistant' && message.steps?.length" class="ai-steps">
                 <div v-for="(step, stepIndex) in message.steps" :key="stepIndex" :class="['ai-step', { failed: step.ok === false, destructive: step.destructive, running: step.ok === undefined }]">
                   <span v-if="step.ok === undefined" class="ai-step-spin" aria-hidden="true"></span>
@@ -111,8 +120,16 @@
               </div>
 
               <div v-if="message.content" class="ai-bubble">
-                <MarkdownText v-if="message.role === 'assistant'" :text="message.content" />
+                <template v-if="message.role === 'assistant'">
+                  <MarkdownText :text="message.content" />
+                  <span v-if="message.streaming" class="ai-caret" aria-hidden="true"></span>
+                </template>
                 <template v-else>{{ message.content }}</template>
+              </div>
+
+              <!-- Henüz tek karakter gelmediyse de asistanın çalıştığı görünsün. -->
+              <div v-else-if="message.streaming" class="ai-bubble ai-typing">
+                <span></span><span></span><span></span>
               </div>
 
               <!-- Asistanın ürettiği indirilebilir dosyalar -->
@@ -145,9 +162,6 @@
               </div>
             </div>
 
-            <div v-if="sending && !streamingMessage" class="ai-message ai-assistant">
-              <div class="ai-bubble ai-typing"><span></span><span></span><span></span></div>
-            </div>
           </template>
         </section>
 
@@ -425,7 +439,7 @@ async function send(preset) {
   sending.value = true
   scrollToEnd()
 
-  const assistant = reactive({ role: 'assistant', content: '', steps: [], outputs: [], pending: null })
+  const assistant = reactive({ role: 'assistant', content: '', steps: [], outputs: [], pending: null, streaming: true })
   messages.value.push(assistant)
   streamingMessage.value = assistant
 
@@ -454,6 +468,7 @@ async function send(preset) {
   } catch (error) {
     assistant.content = error.response?.data?.error?.message || t('ai.failed')
   } finally {
+    assistant.streaming = false
     sending.value = false
     streamingMessage.value = null
     scrollToEnd()
@@ -466,7 +481,7 @@ async function resolveApproval(message, approved) {
   message.pending = null
   sending.value = true
 
-  const assistant = reactive({ role: 'assistant', content: '', steps: [], outputs: [], pending: null })
+  const assistant = reactive({ role: 'assistant', content: '', steps: [], outputs: [], pending: null, streaming: true })
   messages.value.push(assistant)
   scrollToEnd()
 
@@ -480,6 +495,7 @@ async function resolveApproval(message, approved) {
   } catch (error) {
     assistant.content = error.response?.data?.error?.message || t('ai.failed')
   } finally {
+    assistant.streaming = false
     sending.value = false
     scrollToEnd()
   }
@@ -679,6 +695,16 @@ onUnmounted(() => window.removeEventListener('ai:settings-changed', onExternalSe
 }
 .ai-task-actions { display: flex; justify-content: flex-end; gap: 4px; }
 .ai-danger { color: var(--danger); }
+
+.ai-author { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
+.ai-author-state { color: var(--accent-hover); }
+.ai-author-state::after { content: ''; }
+.ai-caret {
+  display: inline-block; width: 7px; height: 13px; margin-left: 2px;
+  vertical-align: text-bottom; background: var(--accent);
+  animation: ai-caret-blink 1s steps(1) infinite;
+}
+@keyframes ai-caret-blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
 
 .ai-typing { display: flex; gap: 4px; align-items: center; }
 .ai-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); animation: ai-blink 1.2s infinite; }

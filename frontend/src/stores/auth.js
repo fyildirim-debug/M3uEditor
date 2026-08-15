@@ -38,14 +38,26 @@ export const useAuthStore = defineStore('auth', () => {
   // Acilista calisir. Genel istemci zaman asimi buyuk import'lar icin 330 sn;
   // bu cagri o sureyi devralirsa API erisilemezken uygulama dakikalarca bos
   // ekranda kalir. Acilis yenilemesi kisa tutulur ve basarisizligi engel degildir.
+  //
+  // Oturum YALNIZCA sunucu kimlik bilgisini gecersiz saydiginda silinir.
+  // Eskiden her hata oturumu siliyordu; sayfa her acilista yenileme istegi
+  // attigi icin hiz siniri (429), gecici bir ag hatasi ya da 8 saniyelik zaman
+  // asimi kullaniciyi elindeki gecerli oturumdan ediyordu — birkac kez F5
+  // yapmak cikis yaptirmaya yetiyordu.
   async function refresh({ timeout = 8000 } = {}) {
     try {
       const { data } = await api.post('/auth/refresh', {}, { timeout })
       saveSession(data)
       return true
-    } catch {
-      clearSession()
-      return false
+    } catch (error) {
+      const status = error.response?.status
+      if (status === 401 || status === 403) {
+        clearSession()
+        return false
+      }
+      // Ag/limit/sunucu hatasi: eldeki oturum korunur. Gercekten gecersizse
+      // ilk API cagrisi 401 dondugunde arayuz zaten oturumu kapatiyor.
+      return Boolean(token.value)
     }
   }
 

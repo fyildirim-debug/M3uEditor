@@ -49,6 +49,25 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
   cannot create or trigger another task, which rules out runaway loops.
 - 13 new tools: the catalogue is now **175**.
 
+### Fixed
+
+- **Refreshing the page logged you out.** The SPA refreshes the session on every
+  page load, but `/api/auth/refresh` was capped at 10 requests per 15 minutes
+  *and* also passed through the general auth limiter (20), so the fifth reload of
+  a working session answered `429` — and the client treated any failed refresh as
+  proof of an invalid session and cleared it. Two changes: the refresh ceiling now
+  counts failed attempts only (60 per 15 minutes, successes skipped, and `/refresh`
+  no longer consumes the login/password budget), and the client clears the session
+  only on `401`/`403`. A network blip, a timeout or a rate limit now leaves a valid
+  session alone. Measured before the fix: logged out on reload 5 of 5; after: 20 of
+  20 reloads kept the session.
+- **You could not tell the assistant was answering.** With streaming, the reply
+  arrives token by token, but the typing indicator was tied to a condition that
+  became false the moment a turn started, so the first seconds of every turn — the
+  wait before the first token — showed an empty panel. Assistant messages now carry
+  an "Assistant · writing…" line, show the typing dots until the first character
+  arrives, and a caret while text is streaming in.
+
 ### Changed
 
 - **The 8.000-character message limit is gone.** Pasting a playlist into the box

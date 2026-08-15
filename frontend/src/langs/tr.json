@@ -908,6 +908,8 @@
     "taskRanOk": "\"{name}\" görevi çalıştırıldı",
     "everyMinutes": "{count} dakikada bir",
     "everyHours": "{count} saatte bir",
-    "everyDays": "{count} günde bir"
+    "everyDays": "{count} günde bir",
+    "assistantLabel": "Asistan",
+    "writing": "yazıyor…"
   }
 }
