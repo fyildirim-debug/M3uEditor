@@ -16,8 +16,12 @@ const { text } = require('../helpers');
 const config = require('../../../config');
 const { createAppError } = require('../../../utils/AppError');
 const attachments = require('../attachments');
-const importService = require('../../ImportService');
+// ImportService sinif olarak disa aciliyor (ExportService ise hazir ornek);
+// diger arac modullerinde oldugu gibi burada orneklenir.
+const ImportService = require('../../ImportService');
 const exportService = require('../../ExportService');
+
+const importService = new ImportService();
 
 /** Modelin verdigi kimlik yoksa sohbetteki en son yuklenen dosyaya duser. */
 async function resolveAttachmentId(ctx, args) {
