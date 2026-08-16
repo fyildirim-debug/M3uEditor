@@ -1,6 +1,6 @@
 const http = require('http');
 const { Duplex, PassThrough } = require('stream');
-const { requestBuffer } = require('../../../src/utils/safeFetch');
+const { requestBuffer, isBlockedIp } = require('../../../src/utils/safeFetch');
 
 /**
  * safeFetch normalde ozel/ayrilmis adresleri reddeder. Bu testler loopback
@@ -141,5 +141,33 @@ describe('requestBuffer', () => {
   test('caps a captured error body instead of buffering the whole page', async () => {
     await expect(requestBuffer(`${baseUrl}/bad-request-huge`, { timeoutMs: 5000, captureErrorBody: true }))
       .rejects.toMatchObject({ remoteStatus: 400, remoteBody: 'x'.repeat(16 * 1024) });
+  });
+});
+
+describe('private host guard', () => {
+  // Dosyanin geri kalani loopback'e ulasmak icin allowPrivateNetworkUrls'i
+  // aciyor; bu blok korumanin kendisini olctugu icin kapali olmali.
+  let previous;
+  beforeAll(() => { previous = config.allowPrivateNetworkUrls; config.allowPrivateNetworkUrls = false; });
+  afterAll(() => { config.allowPrivateNetworkUrls = previous; });
+
+  // SSRF korumasi varsayilan olarak KAPALI kapidir; yalnizca sunucu
+  // yapilandirmasindan gelen adresler (yigin ici SearXNG) acikca istisna alir.
+  test('blocks private addresses by default', () => {
+    expect(isBlockedIp('127.0.0.1')).toBe(true);
+    expect(isBlockedIp('10.0.0.5')).toBe(true);
+    expect(isBlockedIp('192.168.1.10')).toBe(true);
+    expect(isBlockedIp('169.254.169.254')).toBe(true);
+  });
+
+  test('allows public addresses', () => {
+    expect(isBlockedIp('8.8.8.8')).toBe(false);
+  });
+
+  test('only an explicit opt-in lets a private address through', () => {
+    expect(isBlockedIp('10.0.0.5', true)).toBe(false);
+    // Bayrak verilmediginde davranis degismez.
+    expect(isBlockedIp('10.0.0.5', false)).toBe(true);
+    expect(isBlockedIp('10.0.0.5', undefined)).toBe(true);
   });
 });

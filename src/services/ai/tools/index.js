@@ -23,6 +23,7 @@ const MODULES = [
   require('./epg'),
   require('./imports'),
   require('./exports'),
+  require('./web'),
   require('./logos'),
   require('./attachments'),
   require('./tasks'),

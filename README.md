@@ -305,6 +305,28 @@ or LM Studio endpoint needs.
 - **Account** — own account summary, usage overview, storage report, recent
   activity, system status.
 
+### Web search, with nothing to configure
+
+Some things the assistant needs are simply not in the database: a channel's
+official name, its correct `tvg-id`, which country it belongs to, where its logo
+lives. The stack therefore ships a **SearXNG** instance as an internal service —
+no domain, not attached to Traefik, reachable only as `http://searxng:8080` from
+within the stack. Nothing is exposed to the internet and **the user configures
+nothing**: whichever model you point the assistant at, `web_search` and
+`open_web_page` are already in its catalogue.
+
+Two details worth knowing. SearXNG's JSON output is *off* by default, so
+`searxng/settings.yml` in this repository turns it on — without it the assistant
+would get HTML it cannot read. And because the service resolves to a private
+address, the SSRF guard would normally refuse it; the exception is granted to the
+**server-configured** URL only (`allowPrivateHost`), never to anything the user
+or the model supplies. `open_web_page` visits addresses that ultimately come from
+search results, so it runs under the normal guard and cannot reach the internal
+network.
+
+If `SEARXNG_URL` is empty the two tools are not registered at all, so the model
+is never offered a capability that would fail — it simply knows search is off.
+
 ### Repairing dead channels
 
 Providers rotate stream addresses constantly. The playlist breaks, but the

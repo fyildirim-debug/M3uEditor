@@ -77,6 +77,12 @@ const config = {
     epgBytes: parsePositiveInteger(process.env.MAX_EPG_BYTES, 100 * 1024 * 1024),
     xtreamBytes: parsePositiveInteger(process.env.MAX_XTREAM_BYTES, 256 * 1024 * 1024),
   },
+  search: {
+    // Yigin ici SearXNG. Compose bunu varsayilan olarak veriyor; kullanicinin
+    // ayar girmesi gerekmiyor. Bos birakilirsa web arama araclari katalogdan
+    // dusuyor ve asistan aramanin kapali oldugunu biliyor.
+    searxngUrl: process.env.SEARXNG_URL || '',
+  },
   ai: {
     // Sohbet mesajinin ust siniri. Eskiden 8.000 karakterdi ve yapistirilan
     // listeler reddediliyordu; artik pratikte sinirsiz: esigi asan metin

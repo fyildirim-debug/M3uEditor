@@ -58,6 +58,9 @@ SchedulerService.register('ai-task', async ({ id, user_id: userId }) => {
 const server = app.listen(PORT, () => {
   logger.info({ port: PORT, env: process.env.NODE_ENV || 'development' }, 'M3U Playlist Editor API started');
   SchedulerService.start();
+  // Web aramasi calismiyorsa bunu ilk kullanici denemesinde degil, acilista
+  // gunlukte gormek gerekir.
+  require('./services/WebSearchService').probe().catch(() => {});
 });
 
 // Graceful shutdown

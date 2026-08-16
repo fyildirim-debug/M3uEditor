@@ -20,8 +20,15 @@ function normalizeIp(address) {
   return parsed.kind() === 'ipv6' && parsed.isIPv4MappedAddress() ? parsed.toIPv4Address() : parsed;
 }
 
-function isBlockedIp(address) {
-  if (config.allowPrivateNetworkUrls) return false;
+/**
+ * @param {string} address
+ * @param {boolean} [allowPrivate] Yalnizca SUNUCU YAPILANDIRMASINDAN gelen
+ *   adresler icin true olur (ornegin yigin ici SearXNG). Kullanicidan ya da
+ *   modelden gelen hicbir adres bu bayragi tasiyamaz; tasisaydi SSRF korumasi
+ *   anlamsizlasirdi.
+ */
+function isBlockedIp(address, allowPrivate = false) {
+  if (config.allowPrivateNetworkUrls || allowPrivate) return false;
   try {
     return normalizeIp(address).range() !== 'unicast';
   } catch {
@@ -29,12 +36,12 @@ function isBlockedIp(address) {
   }
 }
 
-async function resolvePublicAddress(hostname) {
+async function resolvePublicAddress(hostname, allowPrivate = false) {
   const addresses = net.isIP(hostname)
     ? [{ address: hostname, family: net.isIP(hostname) }]
     : await dns.lookup(hostname, { all: true, verbatim: true });
 
-  if (!addresses.length || addresses.some(({ address }) => isBlockedIp(address))) {
+  if (!addresses.length || addresses.some(({ address }) => isBlockedIp(address, allowPrivate))) {
     throw createAppError('FORBIDDEN', 'Özel veya ayrılmış ağ adreslerine bağlantı kurulamaz');
   }
 
@@ -197,7 +204,7 @@ function limitedStream(source, budget) {
 async function requestRemote(input, options, redirectCount, budget, mode) {
   assertBudget(budget, options.signal);
   const url = parseRemoteUrl(input);
-  const resolved = await withinBudget(resolvePublicAddress(url.hostname), budget, options.signal);
+  const resolved = await withinBudget(resolvePublicAddress(url.hostname, options.allowPrivateHost === true), budget, options.signal);
   assertBudget(budget, options.signal);
 
   return new Promise((resolve, reject) => {

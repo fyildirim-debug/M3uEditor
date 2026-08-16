@@ -26,6 +26,22 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ### Added
 
+- **The assistant can search the web, and nothing needs configuring.** The stack
+  now ships SearXNG as an internal service — no domain, not attached to Traefik,
+  reachable only at `http://searxng:8080` from inside the stack — and the API
+  gets `SEARXNG_URL` by default from compose. Whichever model the user points the
+  assistant at, `web_search` and `open_web_page` are already in the catalogue:
+  there is no API key to obtain, no account, no setting. SearXNG's JSON output is
+  off by default, so `searxng/settings.yml` enables it explicitly; the secret
+  stays out of the repository and is injected as `SEARXNG_SECRET`. The service
+  resolves to a private address, which the SSRF guard would normally refuse, so
+  `safeFetch` gained an `allowPrivateHost` option granted **only** to the
+  server-configured search URL — `open_web_page` follows addresses that come from
+  search results and therefore runs under the normal guard, unable to reach the
+  internal network. With `SEARXNG_URL` empty the two tools are not registered at
+  all, so the model is never offered a capability that would fail. A boot-time
+  probe logs whether search is answering, so a broken setup shows up in the server
+  log rather than in a user's first attempt.
 - **Dead channels can be repaired from a working source instead of deleted.**
   Providers rotate stream addresses; the playlist breaks even though the channels
   are still correct, and the only previous options — delete the dead ones or
