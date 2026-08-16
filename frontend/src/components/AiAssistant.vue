@@ -695,8 +695,12 @@ onUnmounted(() => window.removeEventListener('ai:settings-changed', onExternalSe
 </script>
 
 <style scoped>
+/* Sabit konumlu yuzen dugme. Ekranin sag alt kosesinde bir eylem cubugu
+   varsa (kanal duzenleme panelindeki Kaydet/Sil satiri gibi) ustune biner;
+   o yuzden konum bir degiskenden okunur ve ilgili ekran degiskeni yukseltir. */
 .ai-launcher {
-  position: fixed; right: 20px; bottom: 20px; z-index: 900;
+  position: fixed; right: 20px; bottom: var(--ai-fab-bottom, 20px); z-index: 900;
+  transition: bottom var(--transition);
   width: 48px; height: 48px; border-radius: 50%;
   border: 1px solid rgba(255,255,255,0.12);
   background: var(--accent); color: white; cursor: pointer;
@@ -708,7 +712,7 @@ onUnmounted(() => window.removeEventListener('ai:settings-changed', onExternalSe
 .ai-launcher.open { background: var(--bg-tertiary); color: var(--text-primary); }
 
 .ai-panel {
-  position: fixed; right: 20px; bottom: 80px; z-index: 950;
+  position: fixed; right: 20px; bottom: calc(var(--ai-fab-bottom, 20px) + 60px); z-index: 950;
   width: min(420px, calc(100vw - 32px));
   height: min(620px, calc(100vh - 140px));
   display: flex; flex-direction: column;
@@ -867,7 +871,7 @@ onUnmounted(() => window.removeEventListener('ai:settings-changed', onExternalSe
 .ai-input { width: 100%; resize: none; max-height: 120px; font-family: inherit; }
 
 @media (max-width: 640px) {
-  .ai-panel { right: 8px; left: 8px; bottom: 76px; width: auto; height: calc(100vh - 150px); }
-  .ai-launcher { right: 14px; bottom: 14px; }
+  .ai-panel { right: 8px; left: 8px; bottom: calc(var(--ai-fab-bottom, 14px) + 62px); width: auto; height: calc(100vh - 150px); }
+  .ai-launcher { right: 14px; bottom: var(--ai-fab-bottom, 14px); }
 }
 </style>

@@ -1931,6 +1931,23 @@ function triggerLogoUpload() {
   logoFileInput.value?.click()
 }
 
+/**
+ * Kanal düzenleme paneli açıkken alt kısmında Kaydet/Sıfırla/Sil çubuğu durur
+ * ve bu, ekranın sağ alt köşesinde sabit duran asistan düğmesiyle çakışır.
+ * Çubuk göründüğü sürece düğme onun üstüne alınır; panel kapanınca eski
+ * yerine döner. (Çubuk 10px dolgu + ~34px düğme + kenarlık ≈ 56px.)
+ */
+const FAB_CLEARANCE = '78px'
+
+function syncAssistantOffset(panelOpen) {
+  const root = document.documentElement
+  if (panelOpen) root.style.setProperty('--ai-fab-bottom', FAB_CLEARANCE)
+  else root.style.removeProperty('--ai-fab-bottom')
+}
+
+watch(editingChannel, (channel) => syncAssistantOffset(Boolean(channel)))
+onUnmounted(() => syncAssistantOffset(false))
+
 function openLogoLibrary() {
   showLogoLibrary.value = true
 }
