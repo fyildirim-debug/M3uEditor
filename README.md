@@ -210,6 +210,35 @@ In TiviMate, IPTV Smarters, and similar clients, use `APP_URL` as the server add
 
 **Security note:** The published channel URLs are the upstream provider's own addresses, which by Xtream protocol design may contain the provider's username and password. Sharing Xtream output credentials therefore effectively shares the provider account and every stream URL in the edited playlist. Share only with people you trust, and revoke access by disabling the output or regenerating the password.
 
+## Logo library
+
+Channel logos rarely arrive complete from a provider. The editor's channel panel
+carries a **Find logo** button that opens a searchable browser over
+[tv-logo/tv-logos](https://github.com/tv-logo/tv-logos) — 10.700+ ready-made
+channel logos across 48 countries and 16 other groups (VOD, sports, flags,
+regional bundles).
+
+Type a channel name and the grid filters as you type; the country selector next
+to the box narrows the search to one country, and country names are shown in the
+interface language. Clicking a logo writes it to the channel immediately.
+
+The file index is pulled from GitHub's tree endpoint **once a day** and kept in
+memory, so searching never calls out; a failed refresh keeps serving the previous
+index rather than breaking the feature. Anonymous GitHub allows 60 requests an
+hour, which one daily fetch never approaches — set `GITHUB_TOKEN` only if you
+share an IP with something else that hits the API. Images are served from
+jsDelivr (`TV_LOGOS_CDN_BASE`), not from raw.githubusercontent, because the grid
+loads hundreds of thumbnails at once; the URL stored on the channel is that same
+CDN address, exactly like the external logo URLs that arrive with an import.
+
+Matching is tolerant of how channels are actually named: quality and country tags
+(`FHD`, `4K`, `TR:`) are stripped, Turkish characters are folded, and scoring
+prefers exact names over prefixes over partial word matches — `TRT 1 FHD` finds
+`trt-1-tr.png`, `TR: NTV FHD` finds `ntv-tr.png`. The assistant can do the same
+through `search_logo_library`, `set_channel_logo_from_library` and
+`apply_library_logos`, the last of which fills in every channel that has no logo
+and reports the ones it was not confident about instead of guessing.
+
 ## AI assistant
 
 Every authenticated page carries a chat launcher in the bottom-right corner, and

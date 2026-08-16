@@ -26,6 +26,22 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ### Added
 
+- **Searchable logo library.** The channel panel gained a *Find logo* button that
+  opens a grid over [tv-logo/tv-logos](https://github.com/tv-logo/tv-logos) —
+  10.700+ logos in 48 countries plus 16 other groups. The box is pre-filled with
+  the channel's name, the grid filters on every keystroke, and a country selector
+  sits beside it with names rendered in the interface language (`Intl.DisplayNames`
+  over ISO codes the API returns, so no country-name translation tables). Picking
+  a logo writes it to the channel. The file index comes from GitHub's tree
+  endpoint once a day and is cached in memory — searches never call out, and a
+  failed refresh keeps serving the previous index. Images come from jsDelivr
+  rather than raw.githubusercontent because the grid loads hundreds of thumbnails
+  at once. Matching tolerates real channel naming: quality/country tags are
+  stripped (`TRT 1 FHD` → `trt-1-tr.png`), Turkish characters are folded, and
+  exact names outrank prefixes, which outrank partial word matches. Four assistant
+  tools expose the same thing, including `apply_library_logos`, which fills in
+  logo-less channels in bulk and reports what it was not confident about instead
+  of guessing.
 - **The assistant accepts file attachments.** The composer now carries a
   paperclip: `.m3u`, `.m3u8`, `.txt`, `.xml`, `.xmltv`, `.json` and `.csv` files
   up to 20 MB (`AI_ATTACHMENT_MAX_BYTES`, 200 MB per account) are stored on disk

@@ -223,6 +223,7 @@ app.use('/api', require('./routes/views'));
 app.use('/api', require('./routes/backups'));
 app.use('/api', require('./routes/streamHealth'));
 app.use('/api', require('./routes/epgLibrary'));
+app.use('/api', require('./routes/logoLibrary'));
 app.use('/api', require('./routes/ai'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/', require('./routes/xtreamOutput'));

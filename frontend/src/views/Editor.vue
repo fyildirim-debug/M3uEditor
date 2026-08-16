@@ -1101,6 +1101,10 @@
                   <span class="ep-logo-upload-hint">{{ t('common.upload') }}</span>
                 </div>
                 <input ref="logoFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" @change="handleLogoUpload" />
+                <button class="btn btn-secondary btn-sm ep-logo-search" type="button" :title="t('logoLibrary.openHint')" @click="openLogoLibrary">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  {{ t('logoLibrary.openButton') }}
+                </button>
               </div>
               <div class="ep-form">
                 <div class="form-group epg-ac-wrap">
@@ -1284,6 +1288,7 @@
     <SharePlaylistModal v-if="showShare" :playlist-id="playlistId" :is-shared="playlistShared" @shared="playlistShared = true" @revoked="playlistShared = false" @close="showShare = false" />
     <XtreamOutputModal v-if="showXtreamOutput" :playlist-id="playlistId" :hidden-count="categories.filter(c => c.is_hidden).length" @close="showXtreamOutput = false" />
     <ViewProfilesModal v-if="showViewProfiles" :playlist-id="playlistId" :categories="categories" @close="showViewProfiles = false" @applied="onViewProfileApplied" />
+    <LogoLibraryModal v-if="showLogoLibrary" :channel-name="editForm.name || editingChannel?.name || ''" @close="showLogoLibrary = false" @select="applyLibraryLogo" />
     <XtreamImportWizard
       v-if="showXtreamModal"
       :playlist-id="playlistId"
@@ -1428,6 +1433,7 @@ import XtreamImportWizard from '../components/XtreamImportWizard.vue'
 import XtreamOutputModal from '../components/XtreamOutputModal.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import ViewProfilesModal from '../components/ViewProfilesModal.vue'
+import LogoLibraryModal from '../components/LogoLibraryModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -1452,6 +1458,7 @@ const editingChannel = ref(null)
 const editForm = ref({})
 const logoFileInput = ref(null)
 const logoUploading = ref(false)
+const showLogoLibrary = ref(false)
 const fetchingMetadata = ref(false)
 
 // Nav
@@ -1918,6 +1925,32 @@ async function resetChannel() {
 
 function triggerLogoUpload() {
   logoFileInput.value?.click()
+}
+
+function openLogoLibrary() {
+  showLogoLibrary.value = true
+}
+
+/**
+ * Kutuphaneden secilen logo dogrudan kanala yazilir. Gorsel sunucuya
+ * kopyalanmaz; CDN adresi kaydedilir — ice aktarilan listelerdeki dis logo
+ * adresleriyle ayni davranis.
+ */
+async function applyLibraryLogo(logo) {
+  showLogoLibrary.value = false
+  if (!editingChannel.value) return
+  const previous = editForm.value.logo_url
+  editForm.value.logo_url = logo.url
+  try {
+    const { data } = await api.put(`/channels/${editingChannel.value.id}`, { logo_url: logo.url })
+    editingChannel.value = { ...editingChannel.value, logo_url: data.logo_url || logo.url }
+    const row = channels.value.find((ch) => ch.id === editingChannel.value.id)
+    if (row) row.logo_url = data.logo_url || logo.url
+    toast(t('logoLibrary.applied', { name: logo.name }), 'success')
+  } catch (error) {
+    editForm.value.logo_url = previous
+    toast(error.response?.data?.error?.message || t('logoLibrary.applyFailed'), 'error')
+  }
 }
 
 async function handleLogoUpload(event) {
