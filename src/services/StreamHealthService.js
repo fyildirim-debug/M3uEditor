@@ -51,6 +51,15 @@ class StreamHealthService {
     }
   }
 
+  /**
+   * Tek bir adresi dener. Tarama disindan da kullanilir: StreamRepairService
+   * bulunan yeni adresi YAZMADAN once bununla dogrular, boylece bozuk adres
+   * baska bir bozuk adresle degistirilip sorun gizlenmez.
+   */
+  async checkUrl(url) {
+    return this._checkChannel(url);
+  }
+
   async _flushBatch(updates) {
     if (!updates.length) return;
     const ids = updates.map((u) => u.id);

@@ -285,7 +285,8 @@ or LM Studio endpoint needs.
   change stream type, clear logos, reset to provider values, delete by filter,
   deduplicate, sort A–Z / by category / naturally / EPG-first / explicit order,
   sort inside every category, move to position or to the top, swap, per-channel
-  and full-playlist health scans, dead-channel reports.
+  and full-playlist health scans, dead-channel reports, **repairing dead channels
+  from a working Xtream source**.
 - **EPG** — add/refresh/delete XMLTV sources, add straight from the iptv-org
   library, refresh-interval scheduling, auto-match, per-channel matching,
   match suggestions, bulk tvg-id assignment, clear matches, copy matches between
@@ -303,6 +304,38 @@ or LM Studio endpoint needs.
 - **Scheduled tasks** — create, list, update, delete and run recurring jobs.
 - **Account** — own account summary, usage overview, storage report, recent
   activity, system status.
+
+### Repairing dead channels
+
+Providers rotate stream addresses constantly. The playlist breaks, but the
+channels themselves — names, categories, logos, EPG matches — are still right.
+Until now the only options were to *delete* the dead channels or re-import the
+whole list, and both throw away the editing work.
+
+`repair_dead_channels` takes a third path: it looks up each dead channel by name
+in an Xtream catalogue and replaces **only the stream URL**. Say *"scan this
+playlist and repair whatever is broken from my Xtream source"* and the assistant
+runs the health scan, matches, and swaps.
+
+- **Credentials are optional.** With no source given it uses the playlist's own
+  stored Xtream credentials, so there is no need to paste a password into the
+  chat. Pass `serverUrl`/`username`/`password` only when repairing from a
+  *different* provider.
+- **Only channels the scan marked dead** are touched. Never-tested channels
+  (`last_check_ok IS NULL`) are deliberately excluded — they may well be working,
+  and rewriting a working address is a regression, not a repair.
+- **Names are matched tolerantly**: `TRT 1 FHD`, `TR: TRT1 HD` and `trt-1` all
+  reduce to the same key, so provider naming differences do not block a match.
+- **The candidate is tested before it is written.** Replacing a broken address
+  with another broken address would make the playlist look repaired while hiding
+  the problem; failed candidates are reported instead (`verify: false` skips this
+  when speed matters more).
+- `dryRun: true` reports what would change without touching anything, and the
+  tool is `[YIKICI]`, so the destructive switch and the approval flow both apply.
+
+Paired with a scheduled task — *"every morning, check this source and repair what
+is broken"* — this runs unattended, and because task runs take a backup first,
+a bad night is one click away from being undone.
 
 ### Attaching files
 

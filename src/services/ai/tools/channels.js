@@ -8,6 +8,7 @@ const {
 const { createAppError } = require('../../../utils/AppError');
 const channelService = require('../../ChannelService');
 const streamHealthService = require('../../StreamHealthService');
+const streamRepairService = require('../../StreamRepairService');
 
 const SELECTION_PROPERTIES = {
   channelIds: { type: 'array', items: { type: 'string' }, description: 'Doğrudan kanal kimlikleri' },
@@ -683,7 +684,7 @@ module.exports = {
     parameters: { type: 'object', properties: { channelId: { type: 'string' } }, required: ['channelId'] },
     async run(args, ctx) {
       const channel = await ownedChannel(ctx.userId, args.channelId);
-      const result = await streamHealthService._checkChannel(channel.stream_url);
+      const result = await streamHealthService.checkUrl(channel.stream_url);
       await db('channels').where('id', channel.id).update({
         last_checked_at: new Date().toISOString(),
         last_check_ok: result.ok,
@@ -737,6 +738,42 @@ module.exports = {
         .orderBy('sort_order').limit(limitRows(args.limit, 50))
         .select('id', 'name', 'last_check_status', 'last_checked_at');
       return { total: Number(count), channels: rows };
+    },
+  },
+
+  repair_dead_channels: {
+    description: 'Çalışmayan (ölü işaretli) kanalların akış adreslerini bir Xtream kaynağındaki karşılıklarıyla değiştirir. Kanal adı, kategorisi, logosu ve EPG eşleşmesi korunur; yalnızca adres tazelenir. Kimlik bilgisi verilmezse listenin kayıtlı Xtream kaynağı kullanılır. Yeni adres yazılmadan önce denenir; çalışmayan aday yazılmaz. Önce dryRun=true ile önizleyin.',
+    destructive: true,
+    parameters: {
+      type: 'object',
+      properties: {
+        playlistId: { type: 'string' },
+        serverUrl: { type: 'string', description: 'Kaynak Xtream sunucusu (boş bırakılırsa listenin kayıtlı kaynağı)' },
+        username: { type: 'string' },
+        password: { type: 'string' },
+        channelIds: { type: 'array', items: { type: 'string' }, description: 'Belirli kanallar; verilmezse ölü işaretli olanlar' },
+        streamType: { type: 'string', enum: ['live', 'vod', 'series'] },
+        onlyDead: { type: 'boolean', description: 'Yalnızca ölü işaretliler (varsayılan true)' },
+        verify: { type: 'boolean', description: 'Yeni adresi yazmadan önce dene (varsayılan true)' },
+        dryRun: { type: 'boolean' },
+        limit: { type: 'integer' },
+      },
+    },
+    async run(args, ctx) {
+      const playlistId = args.playlistId || ctx.playlistId;
+      await ownedPlaylist(ctx.userId, playlistId);
+      if (args.dryRun !== true) assertDestructive(ctx, 'repair_dead_channels');
+      return streamRepairService.repairFromXtream(ctx.userId, playlistId, {
+        serverUrl: args.serverUrl,
+        username: args.username,
+        password: args.password,
+        channelIds: args.channelIds,
+        streamType: args.streamType,
+        onlyDead: args.onlyDead,
+        verify: args.verify,
+        dryRun: args.dryRun,
+        limit: args.limit,
+      });
     },
   },
 

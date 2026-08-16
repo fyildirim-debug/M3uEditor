@@ -26,6 +26,22 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ### Added
 
+- **Dead channels can be repaired from a working source instead of deleted.**
+  Providers rotate stream addresses; the playlist breaks even though the channels
+  are still correct, and the only previous options — delete the dead ones or
+  re-import everything — both discard the editing work. `repair_dead_channels`
+  looks each dead channel up by name in an Xtream catalogue and rewrites **only
+  `stream_url`**, leaving the name, category, logo and EPG match alone. With no
+  credentials given it uses the playlist's own stored Xtream source, so no
+  password has to be pasted into the chat. Only channels the health scan marked
+  dead are touched — never-tested channels are deliberately excluded, since
+  rewriting a working address is a regression. Names are matched through a shared
+  normaliser (`TRT 1 FHD` ≡ `TR: TRT1 HD` ≡ `trt-1`), and each candidate address
+  is tested before it is written, because swapping a broken URL for another
+  broken URL would make the list look repaired while hiding the fault. `dryRun`
+  previews, and the tool is `[YIKICI]` so both the destructive switch and the
+  approval flow apply. Combined with a scheduled task it runs unattended, and the
+  run's pre-run backup makes it undoable.
 - **Scheduled tasks now keep a run log and can be undone in one click.** A task
   bound to a playlist takes a backup before every run and writes an `ai_task_runs`
   row with the status, the assistant's summary, the tools it executed and the

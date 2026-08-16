@@ -18,6 +18,9 @@
 const { safeFetchJson } = require('../utils/safeFetch');
 const { createAppError } = require('../utils/AppError');
 const logger = require('../config/logger');
+// Ad normallestirmesi StreamRepairService ile paylasilir: iki yerde ayri kural
+// olsaydi "TRT 1 FHD" bir yerde eslesip digerinde eslesmezdi.
+const { normalizeChannelName: normalize, meaningfulTokens } = require('../utils/channelName');
 
 const REPO = 'tv-logo/tv-logos';
 const BRANCH = 'main';
@@ -29,36 +32,6 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const INDEX_MAX_BYTES = 16 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 60_000;
 const MAX_RESULTS = 200;
-
-// Kanal adlarindaki yayin kalitesi/dil etiketleri logo adlarinda bulunmaz;
-// "TRT 1 FHD" ile "trt-1" eslesebilsin diye aramadan once temizlenir.
-const NOISE_TOKENS = new Set([
-  'hd', 'fhd', 'uhd', 'sd', 'hq', 'lq', '4k', '8k', '1080p', '720p', '576p', '480p',
-  'h264', 'h265', 'hevc', 'raw', 'backup', 'yedek', 'test', 'vip', 'plus',
-  'tr', 'tur', 'turk', 'turkiye', 'turkey',
-]);
-
-// Turkce karakterler ve aksanlar sadelestirilir: "İstanbul" ~ "istanbul".
-const TRANSLITERATION = {
-  ı: 'i', İ: 'i', ş: 's', Ş: 's', ğ: 'g', Ğ: 'g', ü: 'u', Ü: 'u', ö: 'o', Ö: 'o', ç: 'c', Ç: 'c',
-};
-
-function normalize(value) {
-  return String(value || '')
-    .replace(/[ıİşŞğĞüÜöÖçÇ]/g, (char) => TRANSLITERATION[char] || char)
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
-
-/** Gurultu kelimelerini atar; hepsi gurultuyse ham belirtecler korunur. */
-function meaningfulTokens(value) {
-  const tokens = normalize(value).split(' ').filter(Boolean);
-  const kept = tokens.filter((token) => !NOISE_TOKENS.has(token));
-  return kept.length ? kept : tokens;
-}
 
 /**
  * `countries/turkey/a-haber-tr.png` -> { group: 'turkey', name: 'A Haber' }
