@@ -46,6 +46,7 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
       ALLOW_PRIVATE_NETWORK_URLS: ${ALLOW_PRIVATE_NETWORK_URLS:-false}
+      SEARXNG_URL: ${SEARXNG_URL:-http://searxng:8080}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       TV_LOGOS_CDN_BASE: ${TV_LOGOS_CDN_BASE:-}
       AI_MAX_MESSAGE_CHARS: ${AI_MAX_MESSAGE_CHARS:-1000000}
@@ -94,6 +95,33 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+
+  # Asistanin web aramasi. Disari acilmaz: domaini yok, Traefik'e baglanmaz,
+  # yalnizca yigin ici agdan http://searxng:8080 olarak erisilir. Boylece
+  # kullanicinin hicbir ayar girmesi gerekmez ve arama ucu internete acilmaz.
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    environment:
+      SEARXNG_BASE_URL: http://searxng:8080/
+      # Imajin girisi settings.yml icindeki `ultrasecretkey` degerini bununla
+      # degistirir; bu yuzden dosya salt-okunur baglanmaz.
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-degistirilmeli-searxng-anahtari}
+    volumes:
+      - ./searxng:/etc/searxng
+    expose:
+      - "8080"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: ${SEARXNG_MEM_LIMIT:-512m}
+    pids_limit: 256
 
   frontend:
     build:

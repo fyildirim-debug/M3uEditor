@@ -1,0 +1,33 @@
+# SearXNG — asistanin web aramasi icin ic servis.
+#
+# Bu ornek DISARI ACILMAZ: yalnizca yigin ici agdan (http://searxng:8080)
+# erisilir, Traefik'e baglanmaz ve domaini yoktur. Bu yuzden limiter ve bot
+# korumasi kapali; onlerinde zaten yalnizca kendi API'miz var.
+#
+# `ultrasecretkey` degeri imajin girisi tarafindan SEARXNG_SECRET ile
+# degistirilir; depoda gercek bir sir tutulmaz.
+use_default_settings: true
+
+server:
+  secret_key: "ultrasecretkey"
+  # Ic servis: hiz siniri ve bot korumasi valkey/redis ister, gereksiz.
+  limiter: false
+  image_proxy: false
+
+search:
+  # JSON varsayilan olarak KAPALIDIR; asistanin sonuclari okuyabilmesi icin sart.
+  formats:
+    - html
+    - json
+  # Arama dili kullanicidan gelir; varsayilan Turkce sonuclari one alir.
+  default_lang: "tr"
+  autocomplete: ""
+
+ui:
+  static_use_hash: true
+
+# Varsayilan motor kumesini kullaniyoruz; yalnizca sik zaman asimi verenler
+# kapatilir, boylece asistan uzun beklemede kalmaz.
+engines:
+  - name: wikidata
+    disabled: false
