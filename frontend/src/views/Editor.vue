@@ -2970,7 +2970,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .td-check input, .th-check input { accent-color: var(--accent); cursor: pointer; }
 .th-num, .td-num { width: 40px; color: var(--text-muted); text-align: center; }
 .ch-name-cell { display: flex; align-items: center; gap: 6px; }
-.row-logo { width: 22px; height: 22px; border-radius: 3px; object-fit: cover; flex-shrink: 0; }
+.row-logo { width: 22px; height: 22px; border-radius: 3px; object-fit: contain; flex-shrink: 0; }
 .row-logo-fb { font-size: 14px; width: 22px; text-align: center; flex-shrink: 0; }
 .td-name { font-weight: 500; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .td-url { max-width: 200px; }
@@ -3137,7 +3137,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
   overflow: hidden;
 }
 .epg-ch-logo {
-  width: 28px; height: 28px; border-radius: 6px; object-fit: cover;
+  width: 28px; height: 28px; border-radius: 6px; object-fit: contain;
   flex-shrink: 0; background: var(--bg-tertiary);
 }
 .epg-ch-logo-fb {
@@ -3323,7 +3323,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
   display: flex; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 600; color: var(--text-secondary);
 }
-.epg-detail-ch-logo { width: 24px; height: 24px; border-radius: 6px; object-fit: cover; }
+.epg-detail-ch-logo { width: 24px; height: 24px; border-radius: 6px; object-fit: contain; }
 .epg-detail-body { padding: 0; }
 .epg-detail-badge-row { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
 .epg-detail-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; line-height: 1.3; }
@@ -3563,7 +3563,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
   position: relative; cursor: pointer; width: 64px; height: 64px; border-radius: 8px; overflow: hidden;
 }
 .ep-logo-preview img {
-  width: 64px; height: 64px; border-radius: 8px; object-fit: cover; background: var(--bg-tertiary);
+  width: 64px; height: 64px; border-radius: 8px; object-fit: contain; background: var(--bg-tertiary);
   transition: filter 0.2s;
 }
 .ep-logo-preview:hover img { filter: blur(2px) brightness(0.6); }

@@ -200,8 +200,8 @@ onMounted(async () => {
   gap: 10px;
 }
 .logo-card {
-  display: flex; flex-direction: column; align-items: center; gap: 5px;
-  padding: 8px 6px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 7px 6px 8px; cursor: pointer;
   background: var(--bg-tertiary); border: 1px solid var(--border);
   border-radius: var(--radius); transition: border-color var(--transition), transform var(--transition);
 }
@@ -209,11 +209,16 @@ onMounted(async () => {
 .logo-card-broken { opacity: 0.35; }
 .logo-thumb {
   display: flex; align-items: center; justify-content: center;
-  width: 100%; height: 58px; border-radius: var(--radius-sm);
-  /* Logoların çoğu saydam ve açık renkli; sabit açık zemin okunurluğu korur. */
-  background: #ffffff;
+  width: 100%; height: 62px; padding: 6px; border-radius: var(--radius-sm);
+  /* Logoların çoğu saydam ve koyu renkli, yani koyu zeminde kaybolurlar; bu
+     yüzden altlarına açık bir levha gerekiyor. Düz beyaz koyu arayüzde çok
+     sert duruyordu — hafif gri, düşük kontrastlı bir levha hem logoyu
+     okutuyor hem göze batmıyor. */
+  background: #e7eaf0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
-.logo-thumb img { max-width: 92%; max-height: 50px; object-fit: contain; }
+/* Izgarada logolar kesilmesin: kutuya sığdırılır, taşan kırpılmaz. */
+.logo-thumb img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
 .logo-name {
   font-size: 11.5px; color: var(--text-primary); text-align: center; line-height: 1.3;
   max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
