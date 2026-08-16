@@ -1101,10 +1101,6 @@
                   <span class="ep-logo-upload-hint">{{ t('common.upload') }}</span>
                 </div>
                 <input ref="logoFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" @change="handleLogoUpload" />
-                <button class="btn btn-secondary btn-sm ep-logo-search" type="button" :title="t('logoLibrary.openHint')" @click="openLogoLibrary">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  {{ t('logoLibrary.openButton') }}
-                </button>
               </div>
               <div class="ep-form">
                 <div class="form-group epg-ac-wrap">
@@ -1155,7 +1151,15 @@
                     </button>
                   </div>
                 </div>
-                <div class="form-group"><label for="channel-logo-url">{{ t('editPanel.logoUrl') }}</label><input id="channel-logo-url" class="input" type="url" v-model="editForm.logo_url" :placeholder="t('editPanel.logoPlaceholder')" /></div>
+                <div class="form-group">
+                  <label for="channel-logo-url">{{ t('editPanel.logoUrl') }}</label>
+                  <div class="ep-input-action-wrap">
+                    <input id="channel-logo-url" class="input ep-input-with-action" type="url" v-model="editForm.logo_url" :placeholder="t('editPanel.logoPlaceholder')" />
+                    <button class="ep-input-action" type="button" :title="t('logoLibrary.openHint')" :aria-label="t('logoLibrary.openButton')" @click="openLogoLibrary">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="20.5" y1="20.5" x2="16.65" y2="16.65"/></svg>
+                    </button>
+                  </div>
+                </div>
                 <div class="form-group"><label for="channel-stream-url">{{ t('editPanel.streamUrl') }}</label><input id="channel-stream-url" class="input" type="url" v-model="editForm.stream_url" /></div>
                 <StreamTestControl
                   :channel-id="editingChannel.id"
@@ -3578,6 +3582,22 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 }
 .ep-logo-upload:hover { border-color: var(--accent); background: var(--bg-primary); }
 .ep-logo-upload-hint { font-size: 9px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+/* Alan icine gomulu eylem dugmesi (Logo URL -> kutuphanede ara). Metin
+   dugmenin altina kaymasin diye input'a sag bosluk verilir. */
+.ep-input-action-wrap { position: relative; display: flex; align-items: center; }
+.ep-input-action-wrap .input { width: 100%; }
+.ep-input-with-action { padding-right: 34px; }
+.ep-input-action {
+  position: absolute; right: 5px;
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
+  background: none; border: none; border-radius: var(--radius-sm);
+  color: var(--text-muted); cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+.ep-input-action:hover { color: var(--accent); background: var(--bg-hover); }
+.ep-input-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
 .ep-form { flex: 1; padding: 0 14px 14px; }
 .ep-form .form-group { margin-bottom: 10px; }
 .ep-form .form-row { display: flex; gap: 8px; }
