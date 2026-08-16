@@ -12,10 +12,18 @@
  * olmadan silme yapilmasi ancak kullanicinin gorevi acikca boyle kurmasiyla
  * mumkundur. Gozetimsiz calistigi icin onay akisi bu modda devre disidir;
  * onay bekleyen bir cagri gorevi durdurur ve sonuca yazilir.
+ *
+ * GERI ALMA: gozetimsiz bir gorev yanlis bir sey yaptiginda kullanicinin bunu
+ * fark etmesi saatler surebilir. Bu yuzden listesi olan her calistirma ONCE
+ * yedek alir, sonucu `ai_task_runs` satirina yazar ve o satirdan tek islemle
+ * geri alinabilir: yedek restore edilir, liste calistirma oncesindeki haline
+ * doner. Yedeksiz calistirmalar (liste secilmemis gorevler) geri alinamaz
+ * olarak isaretlenir; arayuz orada geri alma sunmaz.
  */
 
 const { v4: uuidv4 } = require('uuid');
 const db = require('../../config/database');
+const backupService = require('../BackupService');
 const config = require('../../config');
 const logger = require('../../config/logger');
 const { createAppError } = require('../../utils/AppError');
@@ -23,6 +31,25 @@ const { createAppError } = require('../../utils/AppError');
 const MAX_PROMPT_LENGTH = 4000;
 const MAX_RESULT_LENGTH = 4000;
 const MAX_TASKS_PER_USER = 25;
+
+function publicRun(row) {
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    status: row.status,
+    manual: row.manual,
+    summary: row.summary,
+    error: row.error,
+    steps: typeof row.steps === 'string' ? JSON.parse(row.steps) : (row.steps || []),
+    changes: typeof row.changes === 'string' ? JSON.parse(row.changes) : (row.changes || null),
+    toolCount: row.tool_count,
+    durationMs: row.duration_ms,
+    // Yedek retention'a takilip silinmis olabilir; o zaman geri alma kapanir.
+    undoable: row.undoable === true && Boolean(row.backup_id) && !row.undone_at,
+    undoneAt: row.undone_at,
+    createdAt: row.created_at,
+  };
+}
 
 function publicTask(row) {
   return {
@@ -137,9 +164,35 @@ class AiTaskService {
     return { deleted: true };
   }
 
+  /** Calistirma oncesi/sonrasi karsilastirmasi icin liste sayimlari. */
+  async _snapshotCounts(playlistId) {
+    if (!playlistId) return null;
+    const [channels, categories] = await Promise.all([
+      db('channels').where({ playlist_id: playlistId }).count('id as count').first(),
+      db('categories').where({ playlist_id: playlistId }).count('id as count').first(),
+    ]);
+    return { channels: Number(channels?.count || 0), categories: Number(categories?.count || 0) };
+  }
+
   /**
-   * Gorevi bir kez calistirir. Her calistirma yeni bir sohbet acar; boylece
-   * gorev gecmisi buyumez ve her tur ayni temiz baglamdan baslar.
+   * Calistirma oncesi yedek. Basarisiz olursa gorev yine calisir ama satir
+   * "geri alinamaz" isaretlenir — yedek alinamadi diye gece isini iptal etmek
+   * kullaniciya yardim etmez, sessizce geri alinabilir sanmasi ise zarar verir.
+   */
+  async _takeBackup(userId, playlistId) {
+    if (!playlistId) return null;
+    try {
+      const backup = await backupService.createBackup(userId, playlistId, 'ai-task');
+      return backup?.id || null;
+    } catch (error) {
+      logger.warn({ err: error, userId, playlistId }, 'AI task pre-run backup failed');
+      return null;
+    }
+  }
+
+  /**
+   * Gorevi bir kez calistirir. Her calistirma yeni bir sohbet acar (gecmis
+   * sismesin), oncesinde yedek alir ve sonucu `ai_task_runs` satirina yazar.
    */
   async run(userId, taskId, { manual = false } = {}) {
     const task = await this.require(userId, taskId);
@@ -148,6 +201,27 @@ class AiTaskService {
     const aiService = require('../AIService');
 
     const startedAt = Date.now();
+    const before = await this._snapshotCounts(task.playlist_id);
+    const backupId = await this._takeBackup(userId, task.playlist_id);
+
+    const [run] = await db('ai_task_runs').insert({
+      id: uuidv4(),
+      task_id: task.id,
+      user_id: userId,
+      playlist_id: task.playlist_id,
+      status: 'running',
+      manual: manual === true,
+      backup_id: backupId,
+      undoable: Boolean(backupId),
+    }).returning('*');
+
+    const finish = async (patch) => {
+      await db('ai_task_runs').where({ id: run.id }).update({
+        duration_ms: Date.now() - startedAt,
+        ...patch,
+      });
+    };
+
     try {
       const result = await aiService.chat(userId, {
         message: task.prompt,
@@ -160,34 +234,98 @@ class AiTaskService {
         conversationTitle: `[Görev] ${task.name}`,
       });
 
+      const steps = (result.steps || []).map((step) => ({
+        tool: step.tool,
+        ok: step.ok !== false,
+        destructive: step.destructive === true,
+        error: step.error,
+      }));
       const summary = [
         result.reply || 'Asistan metin yanıtı üretmedi.',
-        result.steps?.length ? `\n\nÇalıştırılan araçlar: ${result.steps.map((step) => step.tool).join(', ')}` : '',
+        steps.length ? `\n\nÇalıştırılan araçlar: ${steps.map((step) => step.tool).join(', ')}` : '',
       ].join('').slice(0, MAX_RESULT_LENGTH);
+
+      const after = await this._snapshotCounts(task.playlist_id);
+      const status = result.pendingApproval ? 'needs_approval' : 'ok';
+      const message = result.pendingApproval
+        ? `Görev onay bekleyen bir işlemde durdu: ${result.pendingApproval.tool}. Zamanlanmış görevler onay soramaz; görevin "yıkıcı işlem izni" ayarını açın veya yönergeyi değiştirin.`
+        : summary;
+
+      await finish({
+        status,
+        summary: message,
+        steps: JSON.stringify(steps),
+        tool_count: steps.length,
+        changes: before && after ? JSON.stringify({
+          channelsBefore: before.channels,
+          channelsAfter: after.channels,
+          categoriesBefore: before.categories,
+          categoriesAfter: after.categories,
+        }) : null,
+      });
 
       await db('ai_tasks').where({ id: task.id }).update({
         last_run_at: db.fn.now(),
-        last_status: result.pendingApproval ? 'needs_approval' : 'ok',
-        last_result: result.pendingApproval
-          ? `Görev onay bekleyen bir işlemde durdu: ${result.pendingApproval.tool}. Zamanlanmış görevler onay soramaz; görevin "yıkıcı işlem izni" ayarını açın veya yönergeyi değiştirin.`
-          : summary,
+        last_status: status,
+        last_result: message,
         run_count: Number(task.run_count || 0) + 1,
         updated_at: db.fn.now(),
       });
 
-      logger.info({ userId, taskId: task.id, manual, durationMs: Date.now() - startedAt }, 'AI task run completed');
-      return { taskId: task.id, status: 'ok', reply: result.reply, steps: result.steps, conversationId: result.conversationId };
+      logger.info({ userId, taskId: task.id, runId: run.id, manual, durationMs: Date.now() - startedAt }, 'AI task run completed');
+      return {
+        taskId: task.id, runId: run.id, status: 'ok', reply: result.reply, steps: result.steps, conversationId: result.conversationId,
+      };
     } catch (error) {
+      const message = String(error?.message || 'Bilinmeyen hata').slice(0, MAX_RESULT_LENGTH);
+      await finish({ status: 'error', error: message });
       await db('ai_tasks').where({ id: task.id }).update({
         last_run_at: db.fn.now(),
         last_status: 'error',
-        last_result: String(error?.message || 'Bilinmeyen hata').slice(0, MAX_RESULT_LENGTH),
+        last_result: message,
         run_count: Number(task.run_count || 0) + 1,
         updated_at: db.fn.now(),
       });
-      logger.warn({ err: error, userId, taskId: task.id }, 'AI task run failed');
+      logger.warn({ err: error, userId, taskId: task.id, runId: run.id }, 'AI task run failed');
       throw error;
     }
+  }
+
+  async listRuns(userId, taskId, limit = 20) {
+    await this.require(userId, taskId);
+    const rows = await db('ai_task_runs')
+      .where({ task_id: taskId, user_id: userId })
+      .orderBy('created_at', 'desc')
+      .limit(Math.min(Math.max(Number(limit) || 20, 1), 100));
+    return rows.map(publicRun);
+  }
+
+  /**
+   * Bir calistirmayi geri alir: o turdan ONCE alinan yedek geri yuklenir.
+   *
+   * DIKKAT — bu bir "sadece bu gorevin yaptiklarini geri al" degil, listeyi o
+   * ana dondurmedir. Calistirmadan sonra elle yapilan degisiklikler de gider.
+   * Arayuz bunu kullaniciya soyler; burada tek yaptigimiz islemi tekrarlanabilir
+   * olmaktan cikarmak (undone_at) ve neyin donduruldugunu raporlamak.
+   */
+  async undoRun(userId, runId) {
+    const run = await db('ai_task_runs').where({ id: runId, user_id: userId }).first();
+    if (!run) throw createAppError('NOT_FOUND', 'Çalıştırma kaydı bulunamadı');
+    if (run.undone_at) throw createAppError('VALIDATION_ERROR', 'Bu çalıştırma zaten geri alındı');
+    if (!run.backup_id) {
+      throw createAppError('VALIDATION_ERROR', 'Bu çalıştırmanın yedeği yok; geri alınamıyor. (Listesi olmayan görevlerde yedek alınmaz.)');
+    }
+
+    const restored = await backupService.restoreBackup(userId, run.backup_id, run.playlist_id);
+    await db('ai_task_runs').where({ id: run.id }).update({ undone_at: db.fn.now() });
+    logger.info({ userId, runId: run.id, taskId: run.task_id }, 'AI task run undone');
+
+    return {
+      undone: true,
+      runId: run.id,
+      playlistId: run.playlist_id,
+      restored: { channels: restored?.channelCount ?? null, categories: restored?.categoryCount ?? null },
+    };
   }
 
   /** Vadesi gelen gorevler: hic calismamis ya da son calismadan bu yana araligi dolmus. */
@@ -221,3 +359,4 @@ class AiTaskService {
 
 module.exports = new AiTaskService();
 module.exports.publicTask = publicTask;
+module.exports.publicRun = publicRun;

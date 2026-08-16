@@ -172,6 +172,18 @@ async function deleteTask(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function listTaskRuns(req, res, next) {
+  try {
+    res.json({ runs: await taskService.listRuns(req.userId, req.params.id, req.query.limit) });
+  } catch (error) { next(error); }
+}
+
+async function undoTaskRun(req, res, next) {
+  try {
+    res.json(await taskService.undoRun(req.userId, req.params.runId));
+  } catch (error) { next(error); }
+}
+
 async function runTask(req, res, next) {
   try {
     res.json(await taskService.run(req.userId, req.params.id, { manual: true }));
@@ -240,6 +252,8 @@ module.exports = {
   updateTask,
   deleteTask,
   runTask,
+  listTaskRuns,
+  undoTaskRun,
   listConversations,
   getConversation,
   deleteConversation,

@@ -13,7 +13,11 @@ const RETENTION_LIMIT = 10;
 /** Toplu kanal insert'inde chunk boyutu */
 const INSERT_CHUNK = 500;
 /** Gecerli yedek nedenleri */
-const VALID_REASONS = new Set(['manual', 'pre-sync', 'scheduled']);
+const VALID_REASONS = new Set(['manual', 'pre-sync', 'scheduled', 'ai-task']);
+// Gece calisan asistan gorevleri her turda yedek alir. Ortak bir kotada
+// tutulsalardi birkac gunde kullanicinin elle aldigi yedekleri disari iterlerdi;
+// bu yuzden gorev yedekleri kendi kotasinda sayilir.
+const AI_TASK_REASON = 'ai-task';
 
 /** Yedegi olusturan kanal alanlari (sirasiz diger kolonlar haric) */
 const CHANNEL_FIELDS = [
@@ -140,11 +144,20 @@ class BackupService {
    * @param {string} playlistId
    */
   async enforceRetention(playlistId) {
-    const stale = await db('backups')
-      .where({ playlist_id: playlistId })
-      .orderBy('created_at', 'desc')
-      .offset(RETENTION_LIMIT)
-      .select('id', 'filename');
+    // Iki ayri kova: kullanicinin yedekleri ve asistan gorevlerinin yedekleri.
+    // Her biri kendi icinde son RETENTION_LIMIT kaydi tutar.
+    const stale = [];
+    for (const aiTask of [false, true]) {
+      const rows = await db('backups')
+        .where({ playlist_id: playlistId })
+        .andWhere((query) => (aiTask
+          ? query.where('reason', AI_TASK_REASON)
+          : query.whereNot('reason', AI_TASK_REASON)))
+        .orderBy('created_at', 'desc')
+        .offset(RETENTION_LIMIT)
+        .select('id', 'filename');
+      stale.push(...rows);
+    }
 
     for (const backup of stale) {
       await this.removeBackupFile(backup.filename);

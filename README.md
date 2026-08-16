@@ -349,14 +349,33 @@ the provider never sees a half-finished turn. Approving runs exactly the stored
 call; declining closes it and the queued calls with a "not approved" result, and
 the assistant is told so it can react.
 
-Recurring work — *"test dead channels every night and delete them"* — becomes a
-scheduled task. Tasks live in `ai_tasks`, run on the server via
-`SchedulerService` (minimum interval 15 minutes, `AI_MIN_TASK_INTERVAL_MINUTES`),
-and each run starts a fresh conversation so context does not accumulate.
-Destructive permission is **per task and off by default**; a task cannot ask for
-approval, so an unattended run that hits one stops and records why. The task
-panel in the assistant lists every task with its last result and can pause,
-run-now or delete it.
+Recurring work — *"check this Xtream source every morning and add new channels
+to the right categories with matching EPG"* — becomes a scheduled task simply by
+saying it: the assistant turns the sentence into a task, binds it to the playlist
+you are working on, and tells you what it set up. Tasks live in `ai_tasks`, run on
+the server via `SchedulerService` (minimum interval 15 minutes,
+`AI_MIN_TASK_INTERVAL_MINUTES`), and each run starts a fresh conversation so
+context does not accumulate. Destructive permission is **per task and off by
+default**; a task cannot ask for approval, so an unattended run that hits one
+stops and records why.
+
+**Every run is logged and can be undone with one click.** A task bound to a
+playlist takes a backup *before* it runs, then writes a row in `ai_task_runs`
+holding the status, the assistant's summary, the tools it executed, and how the
+channel and category counts changed. The assistant's task tab shows this history
+per task; each entry carries an **Undo** button that restores that pre-run backup.
+
+Two things worth knowing about undo. It restores the playlist to the moment
+before the run, so changes *you* made after the run are lost too — the
+confirmation says so, and the action is one-way. And it depends on the backup
+still existing: task backups are kept in their own retention bucket (the last 10,
+counted separately from your manual backups so nightly runs cannot push yours
+out), and a run whose backup has aged out shows as not undoable rather than
+failing when you press the button. A task with no playlist bound cannot be backed
+up at all and is marked accordingly from the start.
+
+`list_task_runs` and `undo_task_run` expose the same thing to the assistant, so
+*"what did last night's task do?"* and *"undo it"* work in chat as well.
 
 Providers cap how many functions one request may carry (OpenAI's limit is 128),
 so each turn ships the first 120 tools plus three meta-tools —

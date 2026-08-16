@@ -9,6 +9,13 @@ jest.mock('../../../src/config/database', () => mockDb);
 const mockChat = jest.fn();
 jest.mock('../../../src/services/AIService', () => ({ chat: (...args) => mockChat(...args) }));
 
+const mockCreateBackup = jest.fn();
+const mockRestoreBackup = jest.fn();
+jest.mock('../../../src/services/BackupService', () => ({
+  createBackup: (...args) => mockCreateBackup(...args),
+  restoreBackup: (...args) => mockRestoreBackup(...args),
+}));
+
 const taskService = require('../../../src/services/ai/tasks');
 
 function builder({ rows = [], first, returning = [], updated = 0 } = {}) {
@@ -29,7 +36,9 @@ function builder({ rows = [], first, returning = [], updated = 0 } = {}) {
 }
 
 function mockTables(tables = {}) {
-  mockDb.mockImplementation((table) => (tables[table] || (() => builder()))());
+  // Varsayilan zincir bir satir dondurur: run() calistirma satirini
+  // insert().returning() ile aciyor ve bos dizi undefined'a yol aciyor.
+  mockDb.mockImplementation((table) => (tables[table] || (() => builder({ returning: [{ id: 'row-1' }] })))());
 }
 
 const TASK_ROW = {
@@ -160,5 +169,137 @@ describe('AI scheduled task execution', () => {
     mockTables({ ai_tasks: () => builder({ first: undefined }) });
     await expect(taskService.run('user-1', 'yok')).rejects.toThrow(/bulunamadı/i);
     expect(mockChat).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('AI task run log', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCreateBackup.mockResolvedValue({ id: 'backup-1' });
+  });
+
+  /** run() once yedek alir, satir acar, sonra sonucu ayni satira yazar. */
+  function runTables({ playlistId = 'pl-1' } = {}) {
+    const inserted = {};
+    const updates = [];
+    mockTables({
+      ai_tasks: () => {
+        const query = builder({ first: { ...TASK_ROW, playlist_id: playlistId } });
+        query.update = jest.fn(() => ({ then: (resolve) => resolve(1) }));
+        return query;
+      },
+      ai_task_runs: () => {
+        const query = builder({ returning: [{ id: 'run-1' }] });
+        query.insert = jest.fn((row) => { Object.assign(inserted, row); return { returning: jest.fn().mockResolvedValue([{ id: 'run-1', ...row }]) }; });
+        query.update = jest.fn((patch) => { updates.push(patch); return { then: (resolve) => resolve(1) }; });
+        return query;
+      },
+      channels: () => builder({ first: { count: '20' } }),
+      categories: () => builder({ first: { count: '3' } }),
+    });
+    return { inserted, updates };
+  }
+
+  test('takes a backup before running and marks the run undoable', async () => {
+    const { inserted } = runTables();
+    mockChat.mockResolvedValue({ reply: 'bitti', steps: [{ tool: 'delete_dead_channels', ok: true, destructive: true }] });
+
+    await taskService.run('user-1', 'task-1');
+
+    expect(mockCreateBackup).toHaveBeenCalledWith('user-1', 'pl-1', 'ai-task');
+    expect(inserted.backup_id).toBe('backup-1');
+    expect(inserted.undoable).toBe(true);
+  });
+
+  test('records the tool trace and the before/after counts', async () => {
+    const { updates } = runTables();
+    mockChat.mockResolvedValue({ reply: 'bitti', steps: [{ tool: 'import_xtream', ok: true }, { tool: 'auto_match_epg', ok: true }] });
+
+    await taskService.run('user-1', 'task-1');
+
+    const [patch] = updates;
+    expect(patch.status).toBe('ok');
+    expect(patch.tool_count).toBe(2);
+    expect(JSON.parse(patch.steps).map((step) => step.tool)).toEqual(['import_xtream', 'auto_match_epg']);
+    expect(JSON.parse(patch.changes)).toMatchObject({ channelsBefore: 20, channelsAfter: 20 });
+  });
+
+  test('a run without a playlist is logged but not undoable', async () => {
+    const { inserted } = runTables({ playlistId: null });
+    mockChat.mockResolvedValue({ reply: 'bitti', steps: [] });
+
+    await taskService.run('user-1', 'task-1');
+
+    // Yedeklenecek liste yok: gorev yine calisir, ama geri alma sunulmaz.
+    expect(mockCreateBackup).not.toHaveBeenCalled();
+    expect(inserted.undoable).toBe(false);
+  });
+
+  test('a failed backup does not cancel the run, it disables undo', async () => {
+    mockCreateBackup.mockRejectedValue(new Error('disk dolu'));
+    const { inserted } = runTables();
+    mockChat.mockResolvedValue({ reply: 'bitti', steps: [] });
+
+    await taskService.run('user-1', 'task-1');
+
+    expect(mockChat).toHaveBeenCalled();
+    expect(inserted.undoable).toBe(false);
+  });
+
+  test('a failing run is logged with its error', async () => {
+    const { updates } = runTables();
+    mockChat.mockRejectedValue(new Error('sağlayıcı yanıt vermedi'));
+
+    await expect(taskService.run('user-1', 'task-1')).rejects.toThrow();
+    expect(updates[0]).toMatchObject({ status: 'error' });
+    expect(updates[0].error).toMatch(/sağlayıcı/i);
+  });
+});
+
+describe('AI task run undo', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  function runRow(overrides = {}) {
+    return {
+      id: 'run-1', user_id: 'user-1', task_id: 'task-1', playlist_id: 'pl-1',
+      backup_id: 'backup-1', undoable: true, undone_at: null, ...overrides,
+    };
+  }
+
+  test('restores the pre-run backup and marks the run undone', async () => {
+    let patch;
+    mockTables({
+      ai_task_runs: () => {
+        const query = builder({ first: runRow() });
+        query.update = jest.fn((value) => { patch = value; return { then: (resolve) => resolve(1) }; });
+        return query;
+      },
+    });
+    mockRestoreBackup.mockResolvedValue({ channelCount: 20, categoryCount: 3 });
+
+    const result = await taskService.undoRun('user-1', 'run-1');
+
+    expect(mockRestoreBackup).toHaveBeenCalledWith('user-1', 'backup-1', 'pl-1');
+    expect(result).toMatchObject({ undone: true, restored: { channels: 20, categories: 3 } });
+    expect(patch.undone_at).toBeDefined();
+  });
+
+  test('refuses to undo twice', async () => {
+    mockTables({ ai_task_runs: () => builder({ first: runRow({ undone_at: new Date() }) }) });
+    await expect(taskService.undoRun('user-1', 'run-1')).rejects.toThrow(/zaten geri alındı/i);
+    expect(mockRestoreBackup).not.toHaveBeenCalled();
+  });
+
+  test('refuses when the backup is gone', async () => {
+    // Yedek retention'a takilip silinmis olabilir; satir kalir, geri alma kapanir.
+    mockTables({ ai_task_runs: () => builder({ first: runRow({ backup_id: null }) }) });
+    await expect(taskService.undoRun('user-1', 'run-1')).rejects.toThrow(/yedeği yok/i);
+  });
+
+  test('another user cannot undo someone else\'s run', async () => {
+    mockTables({ ai_task_runs: () => builder({ first: undefined }) });
+    await expect(taskService.undoRun('user-2', 'run-1')).rejects.toThrow(/bulunamadı/i);
+    expect(mockRestoreBackup).not.toHaveBeenCalled();
   });
 });

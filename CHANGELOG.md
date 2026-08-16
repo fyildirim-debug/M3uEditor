@@ -26,6 +26,21 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ### Added
 
+- **Scheduled tasks now keep a run log and can be undone in one click.** A task
+  bound to a playlist takes a backup before every run and writes an `ai_task_runs`
+  row with the status, the assistant's summary, the tools it executed and the
+  before/after channel and category counts. The assistant's task tab lists that
+  history with an *Undo* button per run, which restores the pre-run backup.
+  Undo is honest about its scope: it returns the playlist to the moment before
+  the run, so manual changes made afterwards are lost too, and the confirmation
+  says so. A run cannot be undone twice, a run whose backup has aged out reports
+  itself as not undoable instead of failing on the button, and a task with no
+  playlist is marked not undoable from the start — a missing backup disables undo
+  rather than cancelling the run. Task backups live in their own retention bucket
+  (last 10, counted separately from manual ones) so nightly runs cannot evict the
+  user's own backups. `list_task_runs` and `undo_task_run` give the assistant the
+  same access, and the system prompt now tells it to bind a new task to a playlist
+  so the backup — and therefore undo — exists.
 - **Searchable logo library.** The channel panel gained a *Find logo* button that
   opens a grid over [tv-logo/tv-logos](https://github.com/tv-logo/tv-logos) —
   10.700+ logos in 48 countries plus 16 other groups. The box is pre-filled with

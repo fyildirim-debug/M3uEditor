@@ -64,6 +64,9 @@
             <p v-else class="ai-task-meta">{{ t('ai.taskNever') }}</p>
             <p v-if="task.lastResult" class="ai-task-result">{{ task.lastResult }}</p>
             <div class="ai-task-actions">
+              <button class="btn btn-ghost btn-sm" type="button" @click="toggleRuns(task)">
+                {{ openRuns === task.id ? t('ai.runsHide') : t('ai.runsShow') }}
+              </button>
               <button class="btn btn-ghost btn-sm" type="button" :disabled="busyTaskId === task.id" @click="toggleTask(task)">
                 {{ task.enabled ? t('ai.taskDisable') : t('ai.taskEnable') }}
               </button>
@@ -74,6 +77,37 @@
               <button class="btn btn-ghost btn-sm ai-danger" type="button" :disabled="busyTaskId === task.id" @click="deleteTask(task)">
                 {{ t('common.delete') }}
               </button>
+            </div>
+
+            <!-- Çalışma günlüğü: ne zaman koştu, ne değişti, geri alınabilir mi -->
+            <div v-if="openRuns === task.id" class="ai-runs">
+              <p v-if="!runs.length" class="ai-task-meta">{{ runsLoading ? t('common.loading') : t('ai.runsEmpty') }}</p>
+              <div v-for="run in runs" :key="run.id" class="ai-run" :class="{ failed: run.status === 'error', undone: run.undoneAt }">
+                <div class="ai-run-head">
+                  <span class="ai-run-when">{{ formatDate(run.createdAt) }}</span>
+                  <span class="ai-run-status" :class="run.status">{{ t('ai.runStatus_' + run.status) }}</span>
+                </div>
+                <p v-if="run.changes" class="ai-run-diff">{{ describeChanges(run.changes) }}</p>
+                <p v-if="run.summary" class="ai-run-summary">{{ run.summary }}</p>
+                <p v-if="run.error" class="ai-run-summary ai-danger">{{ run.error }}</p>
+                <div v-if="run.steps?.length" class="ai-run-tools">
+                  <code v-for="(step, index) in run.steps" :key="index" :class="{ failed: !step.ok, destructive: step.destructive }">{{ step.tool }}</code>
+                </div>
+                <div class="ai-run-foot">
+                  <span v-if="run.undoneAt" class="ai-task-meta">{{ t('ai.runUndone', { when: formatDate(run.undoneAt) }) }}</span>
+                  <button
+                    v-else-if="run.undoable"
+                    class="btn btn-secondary btn-sm"
+                    type="button"
+                    :disabled="busyRunId === run.id"
+                    @click="undoRun(run)"
+                  >
+                    <span v-if="busyRunId === run.id" class="spinner spinner-sm"></span>
+                    {{ t('ai.runUndo') }}
+                  </button>
+                  <span v-else class="ai-task-meta">{{ t('ai.runNotUndoable') }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -215,6 +249,15 @@
           </button>
         </footer>
       </div>
+
+      <ConfirmModal
+        v-if="confirmState"
+        :title="confirmState.title"
+        :message="confirmState.message"
+        :loading="confirmBusy"
+        @confirm="runConfirm"
+        @cancel="confirmState = null"
+      />
     </Teleport>
   </div>
 </template>
@@ -226,6 +269,7 @@ import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import AiSettingsForm from './AiSettingsForm.vue'
 import MarkdownText from './MarkdownText.vue'
+import ConfirmModal from './ConfirmModal.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -245,6 +289,28 @@ const tasks = ref([])
 const conversations = ref([])
 const restoring = ref(false)
 const busyTaskId = ref(null)
+const openRuns = ref(null)
+const runs = ref([])
+const runsLoading = ref(false)
+const busyRunId = ref(null)
+// Uygulamanin ortak onay kutusu; native confirm kullanilmiyor.
+const confirmState = ref(null)
+const confirmBusy = ref(false)
+
+function askConfirm(title, message, onConfirm) {
+  confirmState.value = { title, message, onConfirm }
+}
+
+async function runConfirm() {
+  if (confirmBusy.value || !confirmState.value) return
+  confirmBusy.value = true
+  try {
+    await confirmState.value.onConfirm()
+  } finally {
+    confirmBusy.value = false
+    confirmState.value = null
+  }
+}
 // Akış sırasında içeriği büyüyen asistan mesajı; akış bitince sıfırlanır.
 const streamingMessage = ref(null)
 
@@ -631,6 +697,63 @@ async function deleteConversation(item) {
 
 /* ─────────────── Zamanlanmış görevler ─────────────── */
 
+/** "12 kanal eklendi, 2 kategori eklendi" gibi tek satırlık değişim özeti. */
+function describeChanges(changes) {
+  const parts = []
+  const channels = (changes.channelsAfter ?? 0) - (changes.channelsBefore ?? 0)
+  const categories = (changes.categoriesAfter ?? 0) - (changes.categoriesBefore ?? 0)
+  if (channels) parts.push(t(channels > 0 ? 'ai.runChannelsAdded' : 'ai.runChannelsRemoved', { count: Math.abs(channels) }))
+  if (categories) parts.push(t(categories > 0 ? 'ai.runCategoriesAdded' : 'ai.runCategoriesRemoved', { count: Math.abs(categories) }))
+  return parts.length ? parts.join(' · ') : t('ai.runNoCountChange')
+}
+
+async function loadRuns(taskId) {
+  runsLoading.value = true
+  try {
+    const { data } = await api.get(`/ai/tasks/${taskId}/runs`)
+    runs.value = data.runs || []
+  } catch (error) {
+    toast(error.response?.data?.error?.message || t('ai.taskFailed'), 'error')
+    runs.value = []
+  } finally {
+    runsLoading.value = false
+  }
+}
+
+function toggleRuns(task) {
+  if (openRuns.value === task.id) {
+    openRuns.value = null
+    runs.value = []
+    return
+  }
+  openRuns.value = task.id
+  runs.value = []
+  loadRuns(task.id)
+}
+
+/**
+ * Tek işlemle geri alma. Çalıştırmadan önceki yedek geri yüklenir, yani liste
+ * o ana döner — sonrasında elle yapılan değişiklikler de gider. Onay kutusu
+ * bunu açıkça söyler, çünkü geri almanın kendisi geri alınamaz.
+ */
+function undoRun(run) {
+  askConfirm(t('ai.runUndo'), t('ai.runUndoConfirm'), async () => {
+    busyRunId.value = run.id
+    try {
+      const { data } = await api.post(`/ai/task-runs/${run.id}/undo`)
+      toast(t('ai.runUndoOk', { channels: data.restored?.channels ?? 0 }), 'success')
+      // Acik ekranlar geri yuklenen veriyi gostersin.
+      window.dispatchEvent(new CustomEvent('ai:data-changed'))
+      await loadRuns(run.taskId)
+      await loadTasks()
+    } catch (error) {
+      toast(error.response?.data?.error?.message || t('ai.runUndoFailed'), 'error')
+    } finally {
+      busyRunId.value = null
+    }
+  })
+}
+
 async function loadTasks() {
   try {
     const { data } = await api.get('/ai/tasks')
@@ -660,6 +783,7 @@ async function runTask(task) {
   try {
     await api.post(`/ai/tasks/${task.id}/run`)
     await loadTasks()
+    if (openRuns.value === task.id) await loadRuns(task.id)
     window.dispatchEvent(new CustomEvent('ai:data-changed'))
     toast(t('ai.taskRanOk', { name: task.name }), 'success')
   } catch (error) {
@@ -847,7 +971,33 @@ onUnmounted(() => window.removeEventListener('ai:settings-changed', onExternalSe
   font-size: 11.5px; color: var(--text-secondary); margin: 0;
   max-height: 60px; overflow: hidden; line-height: 1.45;
 }
-.ai-task-actions { display: flex; justify-content: flex-end; gap: 4px; }
+.ai-task-actions { display: flex; justify-content: flex-end; gap: 4px; flex-wrap: wrap; }
+
+.ai-runs { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+.ai-run {
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-left: 2px solid var(--success);
+  border-radius: var(--radius-sm); padding: 7px 9px;
+}
+.ai-run.failed { border-left-color: var(--danger); }
+.ai-run.undone { border-left-color: var(--text-disabled); opacity: 0.7; }
+.ai-run-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.ai-run-when { font-size: 11px; color: var(--text-secondary); }
+.ai-run-status { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--success); }
+.ai-run-status.error { color: var(--danger); }
+.ai-run-status.needs_approval, .ai-run-status.running { color: var(--warning); }
+.ai-run-diff { font-size: 11.5px; color: var(--text-primary); margin: 0; }
+.ai-run-summary { font-size: 11px; color: var(--text-secondary); margin: 0; max-height: 48px; overflow: hidden; line-height: 1.45; }
+.ai-run-tools { display: flex; flex-wrap: wrap; gap: 3px; }
+.ai-run-tools code {
+  font-size: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--bg-tertiary); color: var(--text-muted);
+  border-radius: 3px; padding: 1px 4px;
+}
+.ai-run-tools code.destructive { color: var(--warning); }
+.ai-run-tools code.failed { color: var(--danger); }
+.ai-run-foot { display: flex; justify-content: flex-end; align-items: center; }
 .ai-danger { color: var(--danger); }
 
 .ai-author { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }

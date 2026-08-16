@@ -48,6 +48,8 @@ router.post('/ai/tasks', authMiddleware, aiController.createTask);
 router.patch('/ai/tasks/:id', authMiddleware, aiController.updateTask);
 router.delete('/ai/tasks/:id', authMiddleware, aiController.deleteTask);
 router.post('/ai/tasks/:id/run', authMiddleware, chatLimiter, aiController.runTask);
+router.get('/ai/tasks/:id/runs', authMiddleware, aiController.listTaskRuns);
+router.post('/ai/task-runs/:runId/undo', authMiddleware, aiController.undoTaskRun);
 
 router.get('/ai/conversations', authMiddleware, aiController.listConversations);
 router.get('/ai/conversations/:id', authMiddleware, aiController.getConversation);

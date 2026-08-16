@@ -96,6 +96,36 @@ module.exports = {
     },
   },
 
+  list_task_runs: {
+    description: 'Bir zamanlanmış görevin çalışma geçmişini verir: ne zaman çalıştı, hangi araçlar koştu, kanal/kategori sayısı nasıl değişti ve geri alınabilir mi.',
+    parameters: {
+      type: 'object',
+      properties: {
+        taskId: { type: 'string' },
+        limit: { type: 'integer' },
+      },
+      required: ['taskId'],
+    },
+    async run(args, ctx) {
+      const runs = await taskService.listRuns(ctx.userId, String(args.taskId).trim(), args.limit || 10);
+      return { count: runs.length, runs };
+    },
+  },
+
+  undo_task_run: {
+    description: 'Bir görev çalıştırmasını geri alır: o turdan önce alınan yedek geri yüklenir. DİKKAT — bu, listeyi o ana döndürür; çalıştırmadan SONRA elle yapılan değişiklikler de kaybolur. Kullanıcıya bunu söyleyip onayını almadan çağırmayın.',
+    destructive: true,
+    parameters: {
+      type: 'object',
+      properties: { runId: { type: 'string', description: 'list_task_runs sonucundaki id' } },
+      required: ['runId'],
+    },
+    async run(args, ctx) {
+      assertNotInsideTaskRun(ctx, 'undo_task_run');
+      return taskService.undoRun(ctx.userId, String(args.runId).trim());
+    },
+  },
+
   run_scheduled_task_now: {
     description: 'Zamanlanmış bir görevi beklemeden hemen bir kez çalıştırır ve sonucunu döndürür.',
     parameters: {
