@@ -264,33 +264,27 @@ describe('ExportService', () => {
       }
     }
 
-    // Varsayilan mod: oynatici yayini kaynaktan alir, bu sunucu oynatma
-    // yolunda hic yer almaz.
-    it('hands out the provider address in direct mode', async () => {
+    // Tek davranis: oynatici yayini kaynaktan alir, bu sunucu oynatma yolunda
+    // hicbir kosulda yer almaz.
+    it('hands out the provider address', async () => {
       outputChannel();
-      const result = await withAppUrl(() => exportService.createXtreamPlaylist(
-        { id: 'pl-1' },
-        'output-user',
-        'output-password',
-        'ts'
-      ));
+      const result = await withAppUrl(() => exportService.createXtreamPlaylist({ id: 'pl-1' }));
 
       expect(result).toContain('#EXTM3U');
       expect(result).toContain('https://provider.example/movie/u/p/1.mkv');
       expect(result).not.toContain('https://editor.example/movie/');
     });
 
-    it('hides the provider behind a local playback route in proxy mode', async () => {
+    // Kaldirilan 'proxy' modunun geri sizmadigini dogrular: hangi eski alan
+    // gonderilirse gonderilsin cikti bu sunucunun adresini tasimamali.
+    it('never emits a local playback address, even with the removed proxy flag', async () => {
       outputChannel();
       const result = await withAppUrl(() => exportService.createXtreamPlaylist(
-        { id: 'pl-1', output_stream_mode: 'proxy' },
-        'output-user',
-        'output-password',
-        'ts'
+        { id: 'pl-1', output_stream_mode: 'proxy' }
       ));
 
-      expect(result).toContain('https://editor.example/movie/output-user/output-password/88.mkv');
-      expect(result).not.toContain('https://provider.example/movie/u/p/1.mkv');
+      expect(result).toContain('https://provider.example/movie/u/p/1.mkv');
+      expect(result).not.toContain('https://editor.example');
     });
   });
 

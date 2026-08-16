@@ -250,16 +250,15 @@ describe('XtreamOutputService', () => {
     mockExportService.createXtreamPlaylist.mockResolvedValue('#EXTM3U\n');
     mockXmltvExportService.createSharedStream.mockReturnValue(stream);
 
-    await expect(xtreamOutputService.createM3U(playlist, 'user', 'pass', 'ts'))
-      .resolves.toBe('#EXTM3U\n');
+    await expect(xtreamOutputService.createM3U(playlist)).resolves.toBe('#EXTM3U\n');
     expect(xtreamOutputService.createXmltvStream(playlist, '7')).toBe(stream);
-    expect(mockExportService.createXtreamPlaylist).toHaveBeenCalledWith(playlist, 'user', 'pass', 'ts');
+    expect(mockExportService.createXtreamPlaylist).toHaveBeenCalledWith(playlist);
     expect(mockXmltvExportService.createSharedStream).toHaveBeenCalledWith(playlist, '7');
   });
 
   // Xtream protokolunde direct_source dolu oldugunda oynatici yayini oradan
-  // alir; 'direct' modun oynaticilara ulasma yolu bu alan.
-  test('live streams carry the provider address as direct_source by default', async () => {
+  // alir; asistanin oynaticilara kaynak adresi ulastirma yolu bu alan.
+  test('live streams carry the provider address as direct_source', async () => {
     mockDb.mockReturnValue(resultQuery([{
       xtream_id: '5',
       name: 'Kanal',
@@ -277,7 +276,10 @@ describe('XtreamOutputService', () => {
     expect(streams[0].direct_source).toBe('http://provider.example/live/u/p/5.ts');
   });
 
-  test('proxy mode leaves direct_source empty so the player uses the local route', async () => {
+  // Kaldirilan 'proxy' modu geri sizmamali: eski kolon degeri gonderilse bile
+  // direct_source her zaman saglayicinin adresiyle dolar, hicbir kosulda bos
+  // birakilip oynatici yerel yola yonlendirilmez.
+  test('direct_source stays filled even with the removed proxy flag', async () => {
     mockDb.mockReturnValue(resultQuery([{
       xtream_id: '5',
       name: 'Kanal',
@@ -292,12 +294,11 @@ describe('XtreamOutputService', () => {
     }]));
 
     const streams = await xtreamOutputService.getLiveStreams({ ...playlist, output_stream_mode: 'proxy' });
-    expect(streams[0].direct_source).toBe('');
+    expect(streams[0].direct_source).toBe('http://provider.example/live/u/p/5.ts');
   });
 
-  test('the stream mode only accepts the two known values', async () => {
-    mockDb.mockReturnValue(firstQuery(playlist));
-    await expect(xtreamOutputService.setStreamMode('user-1', 'playlist-1', 'hibrit'))
-      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  test('the stream mode switch no longer exists', () => {
+    expect(xtreamOutputService.setStreamMode).toBeUndefined();
+    expect(xtreamOutputService.getPlaybackTarget).toBeUndefined();
   });
 });

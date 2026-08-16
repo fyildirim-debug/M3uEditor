@@ -9,16 +9,14 @@ export default defineConfig({
       '/api': 'http://localhost:3000',
       '/health': 'http://localhost:3000',
       '/logos': 'http://localhost:3000',
-      // Xtream istemcileri bu yollari sunucu kokunde bekler. Uretimde
+      // Xtream istemcileri katalog yollarini sunucu kokunde bekler. Uretimde
       // frontend/nginx.conf ayni yollari api'ye yonlendiriyor; dev sunucusu
       // bunlari proxy'lemezse player_api.php'ye index.html doner ve
-      // oynaticilar "giris basarisiz" der.
+      // oynaticilar "giris basarisiz" der. (Yayin adresi saglayicidan
+      // verildigi icin /live|/movie|/series yollari yok.)
       '/player_api.php': 'http://localhost:3000',
       '/xmltv.php': 'http://localhost:3000',
-      '/get.php': 'http://localhost:3000',
-      '/live': 'http://localhost:3000',
-      '/movie': 'http://localhost:3000',
-      '/series': 'http://localhost:3000'
+      '/get.php': 'http://localhost:3000'
     }
   }
 })

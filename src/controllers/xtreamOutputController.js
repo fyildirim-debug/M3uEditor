@@ -46,12 +46,6 @@ async function disable(req, res, next) {
   } catch (error) { next(error); }
 }
 
-async function setStreamMode(req, res, next) {
-  try {
-    res.json(await xtreamOutputService.setStreamMode(req.userId, req.params.id, req.body?.streamMode));
-  } catch (error) { next(error); }
-}
-
 async function playerApi(req, res, next) {
   try {
     const auth = await authenticatePlayer(req, res, true);
@@ -115,13 +109,7 @@ async function m3u(req, res, next) {
   try {
     const auth = await authenticatePlayer(req, res);
     if (!auth) return;
-    const output = req.query.output === 'm3u8' ? 'm3u8' : 'ts';
-    const content = await xtreamOutputService.createM3U(
-      auth.playlist,
-      auth.username,
-      auth.password,
-      output
-    );
+    const content = await xtreamOutputService.createM3U(auth.playlist);
     res.setHeader('Content-Type', 'audio/x-mpegurl');
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -129,27 +117,12 @@ async function m3u(req, res, next) {
   } catch (error) { next(error); }
 }
 
-function playback(streamType) {
-  return async (req, res, next) => {
-    try {
-      const auth = await authenticatePlayer(req, res);
-      if (!auth) return;
-      const target = await xtreamOutputService.getPlaybackTarget(auth.playlist.id, streamType, req.params.streamId);
-      res.redirect(302, target);
-    } catch (error) { next(error); }
-  };
-}
-
 module.exports = {
   enable,
   getConfiguration,
   regenerate,
   disable,
-  setStreamMode,
   playerApi,
   xmltv,
   m3u,
-  playLive: playback('live'),
-  playMovie: playback('vod'),
-  playSeries: playback('series'),
 };

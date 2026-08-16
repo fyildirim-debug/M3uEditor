@@ -82,42 +82,17 @@ class ExportService {
     }));
   }
 
-  _xtreamExtension(channel, liveOutput) {
-    if (channel.streamType === 'live') return liveOutput === 'm3u8' ? 'm3u8' : 'ts';
-    const explicit = channel.extras?.container_extension || channel.extras?.containerExtension;
-    if (typeof explicit === 'string' && /^[a-z0-9]{1,10}$/i.test(explicit)) return explicit.toLowerCase();
-    try {
-      return new URL(channel.url).pathname.match(/\.([a-z0-9]{1,10})$/i)?.[1]?.toLowerCase() || 'mp4';
-    } catch (_error) {
-      return 'mp4';
-    }
-  }
-
   /**
    * Format an already-authorized Xtream output playlist. Authentication is
    * resolved by XtreamOutputService before this call.
    *
-   * `direct` modda kanal adresi saglayicinin kendi adresidir; oynatici yayini
-   * kaynaktan ceker ve bu sunucu oynatma yolunda hic yer almaz. `proxy` modda
-   * yerel bir adres uretilir ve /live|/movie|/series istegi 302 ile
-   * saglayiciya yonlendirilir — saglayici kimligi playlist icinde gorunmez,
-   * karsiliginda her kanal degisimi bu sunucuya ugrar.
+   * Kanal adresi her zaman saglayicinin kendi adresidir: oynatici yayini
+   * dogrudan kaynaktan ceker, bu sunucu oynatma yolunda hicbir sekilde yer
+   * almaz. (Yerel adres uretip 302 ile yonlendiren 'proxy' modu kaldirildi.)
    */
-  async createXtreamPlaylist(playlist, username, password, output = 'ts') {
+  async createXtreamPlaylist(playlist) {
     if (!playlist?.id) throw createAppError('NOT_FOUND');
-    const channels = await this._getOrderedChannels(playlist.id);
-    if (playlist.output_stream_mode === 'proxy') {
-      const baseUrl = config.appUrl;
-      return this.formatter.format(channels.map((channel) => {
-        const pathType = channel.streamType === 'vod' ? 'movie' : channel.streamType === 'series' ? 'series' : 'live';
-        const extension = this._xtreamExtension(channel, output);
-        return {
-          ...channel,
-          url: `${baseUrl}/${pathType}/${encodeURIComponent(username)}/${encodeURIComponent(password)}/${encodeURIComponent(channel.xtreamId)}.${encodeURIComponent(extension)}`,
-        };
-      }));
-    }
-    return this.formatter.format(channels);
+    return this.formatter.format(await this._getOrderedChannels(playlist.id));
   }
 
   /**

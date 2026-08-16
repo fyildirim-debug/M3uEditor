@@ -42,6 +42,7 @@ describe('Database Migrations', () => {
       '20240101000028_create_ai_assistant.js',
       '20240101000029_add_output_stream_mode.js',
       '20240101000030_create_ai_attachments_tasks.js',
+      '20240101000031_drop_output_stream_mode.js',
     ]);
   });
 

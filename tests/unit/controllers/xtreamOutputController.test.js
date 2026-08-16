@@ -14,7 +14,6 @@ const mockService = {
   getEpg: jest.fn(),
   createXmltvStream: jest.fn(),
   createM3U: jest.fn(),
-  getPlaybackTarget: jest.fn(),
 };
 jest.mock('../../../src/services/XtreamOutputService', () => mockService);
 
@@ -87,17 +86,12 @@ describe('xtreamOutputController', () => {
     expect(res.body).toEqual([]);
   });
 
-  test('playback validates credentials and issues a 302 to the stored stream URL', async () => {
-    mockService.authenticate.mockResolvedValue({ status: 'valid', playlist });
-    mockService.getPlaybackTarget.mockResolvedValue('https://provider.example/live/upstream/user/44.ts');
-    const res = response();
-
-    await controller.playLive({
-      query: {},
-      params: { username: 'output-user', password: 'output-pass', streamId: '44', ext: 'ts' },
-    }, res, jest.fn());
-
-    expect(mockService.getPlaybackTarget).toHaveBeenCalledWith('playlist-1', 'live', '44');
-    expect(res.redirect).toHaveBeenCalledWith(302, 'https://provider.example/live/upstream/user/44.ts');
+  // Bu sunucu uzerinden yayin verilmiyor: yerel oynatma yollarini karsilayan
+  // isleyiciler kaldirildi, geriye yalnizca katalog uclari kaldi.
+  test('no local playback handlers are exposed', () => {
+    expect(controller.playLive).toBeUndefined();
+    expect(controller.playMovie).toBeUndefined();
+    expect(controller.playSeries).toBeUndefined();
+    expect(controller.setStreamMode).toBeUndefined();
   });
 });

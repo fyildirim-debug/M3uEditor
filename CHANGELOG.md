@@ -5,6 +5,25 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ## [Unreleased]
 
+### Removed
+
+- **The `proxy` stream mode is gone, and with it every path that made this
+  server a stream address.** In that mode `get.php` published a local
+  `/live|/movie|/series` URL and each channel change arrived here first to be
+  answered with a `302` to the provider — latency and a single point of failure
+  on the playback path of an application that is a catalogue editor. There is now
+  one behaviour and no switch: `get.php` hands out the provider's own URLs and
+  `player_api.php` always fills `direct_source` with them. Removed: the three
+  playback routes and their handlers, `getPlaybackTarget`, `setStreamMode`,
+  `PUT /api/playlists/:id/xtream-output/stream-mode`, the mode selector in the
+  Xtream output dialog, the `playlists.output_stream_mode` column, and the
+  `/live|/movie|/series` entries in the nginx and Vite proxies. Tests now assert
+  the opposite of what they used to: passing the old `output_stream_mode: 'proxy'`
+  value produces provider addresses anyway, so the behaviour cannot leak back.
+  **Note:** a player that ignores `direct_source` and builds stream URLs from the
+  server address will no longer play; clients that honour `direct_source`
+  (TiviMate, IPTV Smarters and the common mobile players) are unaffected.
+
 ### Added
 
 - **The assistant accepts file attachments.** The composer now carries a
@@ -92,7 +111,8 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ### Changed
 
-- **Xtream output hands out the provider's own address by default.** Channel
+- **Xtream output hands out the provider's own address.** (The `proxy` mode
+  mentioned below was removed before release — see *Removed* above.) Channel
   URLs used to point at this server and every playback request was answered with
   a 302 to the provider, so the editor sat in the playback path of every channel
   change: extra latency, an extra point of failure and needless load. The new

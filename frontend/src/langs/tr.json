@@ -430,14 +430,7 @@
     "disableError": "Xtream Codes erişimi kapatılamadı.",
     "enabledSuccess": "Xtream Codes erişimi etkinleştirildi",
     "regeneratedSuccess": "Şifre yenilendi",
-    "disabledSuccess": "Xtream Codes erişimi kapatıldı",
-    "streamModeTitle": "Yayın Adresi",
-    "streamModeDirect": "Doğrudan kaynaktan (önerilen)",
-    "streamModeDirectHint": "Kanal adresleri doğrudan sağlayıcının sunucusunu gösterir. Oynatıcı yayını kaynaktan alır, bu sunucu oynatma yolunda hiç yer almaz: en düşük gecikme, arada bir arıza noktası yok.",
-    "streamModeProxy": "Bu sunucu üzerinden",
-    "streamModeProxyHint": "Kanal adresleri bu sunucuyu gösterir ve her istek sağlayıcıya yönlendirilir. Sağlayıcı kullanıcı adınız ve şifreniz listede görünmez; karşılığında her kanal değişimi önce buraya uğrar.",
-    "streamModeSaved": "Yayın adresi tercihi kaydedildi",
-    "streamModeError": "Yayın adresi tercihi kaydedilemedi."
+    "disabledSuccess": "Xtream Codes erişimi kapatıldı"
   },
   "bulkMove": {
     "title": "Kanalları Taşı",

@@ -98,14 +98,13 @@ const sharedPlaylistLimiter = rateLimit({
   },
 });
 
-const xtreamPlayerPaths = ['/player_api.php', '/xmltv.php', '/get.php', '/live', '/movie', '/series'];
+// Yalnizca katalog uclari. Yayin adresi olarak bu sunucu hicbir kosulda
+// verilmedigi icin /live|/movie|/series yollari artik yok.
+const xtreamPlayerPaths = ['/player_api.php', '/xmltv.php', '/get.php'];
 
 function xtreamUsername(req) {
   if (typeof req.xtreamLimiterUsername === 'string') return req.xtreamLimiterUsername;
-  if (typeof req.query.username === 'string') return req.query.username;
-  const match = req.path.match(/^\/(?:live|movie|series)\/([^/]+)/);
-  if (!match) return '';
-  try { return decodeURIComponent(match[1]); } catch (_error) { return ''; }
+  return typeof req.query.username === 'string' ? req.query.username : '';
 }
 
 function xtreamLimiterKey(req) {
@@ -149,17 +148,15 @@ const xtreamFailureLimiter = rateLimit({
   },
 });
 
+// Kimlik bilgileri katalog uclarina sorgu dizesiyle geliyor; log'a ve limiter
+// anahtarina girmeden once maskelenir. (Kimligi yol icinde tasiyan
+// /live|/movie|/series adresleri kaldirildigi icin yol maskesi de gerekmiyor.)
 function redactXtreamCredentials(req, _res, next) {
   try {
     const url = new URL(req.originalUrl, 'http://local.invalid');
-    const pathUsername = url.pathname.match(/^\/(?:live|movie|series)\/([^/]+)/)?.[1];
-    req.xtreamLimiterUsername = url.searchParams.get('username') || (pathUsername ? decodeURIComponent(pathUsername) : '');
+    req.xtreamLimiterUsername = url.searchParams.get('username') || '';
     if (url.searchParams.has('username')) url.searchParams.set('username', '[REDACTED]');
     if (url.searchParams.has('password')) url.searchParams.set('password', '[REDACTED]');
-    url.pathname = url.pathname.replace(
-      /^(\/(?:live|movie|series)\/)[^/]+\/[^/]+\//,
-      '$1[REDACTED]/[REDACTED]/'
-    );
     req.originalUrl = `${url.pathname}${url.search}`;
   } catch (_error) {
     req.originalUrl = req.path;

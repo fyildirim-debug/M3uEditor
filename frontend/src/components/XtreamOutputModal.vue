@@ -118,26 +118,6 @@
         </div>
       </div>
 
-      <div class="alternative-section">
-        <h4>{{ t('xtreamOutput.streamModeTitle') }}</h4>
-        <div class="stream-mode">
-          <label class="stream-mode-option">
-            <input type="radio" value="direct" :checked="output.streamMode !== 'proxy'" :disabled="isBusy" @change="changeStreamMode('direct')" />
-            <span>
-              <strong>{{ t('xtreamOutput.streamModeDirect') }}</strong>
-              <small>{{ t('xtreamOutput.streamModeDirectHint') }}</small>
-            </span>
-          </label>
-          <label class="stream-mode-option">
-            <input type="radio" value="proxy" :checked="output.streamMode === 'proxy'" :disabled="isBusy" @change="changeStreamMode('proxy')" />
-            <span>
-              <strong>{{ t('xtreamOutput.streamModeProxy') }}</strong>
-              <small>{{ t('xtreamOutput.streamModeProxyHint') }}</small>
-            </span>
-          </label>
-        </div>
-      </div>
-
       <div v-if="manualCopyValue" class="manual-copy" role="alert">
         <strong>{{ t('xtreamOutput.manualCopyTitle') }}</strong>
         <p>{{ t('xtreamOutput.manualCopyInstruction') }}</p>
@@ -261,7 +241,6 @@ function createEmptyOutput() {
     playerApiUrl: '',
     xmltvUrl: '',
     m3uUrl: '',
-    streamMode: 'direct',
     createdAt: null
   }
 }
@@ -269,20 +248,6 @@ function createEmptyOutput() {
 function applyOutput(data) {
   output.value = { ...createEmptyOutput(), ...(data || {}), enabled: Boolean(data?.enabled) }
   password.value = data?.password || ''
-}
-
-async function changeStreamMode(mode) {
-  if (output.value.streamMode === mode) return
-  action.value = 'streamMode'
-  try {
-    const { data } = await api.put(`/playlists/${props.playlistId}/xtream-output/stream-mode`, { streamMode: mode })
-    applyOutput(data)
-    toast(t('xtreamOutput.streamModeSaved'), 'success')
-  } catch (error) {
-    toast(getErrorMessage(error, 'xtreamOutput.streamModeError'), 'error')
-  } finally {
-    action.value = ''
-  }
 }
 
 function getErrorMessage(error, fallbackKey) {
@@ -388,12 +353,6 @@ onMounted(() => { loadOutput(); loadViews() })
 .regenerate-button { margin-top: 5px; }
 .password-unavailable { padding: 12px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius-md); }
 .password-unavailable p { margin: 0 0 10px; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
-.stream-mode { display: flex; flex-direction: column; gap: 10px; }
-.stream-mode-option { display: flex; gap: 10px; align-items: flex-start; padding: 12px; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius-md); cursor: pointer; }
-.stream-mode-option input { margin-top: 2px; flex-shrink: 0; }
-.stream-mode-option span { display: flex; flex-direction: column; gap: 4px; }
-.stream-mode-option strong { font-size: 13px; }
-.stream-mode-option small { color: var(--text-muted); font-size: 12px; line-height: 1.5; }
 .alternative-section, .help-section, .security-warning { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); }
 .alternative-section h4, .help-section h4 { margin: 0 0 12px; font-size: 13px; }
 .manual-copy, .confirmation-panel, .security-warning { margin-top: 16px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md); }

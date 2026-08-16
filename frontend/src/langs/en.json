@@ -430,14 +430,7 @@
     "disableError": "Xtream Codes access could not be disabled.",
     "enabledSuccess": "Xtream Codes access enabled",
     "regeneratedSuccess": "Password regenerated",
-    "disabledSuccess": "Xtream Codes access disabled",
-    "streamModeTitle": "Stream Address",
-    "streamModeDirect": "Straight from the source (recommended)",
-    "streamModeDirectHint": "Channel addresses point at the provider's own server. The player pulls the stream from the source and this server stays out of the playback path: lowest latency, no extra point of failure.",
-    "streamModeProxy": "Through this server",
-    "streamModeProxyHint": "Channel addresses point at this server and every request is redirected to the provider. Your provider username and password stay out of the playlist; in exchange every channel change goes through here first.",
-    "streamModeSaved": "Stream address preference saved",
-    "streamModeError": "The stream address preference could not be saved."
+    "disabledSuccess": "Xtream Codes access disabled"
   },
   "bulkMove": {
     "title": "Move Channels",
