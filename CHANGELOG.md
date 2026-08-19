@@ -142,9 +142,13 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
   404. Both responses now carry the provider address, like the live and VOD
   lists do, and the episode also gained the `season`, `added` and `custom_sid`
   fields players expect. Every response that names a stream address now names the
-  provider's, never this server's. (A player that ignores `direct_source`
-  entirely still builds its own URL from `server_info`; for those, `get.php`
-  remains the direct route — its lines are the provider URLs verbatim.)
+  provider's, never this server's. A regression guard walks every player-facing
+  response and fails if this server's address turns up anywhere except the two
+  places the protocol requires it: `server_info.url` (the catalogue endpoint the
+  player was pointed at) and the artwork fields, which serve uploaded logos and
+  are not playback addresses. (A player that ignores `direct_source` entirely
+  still builds its own URL from `server_info`; for those, `get.php` remains the
+  direct route — its lines are the provider URLs verbatim.)
 - **An uploaded logo did not appear, and the same logo slot stayed empty
   afterwards.** Three separate causes, all fixed. (1) The upload URL was derived
   from the channel id alone, so re-uploading produced the byte-identical address
