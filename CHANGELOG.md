@@ -133,6 +133,18 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ### Fixed
 
+- **Xtream output sent players to this server for films and series.** `get.php`
+  and the stream lists already handed out the provider's own addresses, but
+  `get_vod_info` returned `direct_source: ''` and the synthetic episode in
+  `get_series_info` had no `direct_source` at all. An empty field leaves the
+  player one option: build `{this server}/movie|/series/<user>/<pass>/<id>.<ext>`
+  from `server_info` — a path that no longer exists here, so playback died on a
+  404. Both responses now carry the provider address, like the live and VOD
+  lists do, and the episode also gained the `season`, `added` and `custom_sid`
+  fields players expect. Every response that names a stream address now names the
+  provider's, never this server's. (A player that ignores `direct_source`
+  entirely still builds its own URL from `server_info`; for those, `get.php`
+  remains the direct route — its lines are the provider URLs verbatim.)
 - **An uploaded logo did not appear, and the same logo slot stayed empty
   afterwards.** Three separate causes, all fixed. (1) The upload URL was derived
   from the channel id alone, so re-uploading produced the byte-identical address

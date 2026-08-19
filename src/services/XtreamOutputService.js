@@ -296,9 +296,14 @@ class XtreamOutputService {
    * dogrudan o adresten alir. Her zaman saglayicinin kendi adresiyle
    * doldurulur; bu sunucunun adresi hicbir kosulda yayin adresi olarak
    * verilmez.
+   *
+   * Alan bos birakilirsa oynaticinin tek secenegi kalir: `server_info`
+   * adresinden `/live|/movie|/series/...` yolunu kendisi kurar, yani yayini bu
+   * sunucu uzerinden acmaya calisir. Bu yollar kaldirildigi icin de 404 alir.
+   * Bu yuzden yayin adresi donen HER yanitta doldurulmasi zorunludur.
    */
-  _directSource(playlist, row) {
-    return row.stream_url || '';
+  _directSource(row) {
+    return row?.stream_url || '';
   }
 
   async getLiveStreams(playlist, requestedCategoryId) {
@@ -315,7 +320,7 @@ class XtreamOutputService {
       category_id: categoryId(row.category_xtream_id),
       custom_sid: '',
       tv_archive: 0,
-      direct_source: this._directSource(playlist, row),
+      direct_source: this._directSource(row),
       tv_archive_duration: 0,
     }));
   }
@@ -336,7 +341,7 @@ class XtreamOutputService {
         category_id: categoryId(row.category_xtream_id),
         container_extension: containerExtension(row),
         custom_sid: '',
-        direct_source: this._directSource(playlist, row),
+        direct_source: this._directSource(row),
       };
     });
   }
@@ -410,7 +415,7 @@ class XtreamOutputService {
         category_id: categoryId(row.category_xtream_id),
         container_extension: containerExtension(row),
         custom_sid: '',
-        direct_source: '',
+        direct_source: this._directSource(row),
       },
     };
   }
@@ -439,8 +444,12 @@ class XtreamOutputService {
         '1': [{
           id,
           episode_num: 1,
+          season: 1,
           title: row.name,
           container_extension: extension,
+          custom_sid: '',
+          added: unixSeconds(row.created_at),
+          direct_source: this._directSource(row),
           info: {},
         }],
       },

@@ -297,6 +297,59 @@ describe('XtreamOutputService', () => {
     expect(streams[0].direct_source).toBe('http://provider.example/live/u/p/5.ts');
   });
 
+  // Bir oynatici, film/dizi bilgisinde direct_source bos gelirse yayin adresini
+  // server_info'dan kendisi kurar; yani bu sunucunun alan adini yayin adresi
+  // sanar. Bilgi yanitlarinin da saglayici adresini tasimasi bu yuzden sart.
+  test('vod info hands the provider address to the player instead of leaving it to build a local one', async () => {
+    const query = {
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      first: jest.fn().mockResolvedValue({
+        id: 'channel-1',
+        xtream_id: '9001',
+        name: 'Example Movie',
+        logo_url: null,
+        stream_url: 'https://provider.example/movie/u/p/9001.mkv',
+        stream_type: 'vod',
+        extras: {},
+        created_at: new Date('2026-07-28T10:00:00Z'),
+        category_xtream_id: '41',
+      }),
+    };
+    mockDb.mockReturnValue(query);
+
+    const response = await xtreamOutputService.getVodInfo('playlist-1', '9001');
+
+    expect(response.movie_data.direct_source).toBe('https://provider.example/movie/u/p/9001.mkv');
+    expect(response.movie_data.direct_source).not.toContain('iptv.example.test');
+  });
+
+  test('series episodes hand the provider address to the player', async () => {
+    const query = {
+      leftJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      select: jest.fn().mockReturnThis(),
+      first: jest.fn().mockResolvedValue({
+        id: 'channel-1',
+        xtream_id: '77',
+        name: 'Example Series',
+        logo_url: null,
+        stream_url: 'https://provider.example/series/u/p/5.mp4',
+        stream_type: 'series',
+        extras: {},
+        created_at: new Date('2026-07-28T10:00:00Z'),
+        category_xtream_id: '9',
+      }),
+    };
+    mockDb.mockReturnValue(query);
+
+    const response = await xtreamOutputService.getSeriesInfo('playlist-1', '77');
+
+    expect(response.episodes['1'][0].direct_source).toBe('https://provider.example/series/u/p/5.mp4');
+    expect(response.episodes['1'][0].direct_source).not.toContain('iptv.example.test');
+  });
+
   test('the stream mode switch no longer exists', () => {
     expect(xtreamOutputService.setStreamMode).toBeUndefined();
     expect(xtreamOutputService.getPlaybackTarget).toBeUndefined();
