@@ -7,8 +7,8 @@ const XtreamClient = require('../services/XtreamClient');
 const { createAppError } = require('../utils/AppError');
 const { decrypt } = require('../utils/crypto');
 const { requestBuffer } = require('../utils/safeFetch');
-const { parsePagination, validateIdArray } = require('../utils/validation');
-const { getChannelLogoFilename, getChannelLogoPath, removeChannelLogoVariants } = require('../utils/logoStorage');
+const { parsePagination, validateIdArray, validateChannelField } = require('../utils/validation');
+const { getChannelLogoPath, buildChannelLogoUrl, removeChannelLogoVariants } = require('../utils/logoStorage');
 
 async function listChannels(req, res, next) {
   try {
@@ -89,25 +89,31 @@ async function uploadLogo(req, res, next) {
     if (typeof imageData !== 'string' || imageData.length > 3 * 1024 * 1024) {
       throw createAppError('VALIDATION_ERROR', 'En fazla 2 MB boyutunda bir resim gönderin');
     }
-    const match = imageData.match(/^data:image\/(png|jpe?g|gif|webp);base64,([A-Za-z0-9+/=]+)$/i);
+    // Tarayicinin bildirdigi tur (`data:image/...`) yalnizca dosya adindan
+    // turetilmis bir tahmindir: `.jpg` uzantili bir PNG'de `image/jpeg` gelir.
+    // Eskiden bu tahmin icerikle bire bir tutmayinca yukleme reddediliyor,
+    // kullanici gecerli bir resmi yukleyemiyordu. Guvenligi saglayan sey zaten
+    // icerik imzasi; bildirilen tur bilgi amacli.
+    const match = imageData.match(/^data:image\/[a-z0-9.+-]+;base64,([A-Za-z0-9+/=\s]+)$/i);
     if (!match) throw createAppError('VALIDATION_ERROR', 'PNG, JPEG, GIF veya WebP resmi gerekli');
 
-    const imageBuffer = Buffer.from(match[2], 'base64');
+    const imageBuffer = Buffer.from(match[1], 'base64');
     if (!imageBuffer.length || imageBuffer.length > 2 * 1024 * 1024) {
       throw createAppError('VALIDATION_ERROR', 'Resim 2 MB’den büyük olamaz');
     }
     const detectedExt = detectImageExtension(imageBuffer);
-    if (!detectedExt || match[1].toLowerCase().replace('jpeg', 'jpg') !== detectedExt) {
-      throw createAppError('VALIDATION_ERROR', 'Dosya içeriği bildirilen resim türüyle eşleşmiyor');
+    if (!detectedExt) {
+      throw createAppError('VALIDATION_ERROR', 'Dosya içeriği PNG, JPEG, GIF veya WebP değil');
     }
 
     const ownedChannel = await channelService._verifyChannelOwnership(req.userId, req.params.id);
     const channelId = ownedChannel.id;
     await fs.mkdir(config.uploadDir, { recursive: true });
-    const filename = getChannelLogoFilename(channelId, detectedExt);
     await fs.writeFile(getChannelLogoPath(channelId, detectedExt), imageBuffer, { flag: 'w', mode: 0o640 });
     await removeChannelLogoVariants(channelId, detectedExt);
-    res.json(await channelService.update(req.userId, channelId, { logo_url: `/logos/${filename}` }));
+    res.json(await channelService.update(req.userId, channelId, {
+      logo_url: buildChannelLogoUrl(channelId, detectedExt),
+    }));
   } catch (error) { next(error); }
 }
 
@@ -190,6 +196,19 @@ async function testStream(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function findChannelByStreamUrl(playlistId, streamUrl) {
+  return db('channels').where({ playlist_id: playlistId, stream_url: streamUrl }).first();
+}
+
+function duplicateChannelError(existingChannel) {
+  return createAppError(
+    'DUPLICATE_CHANNEL',
+    existingChannel?.name
+      ? `Bu akış adresi bu listede zaten var: ${existingChannel.name}`
+      : 'Bu akış adresi bu listede zaten var'
+  );
+}
+
 async function createChannel(req, res, next) {
   try {
     const playlistId = req.params.id;
@@ -197,9 +216,19 @@ async function createChannel(req, res, next) {
     if (typeof name !== 'string' || !name.trim() || name.length > 500 || typeof streamUrl !== 'string' || !streamUrl.trim() || streamUrl.length > 5000) {
       throw createAppError('VALIDATION_ERROR', 'Geçerli kanal adı ve akış adresi gerekli');
     }
+    const trimmedName = name.trim();
+    const trimmedStreamUrl = streamUrl.trim();
+    const validatedLogoUrl = validateChannelField('logo_url', logoUrl);
     const playlist = await db('playlists').where({ id: playlistId, user_id: req.userId }).first();
     if (!playlist) throw createAppError('NOT_FOUND');
     await channelService._verifyCategoryForPlaylist(req.userId, playlistId, categoryId || null);
+
+    // Bir oynatma listesinde ayni akis adresi yalnizca bir kez bulunabilir
+    // (benzersizlik kisiti ice aktarimdaki upsert icin de gerekli). Kisitin
+    // ham hatasi kullaniciya "Beklenmeyen bir hata olustu" diye donuyordu;
+    // artik hangi kanalin cakistigini soyleyen anlasilir bir yanit veriliyor.
+    const duplicate = await findChannelByStreamUrl(playlistId, trimmedStreamUrl);
+    if (duplicate) throw duplicateChannelError(duplicate);
 
     let epgSourceId = null;
     if (epgChannelId) {
@@ -213,21 +242,30 @@ async function createChannel(req, res, next) {
     }
 
     const maxSort = await db('channels').where({ playlist_id: playlistId }).max('sort_order as max').first();
-    const [channel] = await db('channels').insert({
-      id: uuidv4(),
-      playlist_id: playlistId,
-      name: name.trim(),
-      original_name: name.trim(),
-      stream_url: streamUrl.trim(),
-      logo_url: logoUrl || null,
-      original_logo_url: logoUrl || null,
-      category_id: categoryId || null,
-      epg_channel_id: epgChannelId || null,
-      epg_source_id: epgSourceId,
-      stream_type: ['live', 'vod', 'series'].includes(streamType) ? streamType : 'live',
-      sort_order: (maxSort?.max ?? -1) + 1,
-      extras: JSON.stringify({}),
-    }).returning('*');
+    let channel;
+    try {
+      [channel] = await db('channels').insert({
+        id: uuidv4(),
+        playlist_id: playlistId,
+        name: trimmedName,
+        original_name: trimmedName,
+        stream_url: trimmedStreamUrl,
+        logo_url: validatedLogoUrl,
+        original_logo_url: validatedLogoUrl,
+        category_id: categoryId || null,
+        epg_channel_id: epgChannelId || null,
+        epg_source_id: epgSourceId,
+        stream_type: ['live', 'vod', 'series'].includes(streamType) ? streamType : 'live',
+        sort_order: (maxSort?.max ?? -1) + 1,
+        extras: JSON.stringify({}),
+      }).returning('*');
+    } catch (error) {
+      // Iki istek ayni anda gelirse on kontrol iki tarafta da temiz doner;
+      // son sozu benzersizlik kisiti soyler. Ham veritabani hatasi 500 olarak
+      // disari sizmasin.
+      if (error?.code === '23505') throw duplicateChannelError(await findChannelByStreamUrl(playlistId, trimmedStreamUrl));
+      throw error;
+    }
     res.status(201).json(channel);
   } catch (error) { next(error); }
 }

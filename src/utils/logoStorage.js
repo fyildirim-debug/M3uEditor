@@ -30,6 +30,33 @@ function getChannelLogoPath(channelId, extension) {
   return path.join(config.uploadDir, getChannelLogoFilename(channelId, extension));
 }
 
+/**
+ * Yuklenen logonun adresi kanal kimliginden turedigi icin ayni kanala ikinci
+ * kez logo yuklendiginde adres degismiyordu. `/logos/` yolu hem nginx hem
+ * express tarafindan 30 gun `immutable` olarak onbelleklenir; adres ayni
+ * kalinca tarayici yeni dosyayi hic istemez ve kullanici eski gorseli gormeye
+ * devam eder. Adrese surum damgasi eklemek onbellegi bozar, uzun onbellek
+ * suresini de korur.
+ * @param {string} channelId
+ * @param {string} extension
+ * @param {number|string} [version] - Varsayilan: simdiki zaman damgasi
+ * @returns {string} `/logos/<uuid>.<uzanti>?v=<surum>`
+ */
+function buildChannelLogoUrl(channelId, extension, version = Date.now()) {
+  return `/logos/${getChannelLogoFilename(channelId, extension)}?v=${version}`;
+}
+
+/**
+ * Surum damgasini atarak yalin logo yolunu dondurur. Depolanan adresi dosya
+ * adiyla karsilastiran yerler (ornegin yetim logo temizligi) bunu kullanmali;
+ * aksi halde surumlu her adres yetim sanilir.
+ * @param {unknown} logoUrl
+ * @returns {string} Sorgu dizesi ve cengel atilmis yol
+ */
+function stripLogoUrlVersion(logoUrl) {
+  return typeof logoUrl === 'string' ? logoUrl.split(/[?#]/)[0] : '';
+}
+
 async function removeLogoFile(channelId, extension) {
   try {
     await fs.unlink(getChannelLogoPath(channelId, extension));
@@ -86,6 +113,8 @@ module.exports = {
   LOGO_EXTENSIONS,
   getChannelLogoFilename,
   getChannelLogoPath,
+  buildChannelLogoUrl,
+  stripLogoUrlVersion,
   removeChannelLogoVariants,
   removeChannelLogos,
 };

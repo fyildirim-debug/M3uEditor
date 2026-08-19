@@ -71,7 +71,7 @@ describe('ERROR_CODES', () => {
   test('contains all expected error codes from design doc', () => {
     const expectedCodes = [
       'VALIDATION_ERROR', 'INVALID_CREDENTIALS', 'TOKEN_EXPIRED',
-      'FORBIDDEN', 'NOT_FOUND', 'XTREAM_CONNECTION_FAILED',
+      'FORBIDDEN', 'NOT_FOUND', 'DUPLICATE_CHANNEL', 'XTREAM_CONNECTION_FAILED',
       'XTREAM_AUTH_FAILED', 'EPG_FETCH_FAILED', 'IMPORT_FAILED',
       'IMPORT_IN_PROGRESS', 'IMPORT_CANCELLED', 'IMPORT_CAPACITY_REACHED',
       'INTERNAL_ERROR',
@@ -80,6 +80,7 @@ describe('ERROR_CODES', () => {
   });
 
   test.each([
+    ['DUPLICATE_CHANNEL', 409],
     ['IMPORT_IN_PROGRESS', 409],
     ['IMPORT_CANCELLED', 499],
     ['IMPORT_CAPACITY_REACHED', 503],

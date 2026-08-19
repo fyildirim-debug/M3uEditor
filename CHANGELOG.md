@@ -133,6 +133,33 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ### Fixed
 
+- **An uploaded logo did not appear, and the same logo slot stayed empty
+  afterwards.** Three separate causes, all fixed. (1) The upload URL was derived
+  from the channel id alone, so re-uploading produced the byte-identical address
+  `/logos/<id>.png` — and both nginx and express serve that path with
+  `Cache-Control: immutable, max-age=30d`, so the browser never asked for the new
+  file. Uploads now carry a version stamp (`?v=<timestamp>`), which busts the
+  cache while keeping the long cache lifetime; `cleanup-logos` strips the stamp
+  before deciding what is orphaned. (2) A logo that failed to load ran
+  `$event.target.style.display = 'none'`, writing straight to the DOM. Vue reuses
+  that same `<img>` element for the next address, so one dead provider URL hid the
+  preview for every channel selected afterwards — including a logo just uploaded.
+  Broken addresses are now tracked in reactive state keyed by URL, so a new
+  address renders again and a broken one falls back to the placeholder (in the
+  edit panel, to the upload button). (3) The endpoint rejected the upload when the
+  browser-reported MIME type disagreed with the file's content signature — which
+  is what happens with a PNG named `.jpg`. The content signature alone now decides
+  the stored type; that is the check that was doing the security work anyway. The
+  channel row in the table is also refreshed after an upload, and a `FileReader`
+  failure no longer leaves the upload spinner running with no message.
+- **Adding a channel that already exists answered "an unexpected error
+  occurred".** A playlist may hold a stream address only once (the unique
+  constraint is what the import upsert relies on), but `POST
+  /api/playlists/:id/channels` let the raw constraint violation reach the generic
+  handler as a `500`. The endpoint now checks first and answers `409
+  DUPLICATE_CHANNEL` naming the channel already holding that address; a violation
+  raised by a concurrent insert is translated to the same answer instead of
+  leaking a database error.
 - **Refreshing the page wiped the assistant conversation.** Chats were being
   stored server-side all along (`ai_conversations` / `ai_messages`) but the panel
   never asked for them, so every reload started from an empty box. The panel now

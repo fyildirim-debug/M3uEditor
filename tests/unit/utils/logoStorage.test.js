@@ -6,6 +6,8 @@ const logger = require('../../../src/config/logger');
 const {
   getChannelLogoFilename,
   getChannelLogoPath,
+  buildChannelLogoUrl,
+  stripLogoUrlVersion,
   removeChannelLogoVariants,
   removeChannelLogos,
 } = require('../../../src/utils/logoStorage');
@@ -66,5 +68,20 @@ describe('logoStorage', () => {
 
     expect(unlinkSpy).toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalledWith(expect.objectContaining({ channelId: CHANNEL_ID }), expect.any(String));
+  });
+
+  test('stamps uploaded logo urls so an immutable cache cannot serve the previous image', () => {
+    const first = buildChannelLogoUrl(CHANNEL_ID, 'png', 1);
+    const second = buildChannelLogoUrl(CHANNEL_ID, 'png', 2);
+
+    expect(first).toBe(`/logos/${CHANNEL_ID}.png?v=1`);
+    expect(second).not.toBe(first);
+    expect(buildChannelLogoUrl(CHANNEL_ID.toUpperCase(), 'PNG', 3)).toBe(`/logos/${CHANNEL_ID}.png?v=3`);
+  });
+
+  test('strips the version stamp back to the stored file path', () => {
+    expect(stripLogoUrlVersion(`/logos/${CHANNEL_ID}.png?v=1700000000000`)).toBe(`/logos/${CHANNEL_ID}.png`);
+    expect(stripLogoUrlVersion(`/logos/${CHANNEL_ID}.png`)).toBe(`/logos/${CHANNEL_ID}.png`);
+    expect(stripLogoUrlVersion(null)).toBe('');
   });
 });

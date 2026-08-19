@@ -3,7 +3,7 @@ require('dotenv').config();
 const fs = require('fs').promises;
 const config = require('../src/config');
 const db = require('../src/config/database');
-const { LOGO_EXTENSIONS, getChannelLogoPath } = require('../src/utils/logoStorage');
+const { LOGO_EXTENSIONS, getChannelLogoPath, stripLogoUrlVersion } = require('../src/utils/logoStorage');
 const { validate: validateUuid } = require('uuid');
 
 const QUERY_BATCH_SIZE = 1000;
@@ -52,7 +52,9 @@ async function findOrphans(files) {
       .select('id', 'logo_url');
     for (const row of rows) currentLogos.set(row.id.toLowerCase(), row.logo_url);
   }
-  return files.filter((file) => currentLogos.get(file.channelId) !== `/logos/${file.filename}`);
+  // Yuklenen logolarin adresi onbellek kirilsin diye `?v=` damgasi tasir;
+  // damga atilmadan karsilastirilirsa kullanimdaki her logo yetim sanilir.
+  return files.filter((file) => stripLogoUrlVersion(currentLogos.get(file.channelId)) !== `/logos/${file.filename}`);
 }
 
 async function main(argv = process.argv.slice(2)) {

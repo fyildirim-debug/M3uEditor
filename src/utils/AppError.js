@@ -24,6 +24,7 @@ const ERROR_CODES = {
   TOKEN_EXPIRED: { statusCode: 401, defaultMessage: 'JWT token süresi dolmuş' },
   FORBIDDEN: { statusCode: 403, defaultMessage: 'Bu kaynağa erişim yetkiniz yok' },
   NOT_FOUND: { statusCode: 404, defaultMessage: 'Kaynak bulunamadı' },
+  DUPLICATE_CHANNEL: { statusCode: 409, defaultMessage: 'Bu akış adresi bu oynatma listesinde zaten kayıtlı' },
   IMPORT_IN_PROGRESS: { statusCode: 409, defaultMessage: 'Bu kullanıcı veya oynatma listesi için bir içe aktarım zaten çalışıyor' },
   IMPORT_CANCELLED: { statusCode: 499, defaultMessage: 'İçe aktarım istemci bağlantısı kapandığı için iptal edildi' },
   IMPORT_CAPACITY_REACHED: { statusCode: 503, defaultMessage: 'Global içe aktarım kapasitesi dolu; lütfen daha sonra tekrar deneyin' },

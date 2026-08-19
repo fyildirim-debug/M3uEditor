@@ -302,7 +302,7 @@
                           <td class="td-num">{{ (page - 1) * 50 + idx + 1 }}</td>
                           <td class="td-name">
                             <div class="ch-name-cell">
-                              <img v-if="ch.logo_url" :src="ch.logo_url" class="row-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="$event.target.style.display='none'" />
+                              <img v-if="canShowImage(ch.logo_url)" :src="ch.logo_url" class="row-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="markImageBroken(ch.logo_url)" />
                               <span v-else class="row-logo-fb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
                               <span>{{ ch.name }}</span>
                               <span v-if="activeStreamType !== 'live' && (ch.extras?.year || ch.extras?.rating)" class="ch-meta-badges">
@@ -380,7 +380,7 @@
                       @dragover.prevent
                       @drop="chanDrop(idx)">
                       <svg class="sort-handle" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none"/></svg>
-                      <img v-if="ch.logo_url" :src="ch.logo_url" class="sort-ch-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="$event.target.style.display='none'" />
+                      <img v-if="canShowImage(ch.logo_url)" :src="ch.logo_url" class="sort-ch-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="markImageBroken(ch.logo_url)" />
                       <span class="sort-name">{{ ch.name }}</span>
                       <span class="sort-count">#{{ idx + 1 }}</span>
                       <div class="sort-move">
@@ -479,7 +479,7 @@
                   <!-- Channel Rows -->
                   <div class="epg-channel-col" ref="epgChannelColRef">
                     <div v-for="ch in guideChannels" :key="ch.id" class="epg-ch-row-label">
-                      <img v-if="ch.logo_url" :src="ch.logo_url" class="epg-ch-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="$event.target.style.display='none'" />
+                      <img v-if="canShowImage(ch.logo_url)" :src="ch.logo_url" class="epg-ch-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="markImageBroken(ch.logo_url)" />
                       <div v-else class="epg-ch-logo-fb">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
                       </div>
@@ -1090,8 +1090,8 @@
             </div>
             <div class="ep-body">
               <div class="ep-logo-area">
-                <div v-if="editForm.logo_url" class="ep-logo-preview" role="button" tabindex="0" @click="triggerLogoUpload" @keydown.enter.space.prevent="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
-                  <img :src="editForm.logo_url" :alt="t('accessibility.channelLogo', { name: editingChannel.name })" @error="$event.target.style.display='none'" />
+                <div v-if="canShowImage(editForm.logo_url)" class="ep-logo-preview" role="button" tabindex="0" @click="triggerLogoUpload" @keydown.enter.space.prevent="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
+                  <img :src="editForm.logo_url" :alt="t('accessibility.channelLogo', { name: editingChannel.name })" @error="markImageBroken(editForm.logo_url)" />
                   <div class="ep-logo-overlay">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   </div>
@@ -1109,7 +1109,7 @@
                   <!-- EPG Autocomplete Dropdown -->
                   <div v-if="epgAcResults.length > 0 && epgAcOpen" class="epg-ac-dropdown" role="listbox">
                     <div v-for="epgCh in epgAcResults" :key="epgCh.source_id + ':' + epgCh.channel_id" class="epg-ac-item" role="option" tabindex="0" @mousedown.prevent="selectEpgChannel(epgCh)" @keydown.enter.space.prevent="selectEpgChannel(epgCh)">
-                      <img v-if="epgCh.icon_url" :src="epgCh.icon_url" class="epg-ac-logo" alt="" @error="$event.target.style.display='none'" />
+                      <img v-if="canShowImage(epgCh.icon_url)" :src="epgCh.icon_url" class="epg-ac-logo" alt="" @error="markImageBroken(epgCh.icon_url)" />
                       <div v-else class="epg-ac-logo-fb">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
                       </div>
@@ -1126,7 +1126,7 @@
                     <input id="channel-epg-id" class="input" v-model="editForm.epg_channel_id" :placeholder="t('common.optional')" @input="onEpgIdInput" @focus="onEpgIdFocus" @blur="onEpgIdBlur" autocomplete="off" />
                     <div v-if="epgIdAcResults.length > 0 && epgIdAcOpen" class="epg-ac-dropdown" role="listbox">
                       <div v-for="epgCh in epgIdAcResults" :key="epgCh.source_id + ':' + epgCh.channel_id" class="epg-ac-item" role="option" tabindex="0" @mousedown.prevent="selectEpgFromId(epgCh)" @keydown.enter.space.prevent="selectEpgFromId(epgCh)">
-                        <img v-if="epgCh.icon_url" :src="epgCh.icon_url" class="epg-ac-logo" alt="" @error="$event.target.style.display='none'" />
+                        <img v-if="canShowImage(epgCh.icon_url)" :src="epgCh.icon_url" class="epg-ac-logo" alt="" @error="markImageBroken(epgCh.icon_url)" />
                         <div v-else class="epg-ac-logo-fb">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
                         </div>
@@ -1201,8 +1201,8 @@
                   </button>
                 </div>
                 <div v-if="editingChannel.extras?.metadata_fetched" class="ep-metadata-body">
-                  <div v-if="editingChannel.extras.backdrop_url" class="ep-meta-backdrop">
-                    <img :src="editingChannel.extras.backdrop_url" :alt="t('accessibility.backdropImage', { name: editingChannel.name })" @error="$event.target.style.display='none'" />
+                  <div v-if="canShowImage(editingChannel.extras.backdrop_url)" class="ep-meta-backdrop">
+                    <img :src="editingChannel.extras.backdrop_url" :alt="t('accessibility.backdropImage', { name: editingChannel.name })" @error="markImageBroken(editingChannel.extras.backdrop_url)" />
                   </div>
                   <div v-if="editingChannel.extras.overview" class="ep-meta-overview">{{ editingChannel.extras.overview }}</div>
                   <div class="ep-meta-grid">
@@ -1389,7 +1389,7 @@
         <div class="modal epg-detail-modal">
           <div class="epg-detail-header">
             <div class="epg-detail-channel" v-if="selectedProgramChannel">
-              <img v-if="selectedProgramChannel.logo_url" :src="selectedProgramChannel.logo_url" class="epg-detail-ch-logo" :alt="t('accessibility.channelLogo', { name: selectedProgramChannel.name })" @error="$event.target.style.display='none'" />
+              <img v-if="canShowImage(selectedProgramChannel.logo_url)" :src="selectedProgramChannel.logo_url" class="epg-detail-ch-logo" :alt="t('accessibility.channelLogo', { name: selectedProgramChannel.name })" @error="markImageBroken(selectedProgramChannel.logo_url)" />
               <span>{{ selectedProgramChannel.name }}</span>
             </div>
             <button class="btn btn-ghost btn-icon-sm" @click="selectedProgram = null">
@@ -1464,6 +1464,29 @@ const logoFileInput = ref(null)
 const logoUploading = ref(false)
 const showLogoLibrary = ref(false)
 const fetchingMetadata = ref(false)
+
+/**
+ * Yuklenemeyen logo adresleri.
+ *
+ * Onceden hata aninda `$event.target.style.display = 'none'` yaziliyordu.
+ * Bu satir DOM ogesine kalici olarak islendigi icin, Vue ayni <img> ogesini
+ * yeni bir adresle yeniden kullandiginda (kanal degistirince veya yeni logo
+ * yukleyince) resim gizli kalmaya devam ediyor, kullanici "logo yuklenmiyor"
+ * saniyordu. Durumu adres bazinda burada tutuyoruz: adres degisir degismez
+ * kayit kendiliginden gecersizlesir ve resim yeniden denenir.
+ */
+const brokenImageUrls = reactive(new Set())
+const MAX_TRACKED_BROKEN_IMAGES = 5000
+
+function markImageBroken(url) {
+  if (!url) return
+  if (brokenImageUrls.size >= MAX_TRACKED_BROKEN_IMAGES) brokenImageUrls.clear()
+  brokenImageUrls.add(url)
+}
+
+function canShowImage(url) {
+  return Boolean(url) && !brokenImageUrls.has(url)
+}
 
 // Nav
 const activeView = ref('basic')
@@ -1974,27 +1997,47 @@ async function applyLibraryLogo(logo) {
   }
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    // Okuma hatasi eskiden hicbir yere dusmuyordu: `logoUploading` acik kaliyor
+    // ve kullanici neden hicbir sey olmadigini goremiyordu.
+    reader.onerror = () => reject(reader.error || new Error('read-failed'))
+    reader.readAsDataURL(file)
+  })
+}
+
 async function handleLogoUpload(event) {
   const file = event.target.files?.[0]
+  // Ayni dosya tekrar secilebilsin diye girdi hemen sifirlanir; File nesnesi
+  // yukarida tutuldugu icin okuma bundan etkilenmez.
+  event.target.value = ''
   if (!file || !editingChannel.value) return
   if (file.size > 2 * 1024 * 1024) { toast(t('toast.imageTooLarge'), 'error'); return }
 
+  const channelId = editingChannel.value.id
   logoUploading.value = true
   try {
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      try {
-        const { data } = await api.post(`/channels/${editingChannel.value.id}/logo`, { imageData: e.target.result })
-        editForm.value.logo_url = data.logo_url || ''
-        editingChannel.value = { ...editingChannel.value, logo_url: data.logo_url }
-        toast(t('toast.logoUploaded'), 'success')
-      } catch (err) { toast(err.response?.data?.error?.message || t('toast.logoUploadError'), 'error') }
-      finally { logoUploading.value = false }
+    const imageData = await readFileAsDataUrl(file)
+    const { data } = await api.post(`/channels/${channelId}/logo`, { imageData })
+    const logoUrl = data.logo_url || ''
+    // Sunucu adrese surum damgasi ekler; yine de bir onceki basarisiz deneme
+    // isaretlenmis olabilir, temizleyip resmi yeniden denenebilir yapalim.
+    brokenImageUrls.delete(logoUrl)
+    if (editingChannel.value?.id === channelId) {
+      editForm.value.logo_url = logoUrl
+      editingChannel.value = { ...editingChannel.value, logo_url: logoUrl }
     }
-    reader.readAsDataURL(file)
-  } catch { logoUploading.value = false }
-  // Reset file input so same file can be re-selected
-  event.target.value = ''
+    // Liste satiri da guncellenmezse kullanici tabloda eski/eksik logoyu gorur.
+    const row = channels.value.find((ch) => ch.id === channelId)
+    if (row) row.logo_url = logoUrl
+    toast(t('toast.logoUploaded'), 'success')
+  } catch (err) {
+    toast(err.response?.data?.error?.message || t('toast.logoUploadError'), 'error')
+  } finally {
+    logoUploading.value = false
+  }
 }
 
 function bulkDelete() {

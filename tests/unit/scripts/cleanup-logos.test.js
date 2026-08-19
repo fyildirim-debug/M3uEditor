@@ -60,4 +60,21 @@ describe('cleanup-logos CLI', () => {
       `${ACTIVE_ID}.jpg`, `${ORPHAN_ID}.webp`,
     ]);
   });
+
+  test('keeps a logo whose stored url carries a cache-busting version stamp', async () => {
+    await fs.writeFile(path.join(uploadDir, `${ACTIVE_ID}.png`), 'active');
+    await fs.writeFile(path.join(uploadDir, `${ORPHAN_ID}.webp`), 'orphan');
+
+    const query = {};
+    query.whereIn = jest.fn(() => query);
+    query.select = jest.fn(() => query);
+    query.then = (resolve, reject) => Promise.resolve([
+      { id: ACTIVE_ID, logo_url: `/logos/${ACTIVE_ID}.png?v=1700000000000` },
+    ]).then(resolve, reject);
+    mockDb.mockReturnValue(query);
+
+    const orphans = await findOrphans(await scanLogoFiles());
+
+    expect(orphans.map((file) => file.filename)).toEqual([`${ORPHAN_ID}.webp`]);
+  });
 });
