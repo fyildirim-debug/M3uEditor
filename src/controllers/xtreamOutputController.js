@@ -105,6 +105,28 @@ async function xmltv(req, res, next) {
   } catch (error) { next(error); }
 }
 
+/**
+ * Kisa M3U baglantisi: `/m3u.php?id=...&secret=...`.
+ * `get.php` ile ayni listeyi verir; tek farki adresin yarisindan kisa olmasi.
+ */
+async function m3uShort(req, res, next) {
+  try {
+    const id = credentialPart(req.query.id);
+    const secret = credentialPart(req.query.secret);
+    const result = await xtreamOutputService.authenticateShortLink(id, secret);
+    if (result.status !== 'valid') {
+      res.locals.xtreamAuthFailed = true;
+      const message = result.status === 'disabled' ? 'Xtream çıkışı etkin değil' : 'Geçersiz bağlantı';
+      return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message } });
+    }
+    const content = await xtreamOutputService.createM3U(result.playlist);
+    res.setHeader('Content-Type', 'audio/x-mpegurl');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    return res.send(content);
+  } catch (error) { return next(error); }
+}
+
 async function m3u(req, res, next) {
   try {
     const auth = await authenticatePlayer(req, res);
@@ -125,4 +147,5 @@ module.exports = {
   playerApi,
   xmltv,
   m3u,
+  m3uShort,
 };

@@ -131,6 +131,23 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
   cannot create or trigger another task, which rules out runaway loops.
 - 13 new tools: the catalogue is now **175**.
 
+### Added
+
+- **A short M3U address for the Xtream output.** The standard one carries the
+  credentials in the query string and runs to 130 characters
+  (`/get.php?username=<16>&password=<32>&type=m3u_plus&output=ts`) — not something
+  anyone types into a TV app with a remote control. `GET /m3u.php?id=<8>&secret=<16>`
+  serves the identical playlist in 74. It has its own credential pair rather than
+  reusing the player password: the id is looked up in a unique indexed column and
+  the 96-bit secret is verified against a SHA-256 hash by the same timing-safe
+  comparison as the player password (and kept AES-256-GCM encrypted so the owner
+  can read the link back). The path joins the other player endpoints behind the
+  Xtream rate limiters, keyed by the public id, and `secret` was added to the
+  query keys scrubbed from logs. Regenerating the output rotates the short
+  credentials too, so old addresses stop working; outputs that predate the
+  endpoint get one on their next configuration read, with no rotation. The dialog
+  now shows this address as the M3U link — the long form keeps working unchanged.
+
 ### Fixed
 
 - **Xtream output sent players to this server for films and series.** `get.php`

@@ -412,6 +412,7 @@
     "confirmDisable": "Erişimi kapat",
     "alternativeUrls": "Alternatif playlist adresleri",
     "m3uUrl": "M3U adresi",
+    "m3uShortHint": "Kısa adres; uzun get.php adresi de çalışmaya devam eder.",
     "xmltvUrl": "XMLTV adresi",
     "setupTitle": "TiviMate / IPTV Smarters kurulumu",
     "setupStep1": "TiviMate veya IPTV Smarters'ı açın ve playlist ekleme seçeneğine gidin.",

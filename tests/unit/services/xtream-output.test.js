@@ -13,10 +13,15 @@ const { hashToken, encrypt } = require('../../../src/utils/crypto');
 const xtreamOutputService = require('../../../src/services/XtreamOutputService');
 
 function firstQuery(value) {
-  return {
-    where: jest.fn().mockReturnThis(),
+  // Kisa baglanti kolonlari sonradan eklendi: bos gelen kayitlarda ilk okumada
+  // doldurulur, bu yuzden okuma sahtesi de update zincirini karsilar.
+  const query = {
+    where: jest.fn(() => query),
     first: jest.fn().mockResolvedValue(value),
+    update: jest.fn(() => query),
+    returning: jest.fn().mockResolvedValue([{ id: 'playlist-1' }]),
   };
+  return query;
 }
 
 function resultQuery(value) {
@@ -91,6 +96,9 @@ describe('XtreamOutputService', () => {
     expect(response.playerApiUrl).toBe('https://iptv.example.test/player_api.php?username=existing-user');
     expect(response.xmltvUrl).not.toContain('password');
     expect(response.m3uUrl).not.toContain('password');
+    // Kolonlar sonradan eklendigi icin eski cikislarda kisa adres yoktur;
+    // ilk okumada uretilip kaydedilir, kullanici "yenile" demek zorunda kalmaz.
+    expect(response.m3uShortUrl).toContain('/m3u.php?id=');
   });
 
   test('configuration exposes the decrypted password and embeds it in urls when stored encrypted', async () => {
@@ -348,6 +356,55 @@ describe('XtreamOutputService', () => {
 
     expect(response.episodes['1'][0].direct_source).toBe('https://provider.example/series/u/p/5.mp4');
     expect(response.episodes['1'][0].direct_source).not.toContain('iptv.example.test');
+  });
+
+  // Kisa M3U baglantisi: uzun `get.php` adresi elle girilemeyecek kadar uzun.
+  // Ayni yetkiyi tasidigi icin sir de sifre gibi karma olarak saklanmali ve
+  // kimlik yenilendiginde eski kisa adres calismamali.
+  test('enable returns a short m3u address and stores the secret hashed', async () => {
+    const ownership = firstQuery({ id: 'playlist-1', user_id: 'user-1' });
+    const update = {
+      where: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnThis(),
+      returning: jest.fn().mockResolvedValue([{ id: 'playlist-1' }]),
+    };
+    mockDb.mockReturnValueOnce(ownership).mockReturnValueOnce(update);
+
+    const result = await xtreamOutputService.enable('user-1', 'playlist-1');
+    const written = update.update.mock.calls[0][0];
+    const shortUrl = new URL(result.m3uShortUrl);
+
+    expect(shortUrl.pathname).toBe('/m3u.php');
+    expect(shortUrl.searchParams.get('id')).toBe(written.output_short_id);
+    expect(shortUrl.searchParams.get('secret')).toHaveLength(16);
+    // Adres, uzun bicimin yarisindan kisa olmali.
+    expect(shortUrl.toString().length).toBeLessThan(result.m3uUrl.length / 1.5);
+    // Sir asla duz metin olarak kolonda durmaz.
+    expect(written.output_short_secret_hash).toBe(hashToken(shortUrl.searchParams.get('secret')));
+    expect(written.output_short_secret_enc).not.toBe(shortUrl.searchParams.get('secret'));
+  });
+
+  test('short link authentication accepts the stored secret and refuses everything else', async () => {
+    const stored = {
+      id: 'playlist-1',
+      output_enabled: true,
+      output_short_id: 'AbCdEfGh',
+      output_short_secret_hash: hashToken('dogru-sir'),
+    };
+    mockDb.mockReturnValue(firstQuery(stored));
+    await expect(xtreamOutputService.authenticateShortLink('AbCdEfGh', 'dogru-sir'))
+      .resolves.toEqual({ status: 'valid', playlist: stored });
+    await expect(xtreamOutputService.authenticateShortLink('AbCdEfGh', 'yanlis-sir'))
+      .resolves.toEqual({ status: 'invalid', playlist: null });
+
+    mockDb.mockReturnValue(firstQuery({ ...stored, output_enabled: false }));
+    await expect(xtreamOutputService.authenticateShortLink('AbCdEfGh', 'dogru-sir'))
+      .resolves.toEqual({ status: 'disabled', playlist: null });
+
+    // Bilinmeyen kimlikte sorgu bile calismaz; yanit yine 'invalid'.
+    mockDb.mockReturnValue(firstQuery(undefined));
+    await expect(xtreamOutputService.authenticateShortLink('yok', 'dogru-sir'))
+      .resolves.toEqual({ status: 'invalid', playlist: null });
   });
 
   test('the stream mode switch no longer exists', () => {

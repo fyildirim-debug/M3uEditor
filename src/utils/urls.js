@@ -44,7 +44,7 @@ function absoluteAppUrl(path) {
  * (player'lar özel HTTP başlığı gönderemez). Bu adresler günlüğe olduğu gibi
  * yazılırsa şifreler disk üzerinde birikir.
  */
-const REDACTED_QUERY_KEYS = new Set(['password', 'share_password', 'token', 'username']);
+const REDACTED_QUERY_KEYS = new Set(['password', 'share_password', 'secret', 'token', 'username']);
 
 /**
  * @param {string} originalUrl

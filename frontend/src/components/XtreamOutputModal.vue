@@ -101,11 +101,12 @@
         <div class="credential-group">
           <label for="xtream-output-m3u">{{ t('xtreamOutput.m3uUrl') }}</label>
           <div class="credential-row">
-            <input id="xtream-output-m3u" class="input" :value="output.m3uUrl" readonly @click="$event.currentTarget.select()" />
-            <button class="btn btn-secondary btn-sm" type="button" :disabled="!output.m3uUrl" @click="copyValue(output.m3uUrl)">
+            <input id="xtream-output-m3u" class="input" :value="m3uAddress" readonly @click="$event.currentTarget.select()" />
+            <button class="btn btn-secondary btn-sm" type="button" :disabled="!m3uAddress" @click="copyValue(m3uAddress)">
               {{ t('common.copy') }}
             </button>
           </div>
+          <p v-if="output.m3uShortUrl" class="field-hint">{{ t('xtreamOutput.m3uShortHint') }}</p>
         </div>
         <div class="credential-group">
           <label for="xtream-output-xmltv">{{ t('xtreamOutput.xmltvUrl') }}</label>
@@ -200,6 +201,10 @@ const downloadingM3u = ref(false)
 const views = ref([])
 const selectedViewId = ref('')
 const isBusy = computed(() => Boolean(action.value))
+// Kisa adres (`/m3u.php?id=...&secret=...`) uzun `get.php` adresiyle ayni
+// listeyi verir; televizyon uygulamasina elle girmek icin bu gosterilir.
+// Uzun adres calismaya devam eder, yalnizca artik one cikarilmiyor.
+const m3uAddress = computed(() => output.value.m3uShortUrl || output.value.m3uUrl)
 
 async function loadViews() {
   try {
@@ -241,6 +246,7 @@ function createEmptyOutput() {
     playerApiUrl: '',
     xmltvUrl: '',
     m3uUrl: '',
+    m3uShortUrl: '',
     createdAt: null
   }
 }

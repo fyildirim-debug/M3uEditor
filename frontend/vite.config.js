@@ -16,7 +16,8 @@ export default defineConfig({
       // verildigi icin /live|/movie|/series yollari yok.)
       '/player_api.php': 'http://localhost:3000',
       '/xmltv.php': 'http://localhost:3000',
-      '/get.php': 'http://localhost:3000'
+      '/get.php': 'http://localhost:3000',
+      '/m3u.php': 'http://localhost:3000'
     }
   }
 })

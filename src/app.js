@@ -100,7 +100,7 @@ const sharedPlaylistLimiter = rateLimit({
 
 // Yalnizca katalog uclari. Yayin adresi olarak bu sunucu hicbir kosulda
 // verilmedigi icin /live|/movie|/series yollari artik yok.
-const xtreamPlayerPaths = ['/player_api.php', '/xmltv.php', '/get.php'];
+const xtreamPlayerPaths = ['/player_api.php', '/xmltv.php', '/get.php', '/m3u.php'];
 
 function xtreamUsername(req) {
   if (typeof req.xtreamLimiterUsername === 'string') return req.xtreamLimiterUsername;
@@ -154,9 +154,12 @@ const xtreamFailureLimiter = rateLimit({
 function redactXtreamCredentials(req, _res, next) {
   try {
     const url = new URL(req.originalUrl, 'http://local.invalid');
-    req.xtreamLimiterUsername = url.searchParams.get('username') || '';
-    if (url.searchParams.has('username')) url.searchParams.set('username', '[REDACTED]');
-    if (url.searchParams.has('password')) url.searchParams.set('password', '[REDACTED]');
+    // Kisa baglantida kullanici adi yok; hiz siniri kimligi olarak herkese acik
+    // olan `id` kullanilir (sir asla anahtara girmez).
+    req.xtreamLimiterUsername = url.searchParams.get('username') || url.searchParams.get('id') || '';
+    for (const key of ['username', 'password', 'secret']) {
+      if (url.searchParams.has(key)) url.searchParams.set(key, '[REDACTED]');
+    }
     req.originalUrl = `${url.pathname}${url.search}`;
   } catch (_error) {
     req.originalUrl = req.path;

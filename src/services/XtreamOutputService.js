@@ -9,6 +9,11 @@ const config = require('../config');
 
 const USERNAME_BYTES = 12;
 const PASSWORD_BYTES = 24;
+// Kisa baglanti: 6 bayt kimlik (8 karakter) + 12 bayt sir (16 karakter, 96 bit).
+// Adres yariya iner, sir hala kaba kuvvete kapali; ustelik bu yol da oynatici
+// uclarinin hiz siniri altinda.
+const SHORT_ID_BYTES = 6;
+const SHORT_SECRET_BYTES = 12;
 const MAX_CREDENTIAL_ATTEMPTS = 5;
 const MAX_EPG_LIMIT = 1000;
 const DUMMY_HASH = hashToken('xtream-output-invalid-credential');
@@ -111,6 +116,50 @@ class XtreamOutputService {
     };
   }
 
+  /**
+   * Kisa M3U adresi. Uzun adresle ayni listeyi verir; fark yalnizca uzunluk:
+   * `/m3u.php?id=<8>&secret=<16>` — televizyon uygulamasina elle girilebilecek
+   * kadar kisa.
+   */
+  _shortM3uUrl(shortId, secret) {
+    if (!shortId || !secret) return null;
+    const url = new URL('/m3u.php', `${appUrl()}/`);
+    url.searchParams.set('id', shortId);
+    url.searchParams.set('secret', secret);
+    return url.toString();
+  }
+
+  /**
+   * Kisa baglanti kimligini uretir. Kolonlar sonradan eklendigi icin daha once
+   * acilmis cikislarda bos olabilir; bu durumda ilk okuma aninda doldurulur.
+   * @returns {Promise<{shortId: string, secret: string}>}
+   */
+  async _ensureShortLink(playlist) {
+    if (playlist.output_short_id && playlist.output_short_secret_enc) {
+      return { shortId: playlist.output_short_id, secret: decrypt(playlist.output_short_secret_enc) };
+    }
+    for (let attempt = 0; attempt < MAX_CREDENTIAL_ATTEMPTS; attempt += 1) {
+      const shortId = randomCredential(SHORT_ID_BYTES);
+      const secret = randomCredential(SHORT_SECRET_BYTES);
+      try {
+        const rows = await db('playlists')
+          .where({ id: playlist.id })
+          .update({
+            output_short_id: shortId,
+            output_short_secret_hash: hashToken(secret),
+            output_short_secret_enc: encrypt(secret),
+            updated_at: db.fn.now(),
+          })
+          .returning(['id']);
+        if (!rows.length) throw createAppError('NOT_FOUND');
+        return { shortId, secret };
+      } catch (error) {
+        if (error.code !== '23505' || attempt === MAX_CREDENTIAL_ATTEMPTS - 1) throw error;
+      }
+    }
+    throw createAppError('INTERNAL_ERROR');
+  }
+
   async _ownedPlaylist(userId, playlistId) {
     const playlist = await db('playlists').where({ id: playlistId, user_id: userId }).first();
     if (!playlist) throw createAppError('NOT_FOUND');
@@ -122,11 +171,13 @@ class XtreamOutputService {
     // Sifre kullaniciya acik gosterilir; yalnizca enc kolonu olmayan eski
     // kayitlarda null doner (bir kez sifirlayinca dolar).
     const password = playlist.output_password_enc ? decrypt(playlist.output_password_enc) : null;
+    const shortLink = playlist.output_username ? await this._ensureShortLink(playlist) : null;
     return {
       enabled: Boolean(playlist.output_enabled),
       username: playlist.output_username || null,
       password,
       ...this._urls(playlist.output_username || null, password ?? undefined),
+      m3uShortUrl: shortLink ? this._shortM3uUrl(shortLink.shortId, shortLink.secret) : null,
       createdAt: playlist.output_created_at || null,
     };
   }
@@ -139,6 +190,10 @@ class XtreamOutputService {
         ? playlist.output_username
         : randomCredential(USERNAME_BYTES);
       const password = randomCredential(PASSWORD_BYTES);
+      // Kisa baglanti da uzun kimlikle birlikte yenilenir: "yenile" dedikten
+      // sonra eski adreslerin hicbiri calismamali.
+      const shortId = randomCredential(SHORT_ID_BYTES);
+      const shortSecret = randomCredential(SHORT_SECRET_BYTES);
 
       try {
         const rows = await db('playlists')
@@ -147,6 +202,9 @@ class XtreamOutputService {
             output_username: username,
             output_password_hash: hashToken(password),
             output_password_enc: encrypt(password),
+            output_short_id: shortId,
+            output_short_secret_hash: hashToken(shortSecret),
+            output_short_secret_enc: encrypt(shortSecret),
             output_enabled: true,
             output_created_at: db.fn.now(),
             updated_at: db.fn.now(),
@@ -159,6 +217,7 @@ class XtreamOutputService {
           username,
           password,
           ...this._urls(username, password),
+          m3uShortUrl: this._shortM3uUrl(shortId, shortSecret),
         };
       } catch (error) {
         if (error.code !== '23505' || regeneratePasswordOnly || attempt === MAX_CREDENTIAL_ATTEMPTS - 1) throw error;
@@ -203,6 +262,29 @@ class XtreamOutputService {
       return { status: 'disabled', playlist: null };
     }
     if (!playlist || !usernameMatches || !passwordMatches) {
+      return { status: 'invalid', playlist: null };
+    }
+    return { status: 'valid', playlist };
+  }
+
+  /**
+   * Kisa baglanti dogrulamasi. Uzun kimlikteki ile ayni sekil: kimlik
+   * bulunamasa da karsilastirma sabit sekilde yapilir, boylece "kimlik yok"
+   * ile "sir yanlis" zamanlamayla ayirt edilemez.
+   * @returns {Promise<{status: 'valid'|'invalid'|'disabled', playlist: object|null}>}
+   */
+  async authenticateShortLink(shortId, secret) {
+    const normalizedId = typeof shortId === 'string' && shortId.length <= 64 ? shortId : '';
+    const playlist = normalizedId
+      ? await db('playlists').where({ output_short_id: normalizedId }).first()
+      : null;
+
+    const secretMatches = timingSafeHashMatch(secret, playlist?.output_short_secret_hash || DUMMY_HASH);
+
+    if (playlist && secretMatches && !playlist.output_enabled) {
+      return { status: 'disabled', playlist: null };
+    }
+    if (!playlist || !secretMatches) {
       return { status: 'invalid', playlist: null };
     }
     return { status: 'valid', playlist };

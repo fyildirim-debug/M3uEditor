@@ -16,5 +16,7 @@ router.delete('/api/playlists/:id/xtream-output', authMiddleware, controller.dis
 router.get('/player_api.php', controller.playerApi);
 router.get('/xmltv.php', controller.xmltv);
 router.get('/get.php', controller.m3u);
+// Kisa M3U baglantisi: uzun adresle ayni cikti, elle girilebilecek uzunlukta.
+router.get('/m3u.php', controller.m3uShort);
 
 module.exports = router;
