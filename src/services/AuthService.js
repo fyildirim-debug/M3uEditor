@@ -306,18 +306,23 @@ class AuthService {
     await this._replacePassword(user.id, newPassword, 'password_reset', {
       password_reset_token: null,
       password_reset_expires: null,
-    });
+    }, user.password_reset_token);
     return { success: true };
   }
 
-  async _replacePassword(userId, newPassword, revokeReason, additionalChanges = {}) {
+  async _replacePassword(userId, newPassword, revokeReason, additionalChanges = {}, expectedResetToken) {
     const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
     await db.transaction(async (trx) => {
-      await trx('users').where({ id: userId }).update({
+      let query = trx('users').where({ id: userId });
+      if (expectedResetToken !== undefined) {
+        query = query.where({ password_reset_token: expectedResetToken }).where('password_reset_expires', '>', trx.fn.now());
+      }
+      const updated = await query.update({
         ...additionalChanges,
         password_hash: passwordHash,
         updated_at: trx.fn.now(),
       });
+      if (expectedResetToken !== undefined && !updated) throw createAppError('INVALID_CREDENTIALS', 'Sıfırlama bağlantısı kullanılmış veya süresi dolmuş');
       await trx('sessions').where({ user_id: userId, revoked_at: null }).update({
         revoked_at: trx.fn.now(), revoke_reason: revokeReason,
       });

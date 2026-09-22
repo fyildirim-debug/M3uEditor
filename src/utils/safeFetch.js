@@ -266,8 +266,21 @@ async function requestRemote(input, options, redirectCount, budget, mode) {
           fail(createAppError('VALIDATION_ERROR', 'Geçersiz yönlendirme adresi alındı'));
           return;
         }
+        const target = new URL(redirected);
+        const nextOptions = { ...options, headers: { ...options.headers } };
+        if (target.origin !== url.origin) {
+          for (const key of Object.keys(nextOptions.headers)) {
+            if (['authorization', 'cookie', 'proxy-authorization', 'host'].includes(key.toLowerCase())) {
+              delete nextOptions.headers[key];
+            }
+          }
+        }
+        if (url.protocol === 'https:' && target.protocol !== 'https:') {
+          fail(createAppError('FORBIDDEN', 'HTTPS isteği HTTP adresine yönlendirilemez'));
+          return;
+        }
         settled = true;
-        resolve(requestRemote(redirected, options, redirectCount + 1, budget, mode));
+        resolve(requestRemote(redirected, nextOptions, redirectCount + 1, budget, mode));
         return;
       }
 

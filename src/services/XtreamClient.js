@@ -485,6 +485,7 @@ class XtreamClient {
         epg_channel_id: stream.epg_channel_id || null,
         category_id: stream.category_id ?? null,
         stream_type: 'live',
+        direct_source: stream.direct_source,
         container_extension: 'ts',
       })),
     };
@@ -509,6 +510,7 @@ class XtreamClient {
         epg_channel_id: null,
         category_id: stream.category_id === undefined || stream.category_id === null ? null : `vod_${stream.category_id}`,
         stream_type: 'vod',
+        direct_source: stream.direct_source,
         container_extension: stream.container_extension || 'mp4',
         rating: stream.rating || null,
         genre: stream.genre || null,

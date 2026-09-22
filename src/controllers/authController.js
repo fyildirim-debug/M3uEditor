@@ -88,7 +88,7 @@ async function refreshToken(req, res, next) {
     setRefreshCookie(res, result.refreshToken);
     res.json(publicAuthResult(result));
   } catch (error) {
-    clearRefreshCookie(res);
+    if (['INVALID_CREDENTIALS', 'TOKEN_EXPIRED'].includes(error.code)) clearRefreshCookie(res);
     next(error);
   }
 }

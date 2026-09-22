@@ -101,8 +101,8 @@
         <div class="credential-group">
           <label for="xtream-output-api">{{ t('xtreamOutput.playerApiUrl') }}</label>
           <div class="credential-row">
-            <input id="xtream-output-api" class="input" :value="output.playerApiUrl" readonly aria-describedby="xtream-output-api-hint" @click="$event.currentTarget.select()" />
-            <button class="btn btn-secondary btn-sm" type="button" :disabled="!output.playerApiUrl" @click="copyValue(output.playerApiUrl)">
+            <input id="xtream-output-api" class="input" :value="password ? output.playerApiUrl : ''" readonly aria-describedby="xtream-output-api-hint" @click="$event.currentTarget.select()" />
+            <button class="btn btn-secondary btn-sm" type="button" :disabled="!password || !output.playerApiUrl" @click="copyValue(output.playerApiUrl)">
               {{ t('common.copy') }}
             </button>
           </div>

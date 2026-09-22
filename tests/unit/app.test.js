@@ -4,6 +4,11 @@ jest.mock('../../src/config/database', () => mockDb);
 const app = require('../../src/app');
 
 describe('Express App', () => {
+  test('legacy backup URLs are blocked before public file serving', async () => {
+    const response = await request(app).get('/logos/backups/example/archive.json.gz');
+    expect(response.status).toBe(404);
+    expect(response.headers['cache-control'] || '').not.toContain('immutable');
+  });
   test('GET /health returns ok status', async () => {
     const res = await request(app).get('/health');
     expect(res.status).toBe(200);

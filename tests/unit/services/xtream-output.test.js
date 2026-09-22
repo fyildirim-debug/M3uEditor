@@ -358,6 +358,34 @@ describe('XtreamOutputService', () => {
     expect(response.episodes['1'][0].direct_source).not.toContain('iptv.example.test');
   });
 
+  test('fetches actual episode IDs and preserves direct sources across seasons', async () => {
+    const XtreamClient = require('../../../src/services/XtreamClient');
+    const details = jest.spyOn(XtreamClient.prototype, 'getSeriesInfo').mockResolvedValue({
+      info: { name: 'Provider title' },
+      episodes: {
+        '1': [{ id: 101, container_extension: 'mkv' }],
+        '2': [{ id: 202, direct_source: 'https://cdn.example/episode?signature=fixture' }],
+      },
+    });
+    const channel = jest.spyOn(xtreamOutputService, '_channelByXtreamId').mockResolvedValue({
+      source_id: '77', name: 'Edited title', extras: {},
+    });
+    mockDb.mockReturnValue(firstQuery({
+      xtream_server_url: 'https://provider.example', xtream_username: 'fixture',
+      xtream_password_enc: encrypt('fixture-password'),
+    }));
+    try {
+      const result = await xtreamOutputService.getSeriesInfo('playlist-1', '5');
+      expect(details).toHaveBeenCalledWith('77');
+      expect(result.info.name).toBe('Edited title');
+      expect(result.episodes['1'][0].direct_source).toBe('https://provider.example/series/fixture/fixture-password/101.mkv');
+      expect(result.episodes['2'][0].direct_source).toBe('https://cdn.example/episode?signature=fixture');
+    } finally {
+      details.mockRestore();
+      channel.mockRestore();
+    }
+  });
+
   // Kisa M3U baglantisi: uzun `get.php` adresi elle girilemeyecek kadar uzun.
   // Ayni yetkiyi tasidigi icin sir de sifre gibi karma olarak saklanmali ve
   // kimlik yenilendiginde eski kisa adres calismamali.

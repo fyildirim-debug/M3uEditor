@@ -195,6 +195,20 @@ class AiTaskService {
    * sismesin), oncesinde yedek alir ve sonucu `ai_task_runs` satirina yazar.
    */
   async run(userId, taskId, { manual = false } = {}) {
+    // A dedicated lock connection avoids exhausting the query pool while AI calls run.
+    const { Client } = require('pg');
+    const connection = new Client(db.client.config.connection);
+    await connection.connect();
+    try {
+      const lock = await connection.query('SELECT pg_try_advisory_lock(hashtext($1)) AS acquired', [`ai-task:${taskId}`]);
+      if (!lock.rows[0]?.acquired) throw createAppError('VALIDATION_ERROR', 'Görev zaten çalışıyor');
+      return await this._run(userId, taskId, { manual });
+    } finally {
+      await connection.end();
+    }
+  }
+
+  async _run(userId, taskId, { manual = false } = {}) {
     const task = await this.require(userId, taskId);
     // Dairesel bagimlilik: AIService -> tools -> tasks(arac) -> bu servis.
     // Calistirma aninda cozuluyor, modul yuklenirken degil.
@@ -203,6 +217,10 @@ class AiTaskService {
     const startedAt = Date.now();
     const before = await this._snapshotCounts(task.playlist_id);
     const backupId = await this._takeBackup(userId, task.playlist_id);
+    if (task.playlist_id && task.allow_destructive && !backupId) {
+      await db('ai_tasks').where({ id: task.id }).update({ last_status: 'error', last_result: 'Yedek alınamadığı için yıkıcı görev durduruldu.', last_run_at: db.fn.now() });
+      throw createAppError('VALIDATION_ERROR', 'Yedek alınamadığı için yıkıcı görev durduruldu');
+    }
 
     const [run] = await db('ai_task_runs').insert({
       id: uuidv4(),
@@ -246,7 +264,7 @@ class AiTaskService {
       ].join('').slice(0, MAX_RESULT_LENGTH);
 
       const after = await this._snapshotCounts(task.playlist_id);
-      const status = result.pendingApproval ? 'needs_approval' : 'ok';
+      const status = result.pendingApproval ? 'needs_approval' : steps.some((step) => !step.ok) ? 'partial' : 'ok';
       const message = result.pendingApproval
         ? `Görev onay bekleyen bir işlemde durdu: ${result.pendingApproval.tool}. Zamanlanmış görevler onay soramaz; görevin "yıkıcı işlem izni" ayarını açın veya yönergeyi değiştirin.`
         : summary;
@@ -274,7 +292,7 @@ class AiTaskService {
 
       logger.info({ userId, taskId: task.id, runId: run.id, manual, durationMs: Date.now() - startedAt }, 'AI task run completed');
       return {
-        taskId: task.id, runId: run.id, status: 'ok', reply: result.reply, steps: result.steps, conversationId: result.conversationId,
+        taskId: task.id, runId: run.id, status, reply: result.reply, steps: result.steps, conversationId: result.conversationId,
       };
     } catch (error) {
       const message = String(error?.message || 'Bilinmeyen hata').slice(0, MAX_RESULT_LENGTH);
@@ -309,15 +327,17 @@ class AiTaskService {
    * olmaktan cikarmak (undone_at) ve neyin donduruldugunu raporlamak.
    */
   async undoRun(userId, runId) {
-    const run = await db('ai_task_runs').where({ id: runId, user_id: userId }).first();
+    return db.transaction(async (trx) => {
+    const run = await trx('ai_task_runs').where({ id: runId, user_id: userId }).forUpdate().first();
     if (!run) throw createAppError('NOT_FOUND', 'Çalıştırma kaydı bulunamadı');
     if (run.undone_at) throw createAppError('VALIDATION_ERROR', 'Bu çalıştırma zaten geri alındı');
     if (!run.backup_id) {
       throw createAppError('VALIDATION_ERROR', 'Bu çalıştırmanın yedeği yok; geri alınamıyor. (Listesi olmayan görevlerde yedek alınmaz.)');
     }
 
-    const restored = await backupService.restoreBackup(userId, run.backup_id, run.playlist_id);
-    await db('ai_task_runs').where({ id: run.id }).update({ undone_at: db.fn.now() });
+    if (!run.playlist_id) throw createAppError('NOT_FOUND', 'Geri alınacak liste silinmiş');
+    const restored = await backupService.restoreBackup(userId, run.backup_id, run.playlist_id, trx);
+    await trx('ai_task_runs').where({ id: run.id }).update({ undone_at: trx.fn.now() });
     logger.info({ userId, runId: run.id, taskId: run.task_id }, 'AI task run undone');
 
     return {
@@ -326,6 +346,7 @@ class AiTaskService {
       playlistId: run.playlist_id,
       restored: { channels: restored?.channelCount ?? null, categories: restored?.categoryCount ?? null },
     };
+    });
   }
 
   /** Vadesi gelen gorevler: hic calismamis ya da son calismadan bu yana araligi dolmus. */

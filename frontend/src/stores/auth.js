@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '../api'
+import { refreshSession } from '../refreshSession'
 
 function readUser() {
   try { return JSON.parse(sessionStorage.getItem('user') || 'null') } catch { return null }
@@ -46,7 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
   // yapmak cikis yaptirmaya yetiyordu.
   async function refresh({ timeout = 8000 } = {}) {
     try {
-      const { data } = await api.post('/auth/refresh', {}, { timeout })
+      const { data } = await refreshSession(timeout)
       saveSession(data)
       return true
     } catch (error) {

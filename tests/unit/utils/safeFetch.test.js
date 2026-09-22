@@ -39,6 +39,18 @@ beforeAll(async () => {
   config.allowPrivateNetworkUrls = true;
 
   server = http.createServer((req, res) => {
+    if (req.url === '/redirect-origin') {
+      res.writeHead(302, { location: 'http://127.0.0.2/echo-headers' }).end();
+      return;
+    }
+    if (req.url === '/redirect-same') {
+      res.writeHead(302, { location: '/echo-headers' }).end();
+      return;
+    }
+    if (req.url === '/echo-headers') {
+      res.end(JSON.stringify(req.headers));
+      return;
+    }
     if (req.url === '/big-head') {
       // Canli akis: govde yok ama Content-Length gercek kaynak boyutunu bildirir.
       res.writeHead(200, { 'content-type': 'video/mp2t', 'content-length': '52428800' });
@@ -94,6 +106,15 @@ afterAll(() => {
 });
 
 describe('requestBuffer', () => {
+  test('strips credentials on an origin change but preserves same-origin authorization', async () => {
+    const options = { headers: { Authorization: 'Bearer test-only', Cookie: 'session=test-only' } };
+    const cross = await requestBuffer(`${baseUrl}/redirect-origin`, options);
+    const same = await requestBuffer(`${baseUrl}/redirect-same`, options);
+    expect(JSON.parse(cross.buffer).authorization).toBeUndefined();
+    expect(JSON.parse(cross.buffer).cookie).toBeUndefined();
+    expect(JSON.parse(same.buffer).authorization).toBe('Bearer test-only');
+    expect(options.headers.Authorization).toBe('Bearer test-only');
+  });
   test('accepts a HEAD response whose Content-Length exceeds maxBytes', async () => {
     // HEAD yanitinda govde yoktur; Content-Length boyut asimi sayilmamalidir.
     const response = await requestBuffer(`${baseUrl}/big-head`, { method: 'HEAD', maxBytes: 1024, timeoutMs: 5000 });

@@ -14,7 +14,8 @@ const { redactUrl } = require('./utils/urls');
 const app = express();
 
 // Security headers
-app.set('trust proxy', process.env.TRUST_PROXY || 1);
+const proxySetting = process.env.TRUST_PROXY ?? '1';
+app.set('trust proxy', /^\d+$/.test(proxySetting) ? Number(proxySetting) : proxySetting);
 app.disable('x-powered-by');
 
 app.use(helmet({
@@ -188,6 +189,13 @@ app.use('/api/shared/:token', sharedPlaylistLimiter);
 
 app.use(express.json({ limit: config.limits.jsonBody }));
 
+// Backups from older installations must never be served as public assets.
+app.use('/logos', (req, res, next) => {
+  try {
+    if (decodeURIComponent(req.path).replace(/\\/g, '/').split('/').some(part => part.toLowerCase() === 'backups')) return res.sendStatus(404);
+  } catch { return res.sendStatus(400); }
+  return next();
+});
 app.use('/logos', express.static(config.uploadDir, {
   dotfiles: 'deny',
   fallthrough: false,

@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { refreshSession } from './refreshSession'
 
 const api = axios.create({ baseURL: '/api', withCredentials: true, timeout: 330000 })
 let isRefreshing = false
@@ -39,7 +40,7 @@ api.interceptors.response.use(
     originalRequest._retry = true
     isRefreshing = true
     try {
-      const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true })
+      const { data } = await refreshSession()
       sessionStorage.setItem('token', data.token)
       if (data.user) sessionStorage.setItem('user', JSON.stringify(data.user))
       window.dispatchEvent(new CustomEvent('auth:refreshed', { detail: data }))
@@ -48,8 +49,10 @@ api.interceptors.response.use(
       return api(originalRequest)
     } catch (refreshError) {
       processQueue(refreshError)
-      clearSession()
-      if (window.location.hash !== '#/login') window.location.hash = '#/login'
+      if ([401, 403].includes(refreshError.response?.status)) {
+        clearSession()
+        if (window.location.hash !== '#/login') window.location.hash = '#/login'
+      }
       return Promise.reject(refreshError)
     } finally {
       isRefreshing = false

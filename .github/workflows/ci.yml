@@ -38,6 +38,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Reject tracked runtime data
+        run: |
+          if test -n "$(git ls-files data/)"; then
+            echo "Runtime data must not be committed"
+            exit 1
+          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -53,6 +59,7 @@ jobs:
           npm run check
           npm run migrate
           npm run test:ci
+          RUN_DB_TESTS=1 npm run test:ci -- --testPathPatterns=integration
           npm audit --audit-level=high
 
       - name: Install and verify frontend

@@ -505,6 +505,28 @@ class XtreamOutputService {
   async getSeriesInfo(playlistId, seriesId) {
     const row = await this._channelByXtreamId(playlistId, 'series', seriesId);
     const extras = parseExtras(row.extras);
+    if (row.source_id) {
+      const playlist = await db('playlists').where({ id: playlistId }).first();
+      if (playlist?.xtream_server_url && playlist.xtream_password_enc) {
+        const XtreamClient = require('./XtreamClient');
+        const client = new XtreamClient(playlist.xtream_server_url, playlist.xtream_username, decrypt(playlist.xtream_password_enc));
+        const details = await client.getSeriesInfo(row.source_id);
+        if (!details?.episodes || typeof details.episodes !== 'object') {
+          throw createAppError('XTREAM_CONNECTION_FAILED', 'Dizi bölümleri sağlayıcıdan alınamadı');
+        }
+        const episodes = {};
+        for (const [season, entries] of Object.entries(details.episodes)) {
+          if (!Array.isArray(entries)) continue;
+          episodes[season] = entries.filter((episode) => numericXtreamId(episode.id) !== null).map((episode) => ({
+            ...episode,
+            direct_source: typeof episode.direct_source === 'string' && /^https?:\/\//i.test(episode.direct_source)
+              ? episode.direct_source
+              : client.buildStreamUrl('series', episode.id, episode.container_extension || 'mp4'),
+          }));
+        }
+        return { ...details, info: { ...details.info, name: row.name }, episodes };
+      }
+    }
     const extension = containerExtension(row);
     const id = numericXtreamId(row.xtream_id);
     return {

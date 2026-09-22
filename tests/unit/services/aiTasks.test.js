@@ -4,6 +4,14 @@
 
 const mockDb = jest.fn();
 mockDb.fn = { now: jest.fn(() => 'NOW') };
+mockDb.transaction = async (callback) => callback(mockDb);
+mockDb.raw = jest.fn(async () => ({ rows: [{ acquired: true }] }));
+mockDb.client = { config: { connection: {} } };
+jest.mock('pg', () => ({ Client: jest.fn(() => ({
+  connect: jest.fn().mockResolvedValue(),
+  query: jest.fn().mockResolvedValue({ rows: [{ acquired: true }] }),
+  end: jest.fn().mockResolvedValue(),
+})) }));
 jest.mock('../../../src/config/database', () => mockDb);
 
 const mockChat = jest.fn();
@@ -20,6 +28,7 @@ const taskService = require('../../../src/services/ai/tasks');
 
 function builder({ rows = [], first, returning = [], updated = 0 } = {}) {
   const query = {};
+  query.forUpdate = jest.fn(() => query);
   for (const method of ['where', 'andWhere', 'orWhere', 'orderBy', 'select', 'limit', 'insert', 'join', 'leftJoin', 'count', 'whereNull', 'whereRaw', 'andWhereRaw', 'orWhereRaw', 'whereNotNull']) {
     query[method] = jest.fn(() => query);
   }
@@ -106,7 +115,10 @@ describe('AI scheduled task validation', () => {
 });
 
 describe('AI scheduled task execution', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCreateBackup.mockResolvedValue({ id: 'backup-1' });
+  });
 
   test('runs unattended: no approval prompt, marked as a task run', async () => {
     mockTables({ ai_tasks: () => builder({ first: TASK_ROW }) });
@@ -236,15 +248,14 @@ describe('AI task run log', () => {
     expect(inserted.undoable).toBe(false);
   });
 
-  test('a failed backup does not cancel the run, it disables undo', async () => {
+  test('a failed backup prevents destructive execution', async () => {
     mockCreateBackup.mockRejectedValue(new Error('disk dolu'));
     const { inserted } = runTables();
     mockChat.mockResolvedValue({ reply: 'bitti', steps: [] });
 
-    await taskService.run('user-1', 'task-1');
-
-    expect(mockChat).toHaveBeenCalled();
-    expect(inserted.undoable).toBe(false);
+    await expect(taskService.run('user-1', 'task-1')).rejects.toThrow(/Yedek/);
+    expect(mockChat).not.toHaveBeenCalled();
+    expect(inserted.undoable).toBeUndefined();
   });
 
   test('a failing run is logged with its error', async () => {
@@ -280,7 +291,7 @@ describe('AI task run undo', () => {
 
     const result = await taskService.undoRun('user-1', 'run-1');
 
-    expect(mockRestoreBackup).toHaveBeenCalledWith('user-1', 'backup-1', 'pl-1');
+    expect(mockRestoreBackup).toHaveBeenCalledWith('user-1', 'backup-1', 'pl-1', mockDb);
     expect(result).toMatchObject({ undone: true, restored: { channels: 20, categories: 3 } });
     expect(patch.undone_at).toBeDefined();
   });

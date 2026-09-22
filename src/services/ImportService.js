@@ -56,7 +56,9 @@ class ImportService {
       name: String(channel.name || 'İsimsiz kanal').slice(0, 500),
       logo_url: channel.stream_icon || null,
       original_logo_url: channel.stream_icon || null,
-      stream_url: client.buildStreamUrl(channel.stream_type, channel.stream_id, channel.container_extension || 'ts'),
+      stream_url: typeof channel.direct_source === 'string' && /^https?:\/\//i.test(channel.direct_source)
+        ? channel.direct_source
+        : client.buildStreamUrl(channel.stream_type, channel.stream_id, channel.container_extension || 'ts'),
       epg_channel_id: channel.epg_channel_id || null,
       category_id: channel.category_id ? categoryMap[channel.category_id] || null : null,
       sort_order: sortOrder,

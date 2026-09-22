@@ -12,6 +12,18 @@ A self-hosted IPTV playlist manager for importing, editing, organizing, exportin
 
 ## Release notes
 
+### Latest updates — security, recovery and Xtream playback
+
+- Private backup storage with legacy-file migration and blocked public backup URLs.
+- Version 2 snapshots with category visibility, stable IDs on same-playlist restore, source settings, filters and views.
+- Original HTTP(S) live/VOD stream URLs preserved during import; real series episodes fetched on demand from the primary Xtream source.
+- Shared refresh coordination, transient-error session preservation and single-use password reset enforcement.
+- Destructive scheduled tasks require a successful backup; task execution and undo operations have concurrency protection.
+- Cross-origin redirects strip sensitive headers, HTTPS downgrades are rejected, and numeric proxy settings are parsed correctly.
+- Updated dependencies and CI checks for PostgreSQL integration tests and accidentally tracked runtime data.
+
+Validation for this update: **631 tests passed across 49 suites**, including two real PostgreSQL integration tests; all 33 migrations applied successfully. Frontend lint/build and translation parity passed. Both dependency audits reported zero known vulnerabilities at validation time. Physical-player compatibility and production load testing remain separate checks.
+
 Every release is documented in [CHANGELOG.md](CHANGELOG.md), including the audit
 finding each change closes.
 
@@ -240,7 +252,15 @@ Live and VOD lists, movie details and synthetic series episodes return the store
 
 `/m3u.php?id=<8 chars>&secret=<16 chars>` is the same playlist as `get.php`, in an address short enough to type into a TV app by hand (74 characters instead of 130). It carries its own credential pair — an id looked up in an indexed column and a 96-bit secret stored as a SHA-256 hash, exactly like the player password — so it can be handed out without exposing the Xtream username and password. Regenerating the output rotates it too, which invalidates every previously issued short address. The configuration `GET` returns it as `m3uShortUrl`, and outputs created before this endpoint existed get one on their next read, without a credential rotation. Because series data is stored per series rather than per episode, the Xtream response exposes one playable synthetic season/episode per series.
 
-**Playback uses the URL stored in the playlist.** This application serves the catalogue and guide, not the media bytes. There are no `/live/`, `/movie/` or `/series/` playback routes, redirects or transcoding. Full provider season/episode discovery is not implemented: a stored series row is exposed as one synthetic episode, and playback depends on its stored URL being playable.
+**Playback uses the original source URL.** Live/VOD imports preserve HTTP(S) `direct_source` addresses when supplied. This application serves the catalogue and guide, not media bytes. For series associated with the playlist's primary Xtream source, `get_series_info` fetches actual seasons and episodes on demand and returns their direct URLs. Standalone series entries without a configured source retain the single-episode fallback. There are no local playback routes or transcoding.
+
+### Hardening and recovery
+
+New backups live in `data/backups`, outside the public logo directory. Legacy backup URLs are blocked; older files move to private storage when accessed through the backup service. Version 2 snapshots preserve category visibility and, when restoring to the original playlist, channel/category UUIDs and Xtream IDs. They also include source settings, additional sources, filter rules, views and EPG matching profiles. Restoring to a different playlist leaves automatic sync disabled. Compression is asynchronous and decompression is capped at 256 MiB. These snapshots are not a complete database disaster-recovery backup: shared credentials, EPG programme data and logo binaries are not restored.
+
+Refresh requests use a shared client helper and Web Locks where supported; transient network/server errors preserve the local session. Destructive playlist-bound AI tasks stop if their pre-run backup fails. Failed tool steps produce a `partial` result, and PostgreSQL advisory locks prevent simultaneous execution of the same task.
+
+CI runs opt-in PostgreSQL regression tests with `RUN_DB_TESTS=1` and `NODE_ENV=test`. They check stable-ID restore, hidden categories, ownership and concurrent password-reset token consumption. Physical-player compatibility and production load still require environment-specific validation.
 
 ### Access controls and revocation
 
@@ -461,7 +481,7 @@ context does not accumulate. Destructive permission is **per task and off by
 default**; a task cannot ask for approval, so an unattended run that hits one
 stops and records why.
 
-**Every run is logged and can be undone with one click.** A task bound to a
+**Runs with an available pre-run backup can be undone.** A task bound to a
 playlist takes a backup *before* it runs, then writes a row in `ai_task_runs`
 holding the status, the assistant's summary, the tools it executed, and how the
 channel and category counts changed. The assistant's task tab shows this history
