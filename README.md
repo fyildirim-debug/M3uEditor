@@ -204,13 +204,58 @@ Lower the concurrency values if a provider rate-limits parallel requests. Increa
 
 A playlist can be exposed as an Xtream Codes output via `POST /api/playlists/:id/xtream-output` on the authenticated management API. The response contains the server address, a random username, and a random password to enter into the player. The password is stored AES-256-GCM encrypted and is always shown in plain text to its owner; the configuration — including the password — is returned by every `GET`. `POST /api/playlists/:id/xtream-output/regenerate` immediately invalidates the old password, and `DELETE /api/playlists/:id/xtream-output` turns player access off.
 
-In TiviMate, IPTV Smarters, and similar clients, use `APP_URL` as the server address and the username and password from the activation response. Supported root paths are `/player_api.php`, `/xmltv.php`, `/get.php` and `/m3u.php` — the catalogue only.
+### Share from the editor
+
+1. Open the playlist's download/sharing dialog and enable Xtream output.
+2. For a player with Xtream login, enter the displayed server URL, username and password.
+3. For an integration that accepts an API URL, copy **Xtream Codes API link** from **Sharing links**. It includes the credentials and points to `player_api.php`; append an `action` parameter to request a catalogue.
+4. For an M3U player, copy the short M3U link. Copy the XMLTV link separately if the player asks for a programme guide.
+
+The API link is a JSON endpoint, not an M3U file. A generic playlist URL field may only accept M3U. Playback through Xtream requires a client/version that honours `direct_source`; compatibility is not guaranteed by the player's brand name. If the catalogue loads but playback fails because the player builds local stream paths, use the M3U link.
+
+Set `APP_URL` to the externally reachable application origin. Supported root paths are `/player_api.php`, `/xmltv.php`, `/get.php` and `/m3u.php`.
+
+### Player API contract
+
+All `player_api.php` requests require the output `username` and `password`. The following examples use placeholders, not real credentials:
+
+```text
+https://m3u.example.com/player_api.php?username=OUTPUT_USER&password=OUTPUT_PASSWORD
+https://m3u.example.com/player_api.php?username=OUTPUT_USER&password=OUTPUT_PASSWORD&action=get_live_streams
+```
+
+| Action | Result / optional filter |
+| --- | --- |
+| No action | Account and server information |
+| `get_live_categories`, `get_vod_categories`, `get_series_categories` | Non-hidden categories containing the requested media type |
+| `get_live_streams`, `get_vod_streams`, `get_series` | Catalogue; optional `category_id` (`0` selects uncategorized entries) |
+| `get_vod_info` | Movie details; requires `vod_id` |
+| `get_series_info` | Series details; requires `series_id` |
+| `get_short_epg` | Guide for `stream_id`; optional `limit`, default 4, maximum 1,000 |
+| `get_simple_data_table` | Guide for `stream_id`, up to 1,000 entries |
+
+Catalogue IDs are the output's numeric Xtream IDs, not the management API's UUIDs. Hidden categories and their channels are excluded, including direct detail lookups. Names, ordering and stream addresses come from the edited playlist. API requests read current data; players may need a manual catalogue refresh to display edits.
+
+Live and VOD lists, movie details and synthetic series episodes return the stored `stream_url` as `direct_source`. The M3U endpoints emit that same stored address. The `output=ts` query parameter does not transcode or rewrite streams.
 
 `/m3u.php?id=<8 chars>&secret=<16 chars>` is the same playlist as `get.php`, in an address short enough to type into a TV app by hand (74 characters instead of 130). It carries its own credential pair — an id looked up in an indexed column and a 96-bit secret stored as a SHA-256 hash, exactly like the player password — so it can be handed out without exposing the Xtream username and password. Regenerating the output rotates it too, which invalidates every previously issued short address. The configuration `GET` returns it as `m3uShortUrl`, and outputs created before this endpoint existed get one on their next read, without a credential rotation. Because series data is stored per series rather than per episode, the Xtream response exposes one playable synthetic season/episode per series.
 
-**This server is never the stream address.** `get.php` publishes the provider's own channel URLs and `player_api.php` fills `direct_source` with them, so the player pulls every stream straight from the source and no playback request touches this application. There are no `/live/`, `/movie/` or `/series/` paths and no setting that turns them on: the earlier `proxy` mode, which handed out a local address and answered it with a `302` to the provider, has been removed along with its `playlists.output_stream_mode` column. A player that ignores `direct_source` and builds stream URLs from the server address instead will not play — use a client that honours `direct_source` (TiviMate, IPTV Smarters and the common Android/iOS players do).
+**Playback uses the URL stored in the playlist.** This application serves the catalogue and guide, not the media bytes. There are no `/live/`, `/movie/` or `/series/` playback routes, redirects or transcoding. Full provider season/episode discovery is not implemented: a stored series row is exposed as one synthetic episode, and playback depends on its stored URL being playable.
 
-**Security note:** The published channel URLs are the upstream provider's own addresses, which by Xtream protocol design may contain the provider's username and password. Sharing Xtream output credentials therefore effectively shares the provider account and every stream URL in the edited playlist. Share only with people you trust, and revoke access by disabling the output or regenerating the password.
+### Access controls and revocation
+
+- Management endpoints require the playlist owner's authenticated session.
+- Disabling output blocks subsequent API, M3U and XMLTV requests. Regenerating rotates the output password and short-link credentials.
+- Revocation cannot invalidate upstream URLs already downloaded or stop a stream playing directly from the provider. Those require controls at the provider.
+- Stream URLs may contain provider credentials. Output credentials protect catalogue access; they do not hide the URLs returned to recipients.
+- Connection counts in the account response are compatibility metadata, not enforced playback limits. This application cannot count direct upstream connections.
+- Output access does not inherit expiry/password settings from the separate shared-playlist feature.
+
+### Verification
+
+Run `npm run test:ci -- --testPathPatterns=xtream` for the Xtream regression suite and `npm run test:ci` for the full backend suite. In `frontend`, run `npm run check` and `node src/langs/check-parity.js`.
+
+Before rollout, verify with the actual target player: load the catalogue, play a live/VOD URL, inspect a series entry, load XMLTV, hide a category and refresh, then rotate and disable output to check that old catalogue links are rejected. Unit tests do not certify every player's `direct_source` behaviour.
 
 ## Logo library
 

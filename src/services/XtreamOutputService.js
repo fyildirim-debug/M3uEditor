@@ -521,8 +521,7 @@ class XtreamOutputService {
       },
       episodes: {
         // The editor stores one row per series, not one row per episode. Expose a
-        // single synthetic season/episode whose ID resolves to that series row so
-        // the standard /series/... playback path still works.
+        // single synthetic season/episode using the stored direct_source URL.
         '1': [{
           id,
           episode_num: 1,
