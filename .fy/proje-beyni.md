@@ -170,6 +170,11 @@ arka uc `utilityProcess` icinde `server-entry.js` (gomulu PostgreSQL + Express).
   kopyalar, Linux'ta PG sembolik baglarini dosyaya cevirir, Windows'ta
   vcruntime140*.dll ekler. Desktop bagimliliklari kokle ESIT olmali
   (`npm run check-deps`). CI: `.github/workflows/desktop.yml`.
+- YAYIN: surumu (package.json x3 + lockfile'lar + .fy/version.json + CHANGELOG)
+  artirip `.github/release-notes/v<surum>.md` yazip main'e birlestirmek yeter;
+  Desktop is akisi etiketi olusturup Releases'ta yayinlar. Bulut oturumu etiket
+  ya da release olusturamiyor (proxy 403), bu yuzden yayin CI'dan yapiliyor.
+- main korumali (ruleset "main koruması"): PR zorunlu, verify + images yesil.
 - Dogrulama (bu ortamda): linux-unpacked + AppImage Xvfb altinda normal
   kullaniciyla acildi, ilk acilis/kalicilik/kill -9 sonrasi kurtarma/cikis
   sonrasi otomatik oturum test edildi. Windows yalnizca CI'da derlenir/test edilir.
