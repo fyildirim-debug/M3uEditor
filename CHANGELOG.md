@@ -5,6 +5,62 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ## [Unreleased]
 
+### Security
+
+- **Dependency audits are clean again.** `express` 4.22.3 brings `proxy-addr`
+  2.0.8 (critical: IP spoofing through an IPv4-mapped IPv6 trust subnet) and
+  `body-parser` 1.20.9 (high: DoS); `nodemailer` moves to 10.6.1 (high: a run of
+  address-parser and SMTP-client advisories). Nodemailer 10's only breaking
+  change is the Node 20 floor, so `EmailService` is untouched. `qs`,
+  `ip-address` and `fast-copy` were refreshed, and the `glob`/`minimatch`
+  overrides now close the moderate advisories in the Jest 30 chain. Frontend:
+  `vite` 8.3 and `source-map-js` fix the high advisories. `npm audit` reports
+  zero vulnerabilities in both packages.
+- **`SEARXNG_SECRET` is now required.** Compose used a fallback value that was
+  public in this repository; the stack now refuses to start without it. Generate
+  one with `openssl rand -hex 32` and add it to `.env` — **and to the Dokploy
+  environment before the next deploy**. The local start scripts pass a
+  throwaway value when they only start the database.
+- **SearXNG no longer writes into the checkout.** `./searxng` was mounted
+  read-write on `/etc/searxng`, and the image entrypoint `chown -R`-ed it. Only
+  `searxng/settings.yml` is mounted now, read-only, via `SEARXNG_SETTINGS_PATH`;
+  the key is read from the environment and never written to a file. The image is
+  pinned to `2026.11.21-c6ee3e9fd` instead of `latest`.
+- **Tighter Nginx headers.** CSP `connect-src` is `'self'` (the SPA only talks to
+  its own origin; `img-src` stays open for arbitrary channel logos),
+  `form-action 'self'` was added, and `Strict-Transport-Security:
+  max-age=15552000` is sent (no `includeSubDomains`/`preload`; ignored over
+  plain HTTP). Nginx is now the only source of CSP/HSTS/nosniff/Referrer-Policy:
+  the API's helmet copies are hidden on proxied paths instead of arriving twice.
+
+### Changed
+
+- Package versions follow the release line: both `package.json` files say
+  `1.10.0` (they were still `1.7.0`).
+- Base images pinned to minor versions: `node:22.23-alpine3.24` and
+  `nginx:1.30-alpine3.24` (the 1.29 line no longer receives updates).
+- Healthchecks for `frontend` (`/nginx-health`, answered by Nginx itself) and
+  `searxng` (`/healthz`), in both compose files. SearXNG binds `0.0.0.0` so it
+  also starts on hosts with IPv6 disabled.
+- `start.sh`/`start.bat` start the database with `docker-compose.dev-ports.yml`,
+  like `dev.sh`, so the host-side migration can reach it; `.env` is created
+  before the first compose call.
+- `npm run test:property` uses Jest 30's `--testPathPatterns` and passes when no
+  property tests exist.
+- CI builds both images, runs `nginx -t` on the frontend image, validates
+  `docker-compose.dokploy.yml` alongside `docker-compose.yml`, checks TR/EN
+  translation parity, and pins `actions/checkout` and `actions/setup-node` to
+  commit SHAs.
+- README: tool counts corrected (179 domain tools + 3 meta-tools, 184 with
+  SearXNG), v1.9.0.0 and the unreleased highlights added to *Latest updates*,
+  `SEARXNG_SECRET` documented.
+
+### Removed
+
+- Tracked local output (`build-check.txt`, `test-output.txt`,
+  `test-result.txt`) and `pw-test.cjs`, a Playwright script that registered real
+  accounts against the production site. `.gitignore` covers them.
+
 ### Removed
 
 - **The `proxy` stream mode is gone, and with it every path that made this
