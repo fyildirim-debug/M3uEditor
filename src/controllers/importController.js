@@ -1,73 +1,11 @@
 const ImportService = require('../services/ImportService');
 const XtreamClient = require('../services/XtreamClient');
 const config = require('../config');
+const { acquireJob, releaseJob, cancelJob, jobContextFor, listUserJobs } = require('../services/ImportJobs');
 const { safeFetchText } = require('../utils/safeFetch');
 const { createAppError } = require('../utils/AppError');
 
 const importService = new ImportService();
-const activeJobs = new Map();
-const jobsByUser = new Map();
-const jobsByPlaylist = new Map();
-let nextJobId = 1;
-
-function releaseJob(job) {
-  if (activeJobs.get(job.id) !== job) return;
-  activeJobs.delete(job.id);
-  if (jobsByUser.get(job.userKey) === job) jobsByUser.delete(job.userKey);
-  if (job.playlistKey && jobsByPlaylist.get(job.playlistKey) === job) jobsByPlaylist.delete(job.playlistKey);
-  clearTimeout(job.ttlTimer);
-}
-
-function cancelJob(job, message) {
-  if (!job.controller.signal.aborted) {
-    job.controller.abort(createAppError('IMPORT_CANCELLED', message));
-  }
-}
-
-function pruneExpiredJobs(now = Date.now()) {
-  for (const job of activeJobs.values()) {
-    if (job.expiresAt > now) continue;
-    cancelJob(job, 'İçe aktarım azami çalışma süresini aştığı için iptal edildi');
-    releaseJob(job);
-  }
-}
-
-function acquireJob(userId, playlistId) {
-  pruneExpiredJobs();
-  const userKey = String(userId);
-  const playlistKey = playlistId ? String(playlistId) : null;
-
-  if (jobsByUser.has(userKey)) {
-    throw createAppError('IMPORT_IN_PROGRESS', 'Bu kullanıcı için bir içe aktarım veya senkronizasyon zaten çalışıyor');
-  }
-  if (playlistKey && jobsByPlaylist.has(playlistKey)) {
-    throw createAppError('IMPORT_IN_PROGRESS', 'Bu oynatma listesi için bir senkronizasyon zaten çalışıyor');
-  }
-  if (activeJobs.size >= config.imports.maxConcurrent) {
-    throw createAppError('IMPORT_CAPACITY_REACHED');
-  }
-
-  const controller = new AbortController();
-  const job = {
-    id: nextJobId++,
-    userKey,
-    playlistKey,
-    controller,
-    progress: null,
-    expiresAt: Date.now() + config.imports.jobTtlMs,
-    ttlTimer: null,
-  };
-  job.ttlTimer = setTimeout(() => {
-    cancelJob(job, 'İçe aktarım azami çalışma süresini aştığı için iptal edildi');
-    releaseJob(job);
-  }, config.imports.jobTtlMs);
-  job.ttlTimer.unref?.();
-
-  activeJobs.set(job.id, job);
-  jobsByUser.set(userKey, job);
-  if (playlistKey) jobsByPlaylist.set(playlistKey, job);
-  return job;
-}
 
 async function runImportJob(req, res, playlistId, worker) {
   const job = acquireJob(req.userId, playlistId);
@@ -84,16 +22,7 @@ async function runImportJob(req, res, playlistId, worker) {
   req.on('close', onRequestClose);
   res.on('close', onResponseClose);
 
-  const jobContext = {
-    signal: job.controller.signal,
-    onProgress({ processed, total }) {
-      job.progress = { processed, total };
-    },
-    throwIfCancelled() {
-      if (!job.controller.signal.aborted) return;
-      throw job.controller.signal.reason || createAppError('IMPORT_CANCELLED');
-    },
-  };
+  const jobContext = jobContextFor(job);
 
   try {
     return await worker(jobContext);
@@ -106,12 +35,10 @@ async function runImportJob(req, res, playlistId, worker) {
 
 async function getActiveJobs(req, res, next) {
   try {
-    pruneExpiredJobs();
-    const userKey = String(req.userId);
-    const jobs = [...activeJobs.values()]
-      .filter((job) => job.userKey === userKey)
+    const jobs = listUserJobs(req.userId)
       .map((job) => ({
         playlistId: job.playlistKey,
+        kind: job.kind,
         processed: job.progress?.processed ?? 0,
         total: job.progress?.total ?? null,
       }));

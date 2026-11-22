@@ -100,6 +100,19 @@ const config = {
     maxConcurrent: Math.min(parsePositiveInteger(process.env.MAX_CONCURRENT_IMPORTS, 4), 64),
     jobTtlMs: parsePositiveInteger(process.env.IMPORT_JOB_TTL_MS, 10 * 60_000),
   },
+  scheduler: {
+    // Playlist sync ve EPG yenilemesi icin izin verilen en kisa aralik. Daha
+    // kisa araliklar saglayiciyi doverek hesabin engellenmesine yol aciyordu;
+    // veritabaninda kalmis eski kucuk degerler de calisma aninda bu tabana cekilir.
+    minSyncIntervalMinutes: parsePositiveInteger(process.env.MIN_SYNC_INTERVAL_MINUTES, 15),
+  },
+  healthScan: {
+    // Sunucu genelinde ayni anda calisabilecek saglik taramasi sayisi.
+    maxJobs: parsePositiveInteger(process.env.HEALTH_SCAN_MAX_JOBS, 2),
+    // Tek bir saglayici sunucusuna ayni anda yapilan istek. Xtream panelleri
+    // cogu zaman max_connections=1-2 ile calisir; fazlasi hesabi kilitler.
+    perHostConcurrency: parsePositiveInteger(process.env.HEALTH_SCAN_PER_HOST_CONCURRENCY, 2),
+  },
   xtream: {
     totalTimeoutMs: parsePositiveInteger(process.env.XTREAM_TOTAL_TIMEOUT_MS, 120_000),
     categoryConcurrency: Math.min(parsePositiveInteger(process.env.XTREAM_CATEGORY_CONCURRENCY, 8), 32),

@@ -11,6 +11,7 @@ const mockPlaylistService = {
   create: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
+  updateSyncSettings: jest.fn(),
 };
 jest.mock('../../../src/services/PlaylistService', () => mockPlaylistService);
 
@@ -167,6 +168,31 @@ describe('Playlist Controller', () => {
         .send({ name: 'Test' });
 
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('PUT /api/playlists/:id/sync-settings', () => {
+    it('rejects intervals shorter than the configured minimum with a clear message', async () => {
+      const res = await request(app)
+        .put(`/api/playlists/${PLAYLIST_ID}/sync-settings`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ syncIntervalMinutes: 1 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+      expect(res.body.error.message).toMatch(/15/);
+      expect(mockPlaylistService.updateSyncSettings).not.toHaveBeenCalled();
+    });
+
+    it('accepts the options the editor offers and turning sync off', async () => {
+      mockPlaylistService.updateSyncSettings.mockResolvedValue({ id: PLAYLIST_ID, sync_interval_minutes: 360 });
+      for (const value of [15, 360, 10080, null]) {
+        const res = await request(app)
+          .put(`/api/playlists/${PLAYLIST_ID}/sync-settings`)
+          .set('Authorization', `Bearer ${token}`)
+          .send({ syncIntervalMinutes: value });
+        expect(res.status).toBe(200);
+      }
     });
   });
 

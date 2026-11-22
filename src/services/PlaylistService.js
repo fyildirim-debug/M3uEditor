@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
+const config = require('../config');
 const { createAppError } = require('../utils/AppError');
 const { encrypt } = require('../utils/crypto');
 const { removeChannelLogos } = require('../utils/logoStorage');
@@ -115,8 +116,19 @@ class PlaylistService {
       throw createAppError('NOT_FOUND');
     }
 
+    const minimum = config.scheduler.minSyncIntervalMinutes;
+    if (syncIntervalMinutes !== undefined && syncIntervalMinutes !== null
+      && (!Number.isInteger(syncIntervalMinutes) || syncIntervalMinutes < minimum)) {
+      throw createAppError('VALIDATION_ERROR', `Otomatik güncelleme aralığı en az ${minimum} dakika olmalı`);
+    }
+
     const updates = { updated_at: db.fn.now() };
-    if (syncIntervalMinutes !== undefined) updates.sync_interval_minutes = syncIntervalMinutes;
+    if (syncIntervalMinutes !== undefined) {
+      updates.sync_interval_minutes = syncIntervalMinutes;
+      // Yeni aralik onceki hatalarin geri cekilmesini sifirlar.
+      updates.sync_failure_count = 0;
+      updates.sync_next_attempt_at = null;
+    }
     if (backupBeforeSync !== undefined) updates.backup_before_sync = backupBeforeSync;
 
     await db('playlists').where('id', playlistId).update(updates);
