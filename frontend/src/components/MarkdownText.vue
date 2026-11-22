@@ -23,20 +23,41 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;')
 }
 
-function inline(value) {
+// Yer tutucu sinirlayici: kacislanmis metinde bulunamaz (girdiden temizlenir).
+const MARK = '\u0000'
+
+function emphasis(value) {
   return value
-    // `kod`
-    .replace(/`([^`\n]+)`/g, '<code>$1</code>')
     // **kalın** ve __kalın__
     .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/__([^_\n]+)__/g, '<strong>$1</strong>')
-    // *italik* ve _italik_ (kalın işlendikten sonra)
+    .replace(/(^|[^\p{L}\p{N}_])__([^_\n]+)__(?![\p{L}\p{N}_])/gu, '$1<strong>$2</strong>')
+    // *italik* ve _italik_ (kalın işlendikten sonra). Alt çizgi kelime içinde
+    // vurgu sayılmaz: snake_case_adlar olduğu gibi kalır.
     .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>')
-    .replace(/(^|[^_])_([^_\n]+)_/g, '$1<em>$2</em>')
+    .replace(/(^|[^\p{L}\p{N}_])_([^_\n]+)_(?![\p{L}\p{N}_])/gu, '$1<em>$2</em>')
     // ~~üstü çizili~~
     .replace(/~~([^~\n]+)~~/g, '<del>$1</del>')
+}
+
+/**
+ * Satır içi biçimlendirme. Kod parçaları ve bağlantılar önce yer tutuculara
+ * alınır, vurgu kuralları yalnızca kalan metne uygulanır, sonra geri konur;
+ * böylece `_` ya da `*` içeren adresler (…/my_channel_list) bozulmaz.
+ * Girdi bu noktada zaten kaçışlanmıştır: tırnaklar &quot; olduğundan href
+ * özniteliğinden taşamaz.
+ */
+function inline(value) {
+  const stash = []
+  const keep = (html) => `${MARK}${stash.push(html) - 1}${MARK}`
+  const withPlaceholders = String(value).replaceAll(MARK, '')
+    // `kod`
+    .replace(/`([^`\n]+)`/g, (_, code) => keep(`<code>${code}</code>`))
     // [metin](https://…) — yalnızca http(s) şemasına izin verilir
-    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      (_, label, href) => keep(`<a href="${href}" target="_blank" rel="noopener noreferrer">${emphasis(label)}</a>`))
+  // Bağlantı etiketi içinde kod parçası olabilir: iç içe yer tutucular da açılır.
+  const restore = text => text.replace(new RegExp(`${MARK}(\\d+)${MARK}`, 'g'), (_, index) => restore(stash[Number(index)] ?? ''))
+  return restore(emphasis(withPlaceholders))
 }
 
 function render(source) {
