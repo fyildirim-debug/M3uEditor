@@ -389,7 +389,9 @@ function requestErrorMessage(error, phase) {
     XTREAM_AUTH_FAILED: 'xtreamWizard.authFailed',
     VALIDATION_ERROR: 'xtreamWizard.validationError',
     IMPORT_IN_PROGRESS: 'xtreamWizard.importInProgress',
-    IMPORT_CAPACITY_REACHED: 'xtreamWizard.capacityReached'
+    IMPORT_CAPACITY_REACHED: 'xtreamWizard.capacityReached',
+    DATABASE_UNAVAILABLE: 'errors.DATABASE_UNAVAILABLE',
+    RATE_LIMITED: 'errors.RATE_LIMITED'
   }
   if (codeMessages[code]) return t(codeMessages[code])
   if (error.code === 'ECONNABORTED') return t('xtreamWizard.requestTimeout')

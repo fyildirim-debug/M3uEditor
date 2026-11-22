@@ -62,19 +62,35 @@ if %errorlevel% neq 0 (
 :docker_ok
 echo   + Docker hazir
 
+:: ─── .env kontrol ───
+if not exist "%ROOT_DIR%\.env" (
+    echo.
+    echo   ! .env bulunamadi, .env.example kopyalaniyor...
+    copy "%ROOT_DIR%\.env.example" "%ROOT_DIR%\.env" >nul
+    echo   + .env olusturuldu. Gerekirse duzenleyin.
+)
+
+:: docker-compose.yml db portunu host'a acmaz; backend ve migration host'ta
+:: calistigi icin dev-ports override'i 5432'yi loopback'e acar.
+set COMPOSE_FILES=-f "%ROOT_DIR%\docker-compose.yml"
+if exist "%ROOT_DIR%\docker-compose.dev-ports.yml" set COMPOSE_FILES=%COMPOSE_FILES% -f "%ROOT_DIR%\docker-compose.dev-ports.yml"
+:: Compose tum dosyayi yorumlar ve zorunlu SEARXNG_SECRET'i ister; gelistirmede
+:: searxng baslatilmaz. .env'de deger yoksa yalnizca bu calisma icin gecici deger.
+findstr /r /c:"^SEARXNG_SECRET=." "%ROOT_DIR%\.env" >nul 2>&1 || set "SEARXNG_SECRET=dev-only-searxng-not-started"
+
 :: PostgreSQL container kontrol
-docker compose -f "%ROOT_DIR%\docker-compose.yml" ps db 2>nul | findstr /i "running Up" >nul 2>&1
+docker compose %COMPOSE_FILES% ps db 2>nul | findstr /i "running Up" >nul 2>&1
 if %errorlevel% equ 0 (
     echo   + PostgreSQL container zaten calisiyor
 ) else (
     echo   → PostgreSQL container baslatiliyor...
-    docker compose -f "%ROOT_DIR%\docker-compose.yml" up -d db
+    docker compose %COMPOSE_FILES% up -d db
 
     echo   Healthcheck bekleniyor...
     set "PG_READY=0"
     for /l %%i in (1,1,30) do (
         timeout /t 1 /nobreak >nul
-        for /f "tokens=*" %%a in ('docker compose -f "%ROOT_DIR%\docker-compose.yml" ps -q db 2^>nul') do (
+        for /f "tokens=*" %%a in ('docker compose %COMPOSE_FILES% ps -q db 2^>nul') do (
             docker exec %%a pg_isready -U postgres -q >nul 2>&1
             if !errorlevel! equ 0 (
                 set "PG_READY=1"
@@ -84,21 +100,13 @@ if %errorlevel% equ 0 (
     )
     if "!PG_READY!"=="0" (
         echo   X PostgreSQL baslatilamadi!
-        docker compose -f "%ROOT_DIR%\docker-compose.yml" logs db 2>nul
+        docker compose %COMPOSE_FILES% logs db 2>nul
         pause
         exit /b 1
     )
 )
 :pg_ok
 echo   + PostgreSQL hazir → localhost:5432
-
-:: ─── .env kontrol ───
-if not exist "%ROOT_DIR%\.env" (
-    echo.
-    echo   ! .env bulunamadi, .env.example kopyalaniyor...
-    copy "%ROOT_DIR%\.env.example" "%ROOT_DIR%\.env" >nul
-    echo   + .env olusturuldu. Gerekirse duzenleyin.
-)
 
 :: ─── [1/4] Bagimliliklar ───
 echo.

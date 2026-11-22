@@ -84,6 +84,37 @@ class AuthService {
     };
   }
 
+  /**
+   * Masaustu uygulamasinin yerel oturumu.
+   *
+   * Masaustunde tek kullanici vardir ve veriler zaten onun bilgisayarindadir;
+   * her acilista kayit/giris istemek anlamsiz bir engel. Kurulumdaki en eski
+   * yonetici (yoksa en eski kullanici) secilir; hic kullanici yoksa parolasi
+   * rastgele, yonetici yetkili yerel bir hesap olusturulur. Bu yol yalnizca
+   * DESKTOP_LOGIN_TOKEN tanimliyken ve geri donus adresinden acilir (bkz.
+   * authController.desktopSession).
+   */
+  async desktopSession(metadata = {}) {
+    return db.transaction(async (trx) => {
+      await trx.raw('LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE');
+      let user = await trx('users').where({ is_admin: true }).orderBy('created_at', 'asc').first()
+        || await trx('users').orderBy('created_at', 'asc').first();
+      if (!user) {
+        const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), SALT_ROUNDS);
+        [user] = await trx('users')
+          .insert({ email: 'yerel@m3u-editor.local', password_hash: passwordHash, is_admin: true })
+          .returning(['id', 'email', 'is_admin']);
+        logger.info({ userId: user.id }, 'Desktop local account created');
+      }
+      const session = await this._createSession(user.id, metadata, trx);
+      return {
+        user: this._publicUser(user),
+        token: this._generateToken(user.id, session.id),
+        refreshToken: session.rawToken,
+      };
+    });
+  }
+
   async refreshAccessToken(refreshToken, metadata = {}) {
     if (!refreshToken) throw createAppError('INVALID_CREDENTIALS', 'Oturum yenileme belirteci gerekli');
     const tokenHash = hashToken(refreshToken);
@@ -178,7 +209,15 @@ class AuthService {
     return { success: true, email: user.email };
   }
 
+  _assertPasswordString(password) {
+    // bcrypt.compare metin disi degerde istisna firlatip 500 donduruyordu.
+    if (typeof password !== 'string' || !password) {
+      throw createAppError('VALIDATION_ERROR', 'Şifre gerekli');
+    }
+  }
+
   async changeEmail(userId, password, newEmail) {
+    this._assertPasswordString(password);
     const normalizedEmail = newEmail.trim().toLowerCase();
     const user = await db('users').where({ id: userId }).first();
     if (!user) throw createAppError('NOT_FOUND');
@@ -192,19 +231,32 @@ class AuthService {
   }
 
   async deleteAccount(userId, password) {
+    this._assertPasswordString(password);
     const user = await db('users').where({ id: userId }).first();
     if (!user) throw createAppError('NOT_FOUND');
     if (!(await bcrypt.compare(password, user.password_hash))) {
       throw createAppError('INVALID_CREDENTIALS', 'Şifre yanlış');
     }
+    return this.purgeUser(userId);
+  }
+
+  /**
+   * Kullaniciyi ve tum verisini siler; commit SONRASI diskteki kanal logolarini
+   * ve playlist yedek dizinlerini (duz metin Xtream kimligi icerir) temizler.
+   * Hem kullanicinin kendi hesap silmesi hem yonetici silmesi bunu kullanir.
+   * @param {string} userId
+   */
+  async purgeUser(userId) {
     const queuePath = path.join(os.tmpdir(), `m3u-logo-cleanup-${crypto.randomUUID()}.txt`);
     let queueHandle;
+    let playlistIds = [];
     try {
       queueHandle = await fs.promises.open(queuePath, 'wx', 0o600);
       await db.transaction(async (trx) => {
         const lockedUser = await trx('users').where({ id: userId }).forUpdate().first();
         if (!lockedUser) throw createAppError('NOT_FOUND');
-        await trx('playlists').where({ user_id: userId }).select('id').forUpdate();
+        const playlists = await trx('playlists').where({ user_id: userId }).select('id').forUpdate();
+        playlistIds = (playlists || []).map((playlist) => playlist.id);
 
         let lastChannelId = null;
         while (true) {
@@ -243,6 +295,13 @@ class AuthService {
         if (batch.length > 0) await removeChannelLogos(batch);
       } catch (error) {
         logger.warn({ err: error, userId }, 'Committed account logo cleanup could not be completed');
+      }
+      // Yedek dosyalari FK ile silinmez; diskte kalirsa silinmis hesabin
+      // kimlik bilgileri de kalir.
+      // eslint-disable-next-line global-require
+      const backupService = require('./BackupService');
+      for (const playlistId of playlistIds) {
+        await backupService.removePlaylistBackupDir(playlistId);
       }
       return { success: true };
     } finally {

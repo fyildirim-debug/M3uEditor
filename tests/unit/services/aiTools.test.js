@@ -155,6 +155,104 @@ describe('AI tool registry', () => {
     expect(mockBulkDelete).not.toHaveBeenCalled();
   });
 
+  test('invoke_capability gates tools that never check the permission themselves', async () => {
+    // delete_scheduled_task kendi icinde assertDestructive cagirmiyor; kapinin
+    // tek yerde (execute) olmasi bu yolu da kapatmali.
+    const outcome = await tools.execute(
+      'invoke_capability',
+      { name: 'delete_scheduled_task', args: { taskId: 't1' } },
+      { userId: 'user-1', allowDestructive: false }
+    );
+    expect(outcome).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+    expect(mockDb).not.toHaveBeenCalled();
+  });
+
+  test('invoke_capability validates the wrapped tool arguments', async () => {
+    const outcome = await tools.execute(
+      'invoke_capability',
+      { name: 'delete_channels', args: {} },
+      { userId: 'user-1', allowDestructive: true }
+    );
+    expect(outcome).toMatchObject({ ok: false, code: 'VALIDATION_ERROR' });
+    expect(mockBulkDelete).not.toHaveBeenCalled();
+  });
+
+  test('invoke_capability cannot wrap a meta tool', async () => {
+    const outcome = await tools.execute(
+      'invoke_capability',
+      { name: 'invoke_capability', args: { name: 'delete_playlist', args: {} } },
+      { userId: 'user-1', allowDestructive: true }
+    );
+    expect(outcome.ok).toBe(false);
+  });
+
+  test('approval decisions look through invoke_capability to the real tool', () => {
+    expect(tools.isDestructive('invoke_capability', { name: 'delete_playlist', args: {} })).toBe(true);
+    expect(tools.needsApproval('invoke_capability', { name: 'delete_playlist', args: {} })).toBe(true);
+    expect(tools.needsApproval('invoke_capability', { name: 'list_playlists', args: {} })).toBe(false);
+    expect(tools.isReadOnly('invoke_capability', { name: 'delete_playlist' })).toBe(false);
+    expect(tools.resolveCall('invoke_capability', { name: 'list_playlists', args: { a: 1 } }))
+      .toEqual({ name: 'list_playlists', args: { a: 1 }, wrapped: true });
+  });
+
+  test('lasting outward-facing changes ask for approval even when not destructive', () => {
+    for (const name of ['create_scheduled_task', 'update_scheduled_task', 'run_scheduled_task_now', 'share_playlist', 'enable_xtream_output', 'set_playlist_xtream_credentials']) {
+      expect(tools.needsApproval(name, {})).toBe(true);
+    }
+    expect(tools.needsApproval('update_channel', { channelId: 'c', name: 'Yeni' })).toBe(false);
+    expect(tools.needsApproval('update_channel', { channelId: 'c', streamUrl: 'http://x' })).toBe(true);
+  });
+
+  test('a scheduled task cannot schedule, change or undo tasks', async () => {
+    const ctx = { userId: 'user-1', allowDestructive: true, isTaskRun: true };
+    for (const [name, args] of [
+      ['create_scheduled_task', { name: 'x', prompt: 'y', intervalMinutes: 60 }],
+      ['update_scheduled_task', { taskId: 't1', allowDestructive: true }],
+      ['delete_scheduled_task', { taskId: 't1' }],
+      ['undo_task_run', { runId: 'r1' }],
+    ]) {
+      const outcome = await tools.execute(name, args, ctx);
+      expect(outcome).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+    }
+    expect(mockDb).not.toHaveBeenCalled();
+  });
+
+  test('a task bound to a playlist cannot touch another playlist', async () => {
+    const outcome = await tools.execute(
+      'list_channels',
+      { playlistId: 'other-playlist' },
+      { userId: 'user-1', isTaskRun: true, taskPlaylistId: 'bound-playlist' }
+    );
+    expect(outcome).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+    expect(mockDb).not.toHaveBeenCalled();
+  });
+
+  test('a destructive task cannot be created while destructive actions are off', async () => {
+    const outcome = await tools.execute(
+      'create_scheduled_task',
+      { name: 'temizle', prompt: 'olu kanallari sil', intervalMinutes: 60, allowDestructive: true },
+      { userId: 'user-1', allowDestructive: false }
+    );
+    expect(outcome).toMatchObject({ ok: false, code: 'FORBIDDEN' });
+  });
+
+  test('an EPG mapping set by the assistant is locked against auto-matching', async () => {
+    let patch;
+    mockDb.mockImplementation((table) => {
+      if (table === 'channels') {
+        const query = builder({ first: { id: 'c1', playlist_id: 'p1' }, returning: [{ id: 'c1', name: 'TRT 1', epg_channel_id: 'trt1.tr' }] });
+        query.update = jest.fn((value) => { patch = value; return query; });
+        return query;
+      }
+      return builder({ first: { id: 'x', source_id: 's1', user_id: 'user-1' } });
+    });
+
+    const outcome = await tools.execute('assign_epg_to_channel', { channelId: 'c1', epgChannelId: 'trt1.tr' }, { userId: 'user-1' });
+
+    expect(outcome.ok).toBe(true);
+    expect(patch).toMatchObject({ epg_channel_id: 'trt1.tr', epg_locked: true });
+  });
+
   test('custom sorting refuses ids from another playlist', async () => {
     const playlists = builder({ first: { id: 'p1', user_id: 'user-1' } });
     const channels = builder({ first: { count: '1' } });

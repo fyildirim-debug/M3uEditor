@@ -13,9 +13,24 @@ const { redactUrl } = require('./utils/urls');
 
 const app = express();
 
+/**
+ * TRUST_PROXY ortam degiskenini Express'in bekledigi tipe cevirir. Ortam
+ * degiskenleri hep metindir: 'true'/'false' dizesi Express'e oldugu gibi
+ * verilince adres listesi sanilir ve sunucu "invalid IP address: true"
+ * hatasiyla acilmiyordu.
+ * @param {string|undefined} value
+ * @returns {boolean|number|string}
+ */
+function parseTrustProxy(value) {
+  const raw = String(value ?? '1').trim();
+  if (/^true$/i.test(raw)) return true;
+  if (/^false$/i.test(raw) || raw === '') return false;
+  if (/^\d+$/.test(raw)) return Number(raw);
+  return raw;
+}
+
 // Security headers
-const proxySetting = process.env.TRUST_PROXY ?? '1';
-app.set('trust proxy', /^\d+$/.test(proxySetting) ? Number(proxySetting) : proxySetting);
+app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
 app.disable('x-powered-by');
 
 app.use(helmet({
@@ -25,10 +40,14 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:', 'http:', 'https:'],
-      connectSrc: ["'self'", 'http:', 'https:'],
+      connectSrc: ["'self'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       frameAncestors: ["'none'"],
+      // Helmet varsayilani `upgrade-insecure-requests` ekler. IPTV logolari
+      // cogunlukla http:// adreslerdir ve masaustu uygulamasi http://localhost
+      // uzerinden calisir; yukseltme ikisini de kirardi.
+      upgradeInsecureRequests: null,
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -206,6 +225,22 @@ app.use('/logos', express.static(config.uploadDir, {
     res.setHeader('Content-Disposition', 'inline');
   },
 }));
+// Derlenmis arayuz (frontend/dist). Docker kurulumunda bunu nginx sunar; tek
+// surecli kurulumlarda (masaustu uygulamasi, nginx'siz sunucu) API ayni koken
+// uzerinden arayuzu de verir. Arayuz hash router kullandigi icin "/" disinda
+// bir SPA geri donusu gerekmez.
+if (process.env.FRONTEND_DIST_DIR) {
+  app.use(express.static(path.resolve(process.env.FRONTEND_DIST_DIR), {
+    index: 'index.html',
+    dotfiles: 'deny',
+    setHeaders(res, filePath) {
+      // Vite cikti adlari icerik ozetli; index.html ise her zaman tazelenmeli.
+      if (/[\\/]assets[\\/]/.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      else res.setHeader('Cache-Control', 'no-cache');
+    },
+  }));
+}
+
 // Serve static files from public directory
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -247,3 +282,4 @@ app.use(notFound);
 app.use(errorHandler);
 
 module.exports = app;
+module.exports.parseTrustProxy = parseTrustProxy;

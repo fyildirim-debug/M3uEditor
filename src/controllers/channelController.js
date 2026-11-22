@@ -7,7 +7,7 @@ const XtreamClient = require('../services/XtreamClient');
 const { createAppError } = require('../utils/AppError');
 const { decrypt } = require('../utils/crypto');
 const { requestBuffer } = require('../utils/safeFetch');
-const { parsePagination, validateIdArray, validateChannelField } = require('../utils/validation');
+const { parsePagination, validateIdArray, validateChannelField, validateChannelUpdates } = require('../utils/validation');
 const { getChannelLogoPath, buildChannelLogoUrl, removeChannelLogoVariants } = require('../utils/logoStorage');
 
 async function listChannels(req, res, next) {
@@ -212,13 +212,26 @@ function duplicateChannelError(existingChannel) {
 async function createChannel(req, res, next) {
   try {
     const playlistId = req.params.id;
-    const { name, streamUrl, logoUrl, categoryId, epgChannelId, streamType } = req.body;
-    if (typeof name !== 'string' || !name.trim() || name.length > 500 || typeof streamUrl !== 'string' || !streamUrl.trim() || streamUrl.length > 5000) {
+    const { name, streamUrl, logoUrl, categoryId, epgChannelId, streamType } = req.body || {};
+    if (typeof name !== 'string' || !name.trim() || typeof streamUrl !== 'string' || !streamUrl.trim()) {
       throw createAppError('VALIDATION_ERROR', 'Geçerli kanal adı ve akış adresi gerekli');
     }
-    const trimmedName = name.trim();
-    const trimmedStreamUrl = streamUrl.trim();
-    const validatedLogoUrl = validateChannelField('logo_url', logoUrl);
+    // Guncelleme ile ayni sozlesme: bayt sinirlari, kontrol karakteri yasagi
+    // (M3U ciktisina satir enjekte edilmesin) ve kategori kimligi tipi.
+    const validated = validateChannelUpdates({
+      name,
+      stream_url: streamUrl,
+      logo_url: logoUrl,
+      ...(categoryId !== undefined && categoryId !== '' ? { category_id: categoryId } : {}),
+    });
+    if (!validated.stream_url) throw createAppError('VALIDATION_ERROR', 'Geçerli kanal adı ve akış adresi gerekli');
+    if (epgChannelId !== undefined && epgChannelId !== null && epgChannelId !== ''
+      && (typeof epgChannelId !== 'string' || epgChannelId.length > 2000 || /[\u0000-\u001f\u007f]/.test(epgChannelId))) {
+      throw createAppError('VALIDATION_ERROR', 'Geçerli bir EPG kanal kimliği gönderin');
+    }
+    const trimmedName = validated.name;
+    const trimmedStreamUrl = validated.stream_url;
+    const validatedLogoUrl = validated.logo_url ?? null;
     const playlist = await db('playlists').where({ id: playlistId, user_id: req.userId }).first();
     if (!playlist) throw createAppError('NOT_FOUND');
     await channelService._verifyCategoryForPlaylist(req.userId, playlistId, categoryId || null);
@@ -255,6 +268,8 @@ async function createChannel(req, res, next) {
         category_id: categoryId || null,
         epg_channel_id: epgChannelId || null,
         epg_source_id: epgSourceId,
+        // Kullanicinin verdigi EPG kimligi otomatik eslestirmeyle ezilmez.
+        epg_locked: Boolean(epgChannelId),
         stream_type: ['live', 'vod', 'series'].includes(streamType) ? streamType : 'live',
         sort_order: (maxSort?.max ?? -1) + 1,
         extras: JSON.stringify({}),

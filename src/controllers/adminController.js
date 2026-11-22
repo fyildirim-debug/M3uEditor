@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const authService = require('../services/AuthService');
 const { createAppError } = require('../utils/AppError');
 const { parsePagination } = require('../utils/validation');
 
@@ -86,7 +87,8 @@ async function deleteUser(req, res, next) {
     if (!user) throw createAppError('NOT_FOUND', 'Kullanici bulunamadi');
     if (id === req.userId || user.is_admin) throw createAppError('FORBIDDEN', 'Yönetici hesabı silinemez');
 
-    await db('users').where({ id }).del();
+    // Kendi hesap silmeyle ayni yol: logolar ve yedek dizinleri de temizlenir.
+    await authService.purgeUser(id);
     res.json({ success: true });
   } catch (err) { next(err); }
 }

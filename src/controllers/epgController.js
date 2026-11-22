@@ -1,6 +1,7 @@
 const EPGService = require('../services/EPGService');
 const db = require('../config/database');
 const logger = require('../config/logger');
+const config = require('../config');
 const { createAppError } = require('../utils/AppError');
 
 const epgService = new EPGService();
@@ -32,8 +33,19 @@ async function listSources(req, res, next) {
   try { res.json(await epgService.listSources(req.userId)); } catch (error) { next(error); }
 }
 
+// Varsayilan: yalnizca EPG kimligi bos kanallar doldurulur. overwrite=true
+// dolu (otomatik/saglayici) eslesmeleri de yeniden hesaplar; elle atanmis
+// (epg_locked) kanallara hicbir kosulda dokunulmaz.
+function overwriteOption(body) {
+  const overwrite = body?.overwrite;
+  if (overwrite !== undefined && typeof overwrite !== 'boolean') {
+    throw createAppError('VALIDATION_ERROR', 'overwrite alanı boolean olmalı');
+  }
+  return { overwrite: overwrite === true };
+}
+
 async function autoMatch(req, res, next) {
-  try { res.json(await epgService.autoMatch(req.userId, req.params.id)); } catch (error) { next(error); }
+  try { res.json(await epgService.autoMatch(req.userId, req.params.id, null, overwriteOption(req.body))); } catch (error) { next(error); }
 }
 
 function profilePayload(body) {
@@ -53,7 +65,7 @@ async function saveProfile(req, res, next) {
 }
 
 async function runProfile(req, res, next) {
-  try { res.json(await epgService.runProfile(req.userId, req.params.id)); } catch (error) { next(error); }
+  try { res.json(await epgService.runProfile(req.userId, req.params.id, overwriteOption(req.body))); } catch (error) { next(error); }
 }
 
 async function deleteProfile(req, res, next) {
@@ -91,9 +103,12 @@ async function assignEpg(req, res, next) {
       if (matches.length > 1 && !epgSourceId) throw createAppError('VALIDATION_ERROR', 'Aynı kimlik birden fazla kaynakta var; kaynak seçin');
       sourceId = matches[0].source_id;
     }
+    // Elle atama (ya da bilincli temizleme) kilitlenir: sonraki ice aktarimlarin
+    // otomatik eslestirmesi bu kanalin EPG'sini degistirmez.
     const [updated] = await db('channels').where({ id: channelId }).update({
       epg_channel_id: epgChannelId ? epgChannelId.trim() : null,
       epg_source_id: sourceId,
+      epg_locked: true,
       updated_at: db.fn.now(),
     }).returning('*');
     res.json(updated);
@@ -113,8 +128,9 @@ const MAX_REFRESH_INTERVAL_MINUTES = 525600; // 1 yil
 async function updateRefreshSettings(req, res, next) {
   try {
     const { refreshIntervalMinutes } = req.body || {};
-    if (refreshIntervalMinutes !== null && (!Number.isInteger(refreshIntervalMinutes) || refreshIntervalMinutes < 1 || refreshIntervalMinutes > MAX_REFRESH_INTERVAL_MINUTES)) {
-      throw createAppError('VALIDATION_ERROR', 'refreshIntervalMinutes null veya 1-525600 arasi bir tam sayi olmali');
+    const minimum = config.scheduler.minSyncIntervalMinutes;
+    if (refreshIntervalMinutes !== null && (!Number.isInteger(refreshIntervalMinutes) || refreshIntervalMinutes < minimum || refreshIntervalMinutes > MAX_REFRESH_INTERVAL_MINUTES)) {
+      throw createAppError('VALIDATION_ERROR', `refreshIntervalMinutes null veya ${minimum}-${MAX_REFRESH_INTERVAL_MINUTES} arası bir tam sayı olmalı (en kısa aralık ${minimum} dakika)`);
     }
     res.json(await epgService.updateRefreshSettings(req.userId, req.params.id, refreshIntervalMinutes));
   } catch (error) { next(error); }

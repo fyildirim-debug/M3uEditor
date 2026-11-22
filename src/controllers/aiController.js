@@ -66,11 +66,17 @@ async function chatStream(req, res, next) {
   };
   // Uzun arac zincirlerinde ara katmanlarin baglantiyi dusurmemesi icin nabiz.
   const heartbeat = setInterval(() => { if (!closed) res.write(': ping\n\n'); }, 15_000);
-  req.on('close', () => { closed = true; });
+  // Istemci baglantiyi kapatirsa (sekme kapandi, "Durdur") dongu bir sonraki
+  // adimda durur; aksi halde arac zinciri dakikalarca calisip token harcardi.
+  const abort = new AbortController();
+  res.on('close', () => {
+    closed = true;
+    if (!res.writableFinished) abort.abort();
+  });
 
   try {
     await aiService.chat(req.userId, {
-      message, conversationId, playlistId, allowDestructive, attachmentIds, stream: true, emit: send,
+      message, conversationId, playlistId, allowDestructive, attachmentIds, stream: true, emit: send, signal: abort.signal,
     });
   } catch (error) {
     logger.warn({ err: error, userId: req.userId }, 'AI stream failed');

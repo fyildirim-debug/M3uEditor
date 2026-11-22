@@ -1,4 +1,10 @@
 require('dotenv').config();
+const path = require('path');
+
+// Yollar dosyanin konumuna gore: masaustu uygulamasi ve paketlenmis kurulumlar
+// calisma dizini proje koku olmadan da migration'lari bulabilsin.
+const MIGRATIONS_DIR = path.join(__dirname, 'src', 'models', 'migrations');
+const SEEDS_DIR = path.join(__dirname, 'src', 'models', 'seeds');
 
 module.exports = {
   development: {
@@ -11,10 +17,10 @@ module.exports = {
       password: process.env.DB_PASSWORD || 'postgres',
     },
     migrations: {
-      directory: './src/models/migrations',
+      directory: MIGRATIONS_DIR,
     },
     seeds: {
-      directory: './src/models/seeds',
+      directory: SEEDS_DIR,
     },
   },
   test: {
@@ -27,10 +33,10 @@ module.exports = {
       password: process.env.DB_PASSWORD || 'postgres',
     },
     migrations: {
-      directory: './src/models/migrations',
+      directory: MIGRATIONS_DIR,
     },
     seeds: {
-      directory: './src/models/seeds',
+      directory: SEEDS_DIR,
     },
   },
   production: {
@@ -43,10 +49,10 @@ module.exports = {
       password: process.env.DB_PASSWORD,
     },
     migrations: {
-      directory: './src/models/migrations',
+      directory: MIGRATIONS_DIR,
     },
     seeds: {
-      directory: './src/models/seeds',
+      directory: SEEDS_DIR,
     },
     pool: {
       min: 2,

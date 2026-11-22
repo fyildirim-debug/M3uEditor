@@ -211,6 +211,10 @@
                 </div>
                 <code class="ai-approval-tool">{{ message.pending.tool }}</code>
                 <p class="ai-approval-impact">{{ message.pending.impact }}</p>
+                <details v-if="hasArgs(message.pending.args)" class="ai-approval-args">
+                  <summary>{{ t('ai.approvalArgs') }}</summary>
+                  <pre>{{ formatArgs(message.pending.args) }}</pre>
+                </details>
                 <div class="ai-approval-actions">
                   <button class="btn btn-secondary btn-sm" type="button" :disabled="sending" @click="resolveApproval(message, false)">{{ t('ai.reject') }}</button>
                   <button class="btn btn-primary btn-sm" type="button" :disabled="sending" @click="resolveApproval(message, true)">{{ t('ai.approve') }}</button>
@@ -244,7 +248,10 @@
             <span v-if="uploading" class="spinner spinner-sm"></span>
             <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
           </button>
-          <button class="btn btn-primary btn-icon" type="button" :disabled="sending || (!draft.trim() && !pendingFiles.length)" :aria-label="t('ai.send')" @click="send()">
+          <button v-if="sending && streamAbort" class="btn btn-secondary btn-icon" type="button" :title="t('ai.stop')" :aria-label="t('ai.stop')" @click="stopStreaming()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          </button>
+          <button v-else class="btn btn-primary btn-icon" type="button" :disabled="sending || (!draft.trim() && !pendingFiles.length)" :aria-label="t('ai.send')" @click="send()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </footer>
@@ -263,6 +270,7 @@
 </template>
 
 <script setup>
+import { apiErrorMessage } from '../utils/apiError'
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch, inject } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
@@ -278,6 +286,26 @@ const toast = inject('toast', () => {})
 const open = ref(false)
 const view = ref('chat')
 const sending = ref(false)
+// Akış sürerken "Durdur" düğmesi bu denetleyiciyi tetikler; bağlantı kapanınca
+// sunucu da araç döngüsünü bir sonraki adımda keser.
+const streamAbort = ref(null)
+
+function stopStreaming() {
+  streamAbort.value?.abort()
+}
+
+function hasArgs(args) {
+  return args && typeof args === 'object' && Object.keys(args).length > 0
+}
+
+function formatArgs(args) {
+  try {
+    const text = JSON.stringify(args, null, 2)
+    return text.length > 2000 ? `${text.slice(0, 2000)}\n…` : text
+  } catch {
+    return ''
+  }
+}
 const uploading = ref(false)
 const draft = ref('')
 const scroller = ref(null)
@@ -482,7 +510,7 @@ async function onFileSelect(event) {
       pendingFiles.value.push(data)
     }
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.attachFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.attachFailed'), 'error')
   } finally {
     uploading.value = false
   }
@@ -507,7 +535,7 @@ async function downloadFile(file) {
     link.remove()
     URL.revokeObjectURL(url)
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.downloadFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.downloadFailed'), 'error')
   }
 }
 
@@ -525,7 +553,7 @@ function notifyDataChanged(steps) {
  * (eski tarayıcı, araya giren vekil sunucu, 401 sonrası token tazeleme)
  * `false` döner ve çağıran akışsız uca düşer.
  */
-async function streamChat(payload, onEvent) {
+async function streamChat(payload, onEvent, signal) {
   if (typeof fetch !== 'function' || !window.ReadableStream) return false
   const token = sessionStorage.getItem('token')
   let response
@@ -535,8 +563,11 @@ async function streamChat(payload, onEvent) {
       headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify(payload),
       credentials: 'include',
+      signal,
     })
-  } catch {
+  } catch (error) {
+    // Kullanıcı durdurduysa akışsız uca düşülmez; istek iptal edilmiştir.
+    if (error?.name === 'AbortError') return 'aborted'
     return false
   }
   if (!response.ok || !response.body) return false
@@ -545,7 +576,14 @@ async function streamChat(payload, onEvent) {
   const decoder = new TextDecoder()
   let buffer = ''
   for (;;) {
-    const { done, value } = await reader.read()
+    let chunk
+    try {
+      chunk = await reader.read()
+    } catch (error) {
+      if (error?.name === 'AbortError') return 'aborted'
+      throw error
+    }
+    const { done, value } = chunk
     if (done) break
     buffer += decoder.decode(value, { stream: true })
     let boundary = buffer.indexOf('\n\n')
@@ -587,7 +625,9 @@ function applyEvent(event, target) {
     target.pending = event.pendingApproval || target.pending
     notifyDataChanged(event.steps)
   } else if (event.type === 'error') {
-    target.content = target.content || event.message || t('ai.failed')
+    // Kısmi metinden sonra gelen hata da görünmeli; yoksa yanıt tamamlanmış sanılır.
+    const message = event.message || t('ai.failed')
+    target.content = target.content ? `${target.content}\n\n⚠ ${message}` : message
   }
   scrollToEnd()
 }
@@ -614,9 +654,13 @@ async function send(preset) {
     attachmentIds: files.length ? files.map((file) => file.id) : undefined,
   }
 
+  const controller = typeof AbortController === 'function' ? new AbortController() : null
+  streamAbort.value = controller
   try {
-    const streamed = await streamChat(payload, (event) => applyEvent(event, assistant))
-    if (!streamed) {
+    const streamed = await streamChat(payload, (event) => applyEvent(event, assistant), controller?.signal)
+    if (streamed === 'aborted') {
+      assistant.content = assistant.content ? `${assistant.content}\n\n${t('ai.stopped')}` : t('ai.stopped')
+    } else if (!streamed) {
       // Akışsız yedek yol: axios token tazelemeyi de üstlenir.
       const { data } = await api.post('/ai/chat', payload)
       conversationId.value = data.conversationId
@@ -631,10 +675,11 @@ async function send(preset) {
       assistant.content = t('ai.failed')
     }
   } catch (error) {
-    assistant.content = error.response?.data?.error?.message || t('ai.failed')
+    assistant.content = apiErrorMessage(error, t, 'ai.failed')
   } finally {
     assistant.streaming = false
     sending.value = false
+    streamAbort.value = null
     streamingMessage.value = null
     scrollToEnd()
   }
@@ -658,7 +703,7 @@ async function resolveApproval(message, approved) {
     assistant.pending = data.pendingApproval || null
     notifyDataChanged(data.steps)
   } catch (error) {
-    assistant.content = error.response?.data?.error?.message || t('ai.failed')
+    assistant.content = apiErrorMessage(error, t, 'ai.failed')
   } finally {
     assistant.streaming = false
     sending.value = false
@@ -691,7 +736,7 @@ async function deleteConversation(item) {
     conversations.value = conversations.value.filter((row) => row.id !== item.id)
     if (conversationId.value === item.id) startNewChat()
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.failed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.failed'), 'error')
   }
 }
 
@@ -713,7 +758,7 @@ async function loadRuns(taskId) {
     const { data } = await api.get(`/ai/tasks/${taskId}/runs`)
     runs.value = data.runs || []
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.taskFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.taskFailed'), 'error')
     runs.value = []
   } finally {
     runsLoading.value = false
@@ -747,7 +792,7 @@ function undoRun(run) {
       await loadRuns(run.taskId)
       await loadTasks()
     } catch (error) {
-      toast(error.response?.data?.error?.message || t('ai.runUndoFailed'), 'error')
+      toast(apiErrorMessage(error, t, 'ai.runUndoFailed'), 'error')
     } finally {
       busyRunId.value = null
     }
@@ -772,7 +817,7 @@ async function toggleTask(task) {
     const { data } = await api.patch(`/ai/tasks/${task.id}`, { enabled: !task.enabled })
     Object.assign(task, data)
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.taskFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.taskFailed'), 'error')
   } finally {
     busyTaskId.value = null
   }
@@ -787,7 +832,7 @@ async function runTask(task) {
     window.dispatchEvent(new CustomEvent('ai:data-changed'))
     toast(t('ai.taskRanOk', { name: task.name }), 'success')
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.taskFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.taskFailed'), 'error')
     await loadTasks()
   } finally {
     busyTaskId.value = null
@@ -800,7 +845,7 @@ async function deleteTask(task) {
     await api.delete(`/ai/tasks/${task.id}`)
     tasks.value = tasks.value.filter((item) => item.id !== task.id)
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.taskFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.taskFailed'), 'error')
   } finally {
     busyTaskId.value = null
   }
@@ -939,6 +984,19 @@ onUnmounted(() => window.removeEventListener('ai:settings-changed', onExternalSe
 .ai-approval-tool { font-size: 11.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-primary); }
 .ai-approval-impact { font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
 .ai-approval-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.ai-approval-args { font-size: 11.5px; color: var(--text-secondary); }
+.ai-approval-args summary { cursor: pointer; }
+.ai-approval-args pre {
+  margin: 6px 0 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--bg-tertiary, rgba(127, 127, 127, 0.08));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 .ai-history-row {
   display: flex; align-items: center; gap: 4px;

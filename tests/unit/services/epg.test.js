@@ -95,7 +95,55 @@ describe('EPGService', () => {
     expect(result.matches.map((item) => item.confidence)).toEqual([1, 0.5]);
     expect(mockDb.raw).toHaveBeenCalledTimes(1);
     expect(mockDb.raw.mock.calls[0][0]).toEqual(expect.stringMatching(/channel_tokens[\s\S]+similarity\([\s\S]+UPDATE channels/));
-    expect(mockDb.raw.mock.calls[0][1]).toEqual(['playlist-1', 'user-1', 'user-1']);
+    const bindings = mockDb.raw.mock.calls[0][1];
+    // overwrite=false, playlist, user (kanallar), user (EPG), stop-word listeleri, token frekans siniri, guven esigi
+    expect(bindings.slice(0, 4)).toEqual([false, 'playlist-1', 'user-1', 'user-1']);
+    expect(bindings[bindings.length - 1]).toBe(0.5);
+  });
+
+  test('never touches locked mappings and only fills empty ones unless overwrite is requested', async () => {
+    mockDb.raw.mockResolvedValue({ rows: [{ total: 0, matches: [] }] });
+
+    await service.autoMatch('user-1', 'playlist-1');
+    const sql = mockDb.raw.mock.calls[0][0];
+    expect(sql).toMatch(/NOT c\.epg_locked AND \(\?::boolean OR c\.epg_channel_id IS NULL OR c\.epg_channel_id = ''\)/);
+    expect(sql).toMatch(/WHERE c\.id = best\.playlist_channel_id\s+AND NOT c\.epg_locked/);
+    expect(mockDb.raw.mock.calls[0][1][0]).toBe(false);
+
+    await service.autoMatch('user-1', 'playlist-1', null, { overwrite: true });
+    expect(mockDb.raw.mock.calls[1][1][0]).toBe(true);
+
+    // Otomatik (ice aktarim sonrasi) calisma overwrite istese bile yalnizca bos olanlari doldurur.
+    await service.autoMatch('user-1', 'playlist-1', null, { overwrite: true, automatic: true });
+    expect(mockDb.raw.mock.calls[2][1][0]).toBe(false);
+  });
+
+  test('drops quality and country stop-words and frequent tokens from the token join', async () => {
+    mockDb.raw.mockResolvedValue({ rows: [{ total: 0, matches: [] }] });
+
+    await service.autoMatch('user-1', 'playlist-1', null, { automatic: true });
+    const [sql, bindings] = mockDb.raw.mock.calls[0];
+    const stopWords = bindings.find((value) => Array.isArray(value));
+    expect(stopWords).toEqual(expect.arrayContaining(['hd', 'fhd', 'uhd', 'sd', '4k', 'tv', 'hevc', 'h265', 'raw', 'backup', 'vip', 'tr', 'uk', 'us', 'de']));
+    expect(sql).toMatch(/token <> ALL\(\?::text\[\]\)/);
+    expect(sql).toMatch(/f\.frequency <= \?/);
+    // Otomatik calismada guven esigi 0.7
+    expect(bindings[bindings.length - 1]).toBe(0.7);
+  });
+
+  test('import-triggered matching runs in automatic mode', async () => {
+    jest.spyOn(service, 'addSource').mockResolvedValue({ id: 'source-auto' });
+    jest.spyOn(service, 'parseAndStore').mockResolvedValue({ channelCount: 1, programCount: 1 });
+    const autoMatch = jest.spyOn(service, 'autoMatch').mockResolvedValue({ matched: 0, total: 0, matches: [] });
+
+    await service.enqueueSource('user-1', 'https://epg.example.com/x.xml', 'playlist-1');
+
+    expect(autoMatch).toHaveBeenCalledWith('user-1', 'playlist-1', null, { automatic: true });
+  });
+
+  test('rejects refresh intervals below the configured floor', async () => {
+    mockDb.mockReturnValue(builder({ first: { id: 'source-1', user_id: 'user-1' } }));
+    await expect(service.updateRefreshSettings('user-1', 'source-1', 5)).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 
   test('rejects empty or sharply reduced guides unless force is explicit', () => {

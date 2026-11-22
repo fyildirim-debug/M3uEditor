@@ -28,7 +28,7 @@ function parseCookies(req) {
 function setRefreshCookie(res, token) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: config.isProduction,
+    secure: config.cookieSecure,
     sameSite: 'strict',
     path: '/api/auth',
     maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -36,7 +36,7 @@ function setRefreshCookie(res, token) {
 }
 
 function clearRefreshCookie(res) {
-  res.clearCookie(COOKIE_NAME, { httpOnly: true, secure: config.isProduction, sameSite: 'strict', path: '/api/auth' });
+  res.clearCookie(COOKIE_NAME, { httpOnly: true, secure: config.cookieSecure, sameSite: 'strict', path: '/api/auth' });
 }
 
 function validateCredentials(email, password) {
@@ -60,6 +60,35 @@ async function register(req, res, next) {
     const result = await authService.register(email, password, metadata(req));
     setRefreshCookie(res, result.refreshToken);
     res.status(201).json(publicAuthResult(result));
+  } catch (error) { next(error); }
+}
+
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+function tokensMatch(given, expected) {
+  const crypto = require('crypto');
+  const left = crypto.createHash('sha256').update(String(given || '')).digest();
+  const right = crypto.createHash('sha256').update(String(expected || '')).digest();
+  return crypto.timingSafeEqual(left, right);
+}
+
+/**
+ * Masaustu uygulamasinin ana sureci yerel hesaba oturum acar.
+ *
+ * Uc yalnizca DESKTOP_LOGIN_TOKEN tanimliyken vardir (Docker/sunucu
+ * kurulumunda 404), istek geri donus adresinden gelmeli ve paylasilan gizli
+ * degeri tasimalidir. Gizli deger arayuze (pencere icerigine) hic verilmez;
+ * yalnizca ana surec bilir.
+ */
+async function desktopSession(req, res, next) {
+  try {
+    if (!config.desktopLoginToken) throw createAppError('NOT_FOUND');
+    if (!LOOPBACK_ADDRESSES.has(req.socket?.remoteAddress) || !tokensMatch(req.get('x-desktop-token'), config.desktopLoginToken)) {
+      throw createAppError('FORBIDDEN');
+    }
+    const result = await authService.desktopSession(metadata(req));
+    setRefreshCookie(res, result.refreshToken);
+    res.json(publicAuthResult(result));
   } catch (error) { next(error); }
 }
 
@@ -119,7 +148,7 @@ async function changePassword(req, res, next) {
 async function changeEmail(req, res, next) {
   try {
     const { password, newEmail } = req.body;
-    if (!password || !newEmail || typeof newEmail !== 'string' || !EMAIL_REGEX.test(newEmail)) {
+    if (!password || typeof password !== 'string' || !newEmail || typeof newEmail !== 'string' || !EMAIL_REGEX.test(newEmail)) {
       throw createAppError('VALIDATION_ERROR', 'Geçerli e-posta ve şifre gerekli');
     }
     res.json(await authService.changeEmail(req.userId, password, newEmail));
@@ -128,7 +157,7 @@ async function changeEmail(req, res, next) {
 
 async function deleteAccount(req, res, next) {
   try {
-    if (!req.body?.password) throw createAppError('VALIDATION_ERROR', 'Şifre gerekli');
+    if (!req.body?.password || typeof req.body.password !== 'string') throw createAppError('VALIDATION_ERROR', 'Şifre gerekli');
     await authService.deleteAccount(req.userId, req.body.password);
     clearRefreshCookie(res);
     res.json({ success: true });
@@ -174,6 +203,7 @@ async function resetPassword(req, res, next) {
 }
 
 module.exports = {
+  desktopSession,
   register,
   registrationStatus,
   login,

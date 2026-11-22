@@ -39,6 +39,7 @@ import { computed, inject, reactive, ref } from 'vue'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import EditorFeatureModal from './EditorFeatureModal.vue'
+import { apiErrorMessage } from '../utils/apiError'
 
 const props = defineProps({
   channelIds: { type: Array, required: true },
@@ -69,7 +70,7 @@ async function applyUpdate() {
     emit('applied', data)
     emit('close')
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('common.error'), 'error')
+    toast(apiErrorMessage(error, t, 'common.error'), 'error')
   } finally {
     saving.value = false
   }

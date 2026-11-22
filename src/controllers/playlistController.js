@@ -1,12 +1,16 @@
 const playlistService = require('../services/PlaylistService');
+const config = require('../config');
 const { createAppError } = require('../utils/AppError');
 
 const MAX_SYNC_INTERVAL_MINUTES = 525600; // 1 yil
 
+// Dakikada bir sync saglayiciyi dover ve hesabin engellenmesine yol acar;
+// en kisa aralik MIN_SYNC_INTERVAL_MINUTES (varsayilan 15).
 function validateSyncInterval(value) {
   if (value === null) return;
-  if (!Number.isInteger(value) || value < 1 || value > MAX_SYNC_INTERVAL_MINUTES) {
-    throw createAppError('VALIDATION_ERROR', 'syncIntervalMinutes null veya 1-525600 arasi bir tam sayi olmali');
+  const minimum = config.scheduler.minSyncIntervalMinutes;
+  if (!Number.isInteger(value) || value < minimum || value > MAX_SYNC_INTERVAL_MINUTES) {
+    throw createAppError('VALIDATION_ERROR', `syncIntervalMinutes null veya ${minimum}-${MAX_SYNC_INTERVAL_MINUTES} arası bir tam sayı olmalı (en kısa aralık ${minimum} dakika)`);
   }
 }
 
@@ -17,6 +21,23 @@ async function listPlaylists(req, res, next) {
   try {
     const playlists = await playlistService.list(req.userId);
     res.json(playlists);
+  } catch (err) {
+    next(err);
+  }
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * GET /api/playlists/:id
+ */
+async function getPlaylist(req, res, next) {
+  try {
+    const { id } = req.params;
+    // Gecersiz UUID Postgres'te 22P02 (500) uretir; bulunamadi olarak raporla.
+    if (!UUID_PATTERN.test(String(id))) throw createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı');
+    const playlist = await playlistService.getById(req.userId, id);
+    res.json(playlist);
   } catch (err) {
     next(err);
   }
@@ -114,4 +135,4 @@ async function updateSyncSettings(req, res, next) {
   }
 }
 
-module.exports = { listPlaylists, createPlaylist, updatePlaylist, deletePlaylist, updateSyncSettings };
+module.exports = { listPlaylists, getPlaylist, createPlaylist, updatePlaylist, deletePlaylist, updateSyncSettings };

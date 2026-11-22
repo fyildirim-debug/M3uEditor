@@ -45,6 +45,8 @@ describe('Database Migrations', () => {
       '20240101000031_drop_output_stream_mode.js',
       '20240101000032_create_ai_task_runs.js',
       '20240101000033_add_output_short_link.js',
+      '20240101000034_scheduler_backoff_and_epg_lock.js',
+      '20240101000040_ai_safety_defaults.js',
     ]);
   });
 
@@ -114,10 +116,12 @@ describe('Knexfile Configuration', () => {
     expect(knexConfig.test.connection.database).toMatch(/_test$/);
   });
 
-  test('migrations directory points to src/models/migrations', () => {
-    expect(knexConfig.development.migrations.directory).toBe('./src/models/migrations');
-    expect(knexConfig.test.migrations.directory).toBe('./src/models/migrations');
-    expect(knexConfig.production.migrations.directory).toBe('./src/models/migrations');
+  test('migrations directory points to src/models/migrations regardless of the working directory', () => {
+    // Mutlak yol: masaustu uygulamasi proje kokunden calismaz.
+    const expected = path.join(__dirname, '..', '..', '..', 'src', 'models', 'migrations');
+    expect(knexConfig.development.migrations.directory).toBe(expected);
+    expect(knexConfig.test.migrations.directory).toBe(expected);
+    expect(knexConfig.production.migrations.directory).toBe(expected);
   });
 
   test('production has connection pool config', () => {

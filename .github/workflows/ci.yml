@@ -37,14 +37,15 @@ jobs:
       CREDENTIAL_ENCRYPTION_KEY: ci-only-encryption-secret
 
     steps:
-      - uses: actions/checkout@v4
+      # Aksiyonlar commit SHA'sina sabit; yorumdaki etiket yalnizca okunabilirlik icin.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Reject tracked runtime data
         run: |
           if test -n "$(git ls-files data/)"; then
             echo "Runtime data must not be committed"
             exit 1
           fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -69,10 +70,34 @@ jobs:
           npm run check
           npm audit --audit-level=high
 
+      - name: Check TR/EN translation parity
+        run: node frontend/src/langs/check-parity.js
+
       - name: Validate Compose configuration
         env:
           DB_PASSWORD: ci-compose-db-password
           JWT_SECRET: ci-compose-jwt-secret-with-at-least-32-chars
           CREDENTIAL_ENCRYPTION_KEY: ci-compose-encryption-key-at-least-32-chars
+          SEARXNG_SECRET: ci-compose-searxng-secret
           APP_URL: http://localhost
-        run: docker compose config --quiet
+        run: |
+          docker compose config --quiet
+          # Dokploy dosyasi ana dosyanin kopyasi; ikisi birlikte dogrulanir ki
+          # biri degisip digeri bozuk kalmasin.
+          docker compose -f docker-compose.dokploy.yml config --quiet
+
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Build API image
+        run: docker build --pull -t m3u-api:ci .
+
+      - name: Build frontend image
+        run: docker build --pull -t m3u-frontend:ci frontend
+
+      - name: Test nginx configuration
+        # `api` adi istek aninda cozulur (resolver + degisken); --add-host yalnizca
+        # ileride statik bir upstream eklenirse testin yine calismasi icin.
+        run: docker run --rm --add-host api:127.0.0.1 m3u-frontend:ci nginx -t

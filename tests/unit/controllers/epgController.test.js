@@ -15,6 +15,7 @@ const mockEpgService = {
   refreshSource: jest.fn(),
   getGuide: jest.fn(),
   searchEpgChannels: jest.fn(),
+  updateRefreshSettings: jest.fn(),
 };
 jest.mock('../../../src/services/EPGService', () => jest.fn(() => mockEpgService));
 
@@ -121,7 +122,44 @@ describe('EPG Controller', () => {
     const response = await request(app).post(`/api/playlists/${PLAYLIST_ID}/epg/auto-match`)
       .set('Authorization', `Bearer ${token()}`);
     expect(response.status).toBe(200);
-    expect(mockEpgService.autoMatch).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID);
+    expect(mockEpgService.autoMatch).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID, null, { overwrite: false });
+  });
+
+  test('passes an explicit overwrite request to auto-match and validates its type', async () => {
+    mockEpgService.autoMatch.mockResolvedValue({ matched: 0, total: 0, matches: [] });
+    const response = await request(app).post(`/api/playlists/${PLAYLIST_ID}/epg/auto-match`)
+      .set('Authorization', `Bearer ${token()}`).send({ overwrite: true });
+    expect(response.status).toBe(200);
+    expect(mockEpgService.autoMatch).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID, null, { overwrite: true });
+
+    const invalid = await request(app).post(`/api/playlists/${PLAYLIST_ID}/epg/auto-match`)
+      .set('Authorization', `Bearer ${token()}`).send({ overwrite: 'yes' });
+    expect(invalid.status).toBe(400);
+  });
+
+  test('locks a manually assigned EPG mapping against auto-match', async () => {
+    const ownedChannel = chain({ first: { id: CHANNEL_ID } });
+    const ownedEpg = chain({ rows: [{ source_id: SOURCE_ID }] });
+    const update = chain({ returning: [{ id: CHANNEL_ID, epg_channel_id: 'bbc.news', epg_locked: true }] });
+    mockDb
+      .mockReturnValueOnce(ownedChannel)
+      .mockReturnValueOnce(ownedEpg)
+      .mockReturnValueOnce(update);
+
+    const response = await request(app).put(`/api/channels/${CHANNEL_ID}/epg`)
+      .set('Authorization', `Bearer ${token()}`)
+      .send({ epgChannelId: 'bbc.news', epgSourceId: SOURCE_ID });
+
+    expect(response.status).toBe(200);
+    expect(update.update).toHaveBeenCalledWith(expect.objectContaining({ epg_locked: true, epg_channel_id: 'bbc.news' }));
+  });
+
+  test('rejects EPG refresh intervals below the configured floor', async () => {
+    const response = await request(app).put(`/api/epg/sources/${SOURCE_ID}/refresh-settings`)
+      .set('Authorization', `Bearer ${token()}`).send({ refreshIntervalMinutes: 1 });
+    expect(response.status).toBe(400);
+    expect(response.body.error.message).toMatch(/15/);
+    expect(mockEpgService.updateRefreshSettings).not.toHaveBeenCalled();
   });
 
   test('assigns a source-scoped EPG channel after ownership checks', async () => {

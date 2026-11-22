@@ -142,6 +142,8 @@ module.exports = {
         original_logo_url: args.logoUrl || null,
         category_id: args.categoryId || null,
         epg_channel_id: args.epgChannelId || null,
+        // Elle verilen eslesme otomatik eslestirmede ezilmesin.
+        epg_locked: Boolean(args.epgChannelId),
         epg_source_id: epgSourceId,
         stream_type: ['live', 'vod', 'series'].includes(args.streamType) ? args.streamType : 'live',
         sort_order: (maxSort?.max ?? -1) + 1,
@@ -215,6 +217,7 @@ module.exports = {
             original_logo_url: item?.logoUrl || null,
             category_id: categoryId,
             epg_channel_id: item?.epgChannelId || null,
+            epg_locked: Boolean(item?.epgChannelId),
             stream_type: ['live', 'vod', 'series'].includes(item?.streamType) ? item.streamType : 'live',
             sort_order: order++,
             extras: JSON.stringify({}),
@@ -228,6 +231,8 @@ module.exports = {
   },
 
   update_channel: {
+    // Akis adresini degistirmek kanali baska bir kaynaga yonlendirir; sorulur.
+    requiresApproval: (args) => args.streamUrl !== undefined,
     description: 'Tek bir kanalın adını, logosunu, akış adresini, EPG kimliğini veya kategorisini günceller.',
     parameters: {
       type: 'object',
@@ -246,7 +251,10 @@ module.exports = {
       if (args.name !== undefined) updates.name = args.name;
       if (args.logoUrl !== undefined) updates.logo_url = args.logoUrl;
       if (args.streamUrl !== undefined) updates.stream_url = args.streamUrl;
-      if (args.epgChannelId !== undefined) updates.epg_channel_id = args.epgChannelId;
+      if (args.epgChannelId !== undefined) {
+        updates.epg_channel_id = args.epgChannelId;
+        updates.epg_locked = Boolean(args.epgChannelId);
+      }
       if (args.categoryId !== undefined) updates.category_id = args.categoryId;
       if (!Object.keys(updates).length) throw createAppError('VALIDATION_ERROR', 'Güncellenecek alan gönderin');
       return compactChannel(await channelService.update(ctx.userId, args.channelId, updates));
@@ -276,7 +284,10 @@ module.exports = {
       const updates = {};
       if (args.set?.categoryId !== undefined) updates.category_id = args.set.categoryId;
       if (args.set?.logoUrl !== undefined) updates.logo_url = args.set.logoUrl;
-      if (args.set?.epgChannelId !== undefined) updates.epg_channel_id = args.set.epgChannelId;
+      if (args.set?.epgChannelId !== undefined) {
+        updates.epg_channel_id = args.set.epgChannelId;
+        updates.epg_locked = Boolean(args.set.epgChannelId);
+      }
       if (!Object.keys(updates).length) throw createAppError('VALIDATION_ERROR', 'set alanında güncellenecek değer yok');
       return channelService.bulkUpdate(ctx.userId, ids, updates);
     },

@@ -81,7 +81,7 @@ describe('AI attachment store', () => {
     const inserted = expectStore();
     const content = '#EXTM3U\n#EXTINF:-1 group-title="Spor",Kanal 1\nhttp://x/1.ts\n';
 
-    const file = await attachments.save('user-1', { conversationId: 'conv-1', filename: 'liste.m3u', content });
+    const file = await attachments.save('user-1', { conversationId: '6f1c2e8a-1b2c-4d3e-8f90-0a1b2c3d4e5f', filename: 'liste.m3u', content });
 
     expect(inserted.format).toBe('m3u');
     expect(inserted.user_id).toBe('user-1');
@@ -89,6 +89,19 @@ describe('AI attachment store', () => {
     expect(JSON.parse(inserted.meta)).toMatchObject({ entryCount: 1, groupCount: 1 });
     expect(await fs.readFile(inserted.storage_path, 'utf8')).toBe(content);
     expect(file.downloadUrl).toBe(`/api/ai/attachments/${inserted.id}/download`);
+  });
+
+  test('refuses to attach a file to a conversation the user does not own', async () => {
+    mockDb.mockImplementation((table) => {
+      const query = builder({ sum: 0 });
+      if (table === 'ai_conversations') query.first = jest.fn().mockResolvedValue(undefined);
+      return query;
+    });
+    await expect(attachments.save('user-1', {
+      conversationId: '6f1c2e8a-1b2c-4d3e-8f90-0a1b2c3d4e5f', filename: 'a.txt', content: 'merhaba',
+    })).rejects.toThrow(/Sohbet bulunamadı/);
+    await expect(attachments.save('user-1', { conversationId: 'not-a-uuid', filename: 'a.txt', content: 'merhaba' }))
+      .rejects.toThrow(/Sohbet bulunamadı/);
   });
 
   test('rejects a file larger than the per-file limit', async () => {
@@ -125,7 +138,7 @@ describe('AI attachment reading', () => {
 
   /** Diske gercek bir dosya yazar ve satirini dondurur. */
   async function seed(content, format = 'text') {
-    const id = `seed-${Math.random().toString(36).slice(2)}`;
+    const id = require('crypto').randomUUID();
     const storagePath = path.join(mockTestDir, 'user-1', id);
     await fs.mkdir(path.dirname(storagePath), { recursive: true });
     await fs.writeFile(storagePath, content, 'utf8');

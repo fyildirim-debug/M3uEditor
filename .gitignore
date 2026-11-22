@@ -24,11 +24,18 @@ Thumbs.db
 # Uploads
 public/logos/
 
-# Test
+# Test / one-off local output
 test-output.txt
 test-result.txt
+build-check.txt
+pw-test*.cjs
+playwright-report/
+test-results/
 .reports/
 .fy/dev.pid
 
 # Uploads & runtime data
 data/
+
+# Masaustu ikon kaynaklari derleme ciktisi degildir.
+!desktop/build/

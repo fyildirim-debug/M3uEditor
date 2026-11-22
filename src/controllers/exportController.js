@@ -4,12 +4,23 @@ const { createAppError } = require('../utils/AppError');
 const { validateIdArray } = require('../utils/validation');
 const { validate: validateUuid } = require('uuid');
 
+/**
+ * `?excludeCategories=a,b` ya da `?excludeCategories=a&excludeCategories=b`
+ * (Express ikincisini diziye cevirir). Ikisi de kabul edilir.
+ */
+function parseIdList(value) {
+  if (value === undefined || value === null || value === '') return [];
+  const parts = (Array.isArray(value) ? value : [value]).flatMap((item) => {
+    if (typeof item !== 'string') throw createAppError('VALIDATION_ERROR', 'Geçersiz kategori listesi');
+    return item.split(',');
+  }).map((item) => item.trim()).filter(Boolean);
+  return parts.length ? validateIdArray(parts) : [];
+}
+
 async function exportPlaylist(req, res, next) {
   try {
     const { id: playlistId } = req.params;
-    const excludeCategories = req.query.excludeCategories
-      ? validateIdArray(req.query.excludeCategories.split(',').filter(Boolean))
-      : [];
+    const excludeCategories = parseIdList(req.query.excludeCategories);
     const streamType = req.query.streamType || null;
     if (streamType && !['live', 'vod', 'series'].includes(streamType)) {
       throw createAppError('VALIDATION_ERROR', 'Geçersiz içerik türü');

@@ -15,10 +15,12 @@
 
       <div class="header-right">
         <div class="lang-switcher" v-if="langs.length > 1">
-          <button v-for="l in langs" :key="l.code"
+          <button v-for="l in langs" :key="l.code" type="button"
             :class="['lang-btn', { active: lang === l.code }]"
             @click="setLang(l.code)"
-            :title="l.name">
+            :title="l.name"
+            :aria-label="l.name"
+            :aria-pressed="lang === l.code ? 'true' : 'false'">
             <span class="lang-flag" v-html="l.flag"></span>
           </button>
         </div>
@@ -46,7 +48,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
           {{ t('nav.playlists') }}
         </router-link>
-        <router-link v-if="auth.user?.is_admin" to="/admin" class="nav-link" active-class="active">{{ t('nav.admin') }}</router-link>
+        <router-link v-if="auth.user?.is_admin && !isDesktop" to="/admin" class="nav-link" active-class="active">{{ t('nav.admin') }}</router-link>
       </nav>
 
       <div class="header-right">
@@ -62,10 +64,12 @@
         </button>
 
         <div class="lang-switcher" v-if="langs.length > 1">
-          <button v-for="l in langs" :key="l.code"
+          <button v-for="l in langs" :key="l.code" type="button"
             :class="['lang-btn', { active: lang === l.code }]"
             @click="setLang(l.code)"
-            :title="l.name">
+            :title="l.name"
+            :aria-label="l.name"
+            :aria-pressed="lang === l.code ? 'true' : 'false'">
             <span class="lang-flag" v-html="l.flag"></span>
           </button>
         </div>
@@ -73,13 +77,13 @@
         <div class="header-sep hide-mobile" aria-hidden="true"></div>
 
         <div class="user-menu" role="group" :aria-label="t('accessibility.userInfo')">
-          <router-link to="/account" class="user-avatar" :title="auth.user?.email" style="text-decoration:none;color:inherit;">
-            {{ auth.user?.email?.charAt(0).toUpperCase() }}
+          <router-link to="/account" class="user-avatar" :title="displayName" style="text-decoration:none;color:inherit;">
+            {{ displayName.charAt(0).toUpperCase() }}
           </router-link>
-          <router-link to="/account" class="user-email hide-mobile" style="text-decoration:none;color:inherit;">{{ auth.user?.email }}</router-link>
+          <router-link to="/account" class="user-email hide-mobile" style="text-decoration:none;color:inherit;">{{ displayName }}</router-link>
         </div>
 
-        <button class="btn btn-ghost btn-sm logout-btn" @click="handleLogout" :aria-label="t('accessibility.logout')">
+        <button v-if="!isDesktop" class="btn btn-ghost btn-sm logout-btn" @click="handleLogout" :aria-label="t('accessibility.logout')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           <span class="hide-mobile">{{ t('auth.logout') }}</span>
         </button>
@@ -91,19 +95,21 @@
     <AiAssistant v-if="auth.isLoggedIn" />
 
     <Teleport to="body">
-      <TransitionGroup name="toast" tag="div" class="toast-container" aria-live="assertive" aria-atomic="true">
+      <TransitionGroup name="toast" tag="div" class="toast-container" aria-live="polite" aria-relevant="additions">
         <div
-          v-for="t in toasts"
-          :key="t.id"
-          :class="['toast', 'toast-' + t.type]"
-          role="alert"
-          @click="dismissToast(t.id)"
+          v-for="toast in toasts"
+          :key="toast.id"
+          :class="['toast', 'toast-' + toast.type]"
+          :role="toast.type === 'error' ? 'alert' : 'status'"
+          :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"
+          aria-atomic="true"
+          @click="dismissToast(toast.id)"
         >
-          <svg v-if="t.type === 'success'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          <svg v-else-if="t.type === 'error'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          <svg v-if="toast.type === 'success'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <svg v-else-if="toast.type === 'error'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
           <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          <span>{{ t.message }}</span>
-          <button class="toast-dismiss" :aria-label="t('accessibility.dismissNotification')">
+          <span>{{ toast.message }}</span>
+          <button type="button" class="toast-dismiss" :aria-label="t('accessibility.dismissNotification')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -114,6 +120,7 @@
 
 <script setup>
 import { ref, computed, provide, onMounted, onUnmounted, nextTick } from 'vue'
+import { isDesktop } from './desktop'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useI18n } from './langs/useI18n'
@@ -124,6 +131,8 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 const { t, lang, setLang, langs } = useI18n()
+// Masaüstünde e-posta yerine "Bu bilgisayar": hesap ana süreç tarafından açılır.
+const displayName = computed(() => (isDesktop ? t('desktop.localAccount') : (auth.user?.email || '')))
 const { theme, setTheme } = useTheme()
 
 function cycleTheme() {
@@ -163,7 +172,7 @@ function showToast(message, type = 'info') {
 }
 
 function dismissToast(id) {
-  toasts.value = toasts.value.filter(t => t.id !== id)
+  toasts.value = toasts.value.filter(toast => toast.id !== id)
 }
 
 provide('toast', showToast)

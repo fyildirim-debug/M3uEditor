@@ -104,6 +104,26 @@ describe('AI scheduled task validation', () => {
     expect(inserted.allow_destructive).toBe(false);
   });
 
+  test('a destructive task must be bound to a playlist so it can be undone', async () => {
+    mockTables({
+      ai_tasks: () => builder({ first: { count: '0' } }),
+      ai_settings: () => builder({ first: { allow_destructive: true } }),
+    });
+    await expect(taskService.create('user-1', { name: 'a', prompt: 'b', intervalMinutes: 60, allowDestructive: true }))
+      .rejects.toThrow(/listeye bağlanmalıdır/i);
+  });
+
+  test('a destructive task cannot exceed the user\'s own destructive setting', async () => {
+    mockTables({
+      ai_tasks: () => builder({ first: { count: '0' } }),
+      playlists: () => builder({ first: { id: 'pl-1' } }),
+      ai_settings: () => builder({ first: { allow_destructive: false } }),
+    });
+    await expect(taskService.create('user-1', {
+      name: 'a', prompt: 'b', intervalMinutes: 60, allowDestructive: true, playlistId: 'pl-1',
+    })).rejects.toThrow(/kapalıyken/i);
+  });
+
   test('rejects a playlist that does not belong to the user', async () => {
     mockTables({
       ai_tasks: () => builder({ first: { count: '0' } }),

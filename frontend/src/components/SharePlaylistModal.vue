@@ -48,6 +48,7 @@ import { computed, inject, ref } from 'vue'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import EditorFeatureModal from './EditorFeatureModal.vue'
+import { apiErrorMessage } from '../utils/apiError'
 
 const props = defineProps({
   playlistId: { type: String, required: true },
@@ -85,7 +86,7 @@ async function createShare() {
     xmltvUrl.value = data.xmltvUrl ? absoluteUrl(data.xmltvUrl) : ''
     emit('shared')
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('toast.shareError'), 'error')
+    toast(apiErrorMessage(error, t, 'toast.shareError'), 'error')
   } finally {
     generating.value = false
   }
@@ -100,7 +101,7 @@ async function revokeShare() {
     toast(t('share.revoked'), 'success')
     emit('revoked')
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('toast.shareError'), 'error')
+    toast(apiErrorMessage(error, t, 'toast.shareError'), 'error')
   } finally {
     revoking.value = false
   }

@@ -2,6 +2,12 @@ const crypto = require('crypto');
 const db = require('../config/database');
 const { hashToken, encrypt, decrypt } = require('../utils/crypto');
 const { createAppError } = require('../utils/AppError');
+const TtlCache = require('../utils/TtlCache');
+
+const seriesInfoCache = new TtlCache({
+  ttlMs: Math.max(0, Number.parseInt(process.env.XTREAM_SERIES_INFO_CACHE_MS || '600000', 10) || 0),
+  maxEntries: 1000,
+});
 const exportService = require('./ExportService');
 const xmltvExportService = require('./XMLTVExportService');
 const { toAbsoluteMediaUrl } = require('../utils/urls');
@@ -508,23 +514,31 @@ class XtreamOutputService {
     if (row.source_id) {
       const playlist = await db('playlists').where({ id: playlistId }).first();
       if (playlist?.xtream_server_url && playlist.xtream_password_enc) {
-        const XtreamClient = require('./XtreamClient');
-        const client = new XtreamClient(playlist.xtream_server_url, playlist.xtream_username, decrypt(playlist.xtream_password_enc));
-        const details = await client.getSeriesInfo(row.source_id);
-        if (!details?.episodes || typeof details.episodes !== 'object') {
-          throw createAppError('XTREAM_CONNECTION_FAILED', 'Dizi bölümleri sağlayıcıdan alınamadı');
-        }
-        const episodes = {};
-        for (const [season, entries] of Object.entries(details.episodes)) {
-          if (!Array.isArray(entries)) continue;
-          episodes[season] = entries.filter((episode) => numericXtreamId(episode.id) !== null).map((episode) => ({
-            ...episode,
-            direct_source: typeof episode.direct_source === 'string' && /^https?:\/\//i.test(episode.direct_source)
-              ? episode.direct_source
-              : client.buildStreamUrl('series', episode.id, episode.container_extension || 'mp4'),
-          }));
-        }
-        return { ...details, info: { ...details.info, name: row.name }, episodes };
+        // Oynaticilar dizi ekranini her acista (ve cogu zaman paralel) bu
+        // istegi atar; her biri saglayiciya tam bir get_series_info demekti.
+        // Bolum listesi dakikalar icinde degismez: kisa sureli onbellek hem
+        // saglayici hesabini (baglanti/istek sinirlari) hem gecikmeyi korur.
+        const cacheKey = `${playlistId}:${playlist.xtream_server_url}:${playlist.xtream_username}:${row.source_id}`;
+        const episodes = await seriesInfoCache.wrap(cacheKey, async () => {
+          const XtreamClient = require('./XtreamClient');
+          const client = new XtreamClient(playlist.xtream_server_url, playlist.xtream_username, decrypt(playlist.xtream_password_enc));
+          const details = await client.getSeriesInfo(row.source_id);
+          if (!details?.episodes || typeof details.episodes !== 'object') {
+            throw createAppError('XTREAM_CONNECTION_FAILED', 'Dizi bölümleri sağlayıcıdan alınamadı');
+          }
+          const mapped = {};
+          for (const [season, entries] of Object.entries(details.episodes)) {
+            if (!Array.isArray(entries)) continue;
+            mapped[season] = entries.filter((episode) => numericXtreamId(episode.id) !== null).map((episode) => ({
+              ...episode,
+              direct_source: typeof episode.direct_source === 'string' && /^https?:\/\//i.test(episode.direct_source)
+                ? episode.direct_source
+                : client.buildStreamUrl('series', episode.id, episode.container_extension || 'mp4'),
+            }));
+          }
+          return { details, episodes: mapped };
+        });
+        return { ...episodes.details, info: { ...episodes.details.info, name: row.name }, episodes: episodes.episodes };
       }
     }
     const extension = containerExtension(row);
@@ -628,3 +642,4 @@ class XtreamOutputService {
 }
 
 module.exports = new XtreamOutputService();
+module.exports.seriesInfoCache = seriesInfoCache;

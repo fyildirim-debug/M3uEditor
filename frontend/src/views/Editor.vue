@@ -5,83 +5,83 @@
       <nav class="nav-sidebar" :class="{ 'mobile-open': mobileNavOpen }" :aria-label="t('accessibility.editorSections')">
         <!-- Canli Kanallar -->
         <div class="nav-section">
-          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'live' }]" role="button" tabindex="0" :aria-expanded="activeStreamType === 'live'" @click="toggleStreamSection('live')" @keydown.enter.space.prevent="toggleStreamSection('live')">
+          <button type="button" :class="['btn-plain', 'nav-section-header', { 'nav-section-active': activeStreamType === 'live' }]" :aria-expanded="activeStreamType === 'live'" @click="toggleStreamSection('live')">
             <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
             <span class="nav-section-title">{{ t('nav.liveChannels') }}</span>
             <span v-if="streamTypeCounts.live" class="nav-section-count">{{ streamTypeCounts.live }}</span>
             <svg :class="['nav-chevron', { open: activeStreamType === 'live' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
+          </button>
           <div v-if="activeStreamType === 'live'" class="nav-items">
-            <div :class="['nav-item', { active: activeView === 'basic' }]" role="button" tabindex="0" @click="activeView = 'basic'" @keydown.enter.space.prevent="activeView = 'basic'">
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'basic' }]" :aria-current="activeView === 'basic' ? 'true' : undefined" @click="activeView = 'basic'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.channelEditor') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'sort' }]" role="button" tabindex="0" @click="activeView = 'sort'" @keydown.enter.space.prevent="activeView = 'sort'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'sort' }]" :aria-current="activeView === 'sort' ? 'true' : undefined" @click="activeView = 'sort'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'epg' }]" role="button" tabindex="0" @click="activeView = 'epg'" @keydown.enter.space.prevent="activeView = 'epg'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'epg' }]" :aria-current="activeView === 'epg' ? 'true' : undefined" @click="activeView = 'epg'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> {{ t('nav.epgEditor') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'category' }]" role="button" tabindex="0" @click="activeView = 'category'" @keydown.enter.space.prevent="activeView = 'category'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'category' }]" :aria-current="activeView === 'category' ? 'true' : undefined" @click="activeView = 'category'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'update' }]" role="button" tabindex="0" @click="activeView = 'update'" @keydown.enter.space.prevent="activeView = 'update'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'update' }]" :aria-current="activeView === 'update' ? 'true' : undefined" @click="activeView = 'update'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg> {{ t('nav.update') }}
-            </div>
+            </button>
           </div>
         </div>
         <!-- Filmler -->
         <div class="nav-section">
-          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'vod' }]" role="button" tabindex="0" :aria-expanded="activeStreamType === 'vod'" @click="toggleStreamSection('vod')" @keydown.enter.space.prevent="toggleStreamSection('vod')">
+          <button type="button" :class="['btn-plain', 'nav-section-header', { 'nav-section-active': activeStreamType === 'vod' }]" :aria-expanded="activeStreamType === 'vod'" @click="toggleStreamSection('vod')">
             <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg></span>
             <span class="nav-section-title">{{ t('nav.movies') }}</span>
             <span v-if="streamTypeCounts.vod" class="nav-section-count">{{ streamTypeCounts.vod }}</span>
             <svg :class="['nav-chevron', { open: activeStreamType === 'vod' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
+          </button>
           <div v-if="activeStreamType === 'vod'" class="nav-items">
-            <div :class="['nav-item', { active: activeView === 'basic' }]" role="button" tabindex="0" @click="activeView = 'basic'" @keydown.enter.space.prevent="activeView = 'basic'">
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'basic' }]" :aria-current="activeView === 'basic' ? 'true' : undefined" @click="activeView = 'basic'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.movieEditor') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'sort' }]" role="button" tabindex="0" @click="activeView = 'sort'" @keydown.enter.space.prevent="activeView = 'sort'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'sort' }]" :aria-current="activeView === 'sort' ? 'true' : undefined" @click="activeView = 'sort'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'category' }]" role="button" tabindex="0" @click="activeView = 'category'" @keydown.enter.space.prevent="activeView = 'category'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'category' }]" :aria-current="activeView === 'category' ? 'true' : undefined" @click="activeView = 'category'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
-            </div>
+            </button>
           </div>
         </div>
         <!-- Diziler -->
         <div class="nav-section">
-          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'series' }]" role="button" tabindex="0" :aria-expanded="activeStreamType === 'series'" @click="toggleStreamSection('series')" @keydown.enter.space.prevent="toggleStreamSection('series')">
+          <button type="button" :class="['btn-plain', 'nav-section-header', { 'nav-section-active': activeStreamType === 'series' }]" :aria-expanded="activeStreamType === 'series'" @click="toggleStreamSection('series')">
             <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg></span>
             <span class="nav-section-title">{{ t('nav.series') }}</span>
             <span v-if="streamTypeCounts.series" class="nav-section-count">{{ streamTypeCounts.series }}</span>
             <svg :class="['nav-chevron', { open: activeStreamType === 'series' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
+          </button>
           <div v-if="activeStreamType === 'series'" class="nav-items">
-            <div :class="['nav-item', { active: activeView === 'basic' }]" role="button" tabindex="0" @click="activeView = 'basic'" @keydown.enter.space.prevent="activeView = 'basic'">
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'basic' }]" :aria-current="activeView === 'basic' ? 'true' : undefined" @click="activeView = 'basic'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.seriesEditor') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'sort' }]" role="button" tabindex="0" @click="activeView = 'sort'" @keydown.enter.space.prevent="activeView = 'sort'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'sort' }]" :aria-current="activeView === 'sort' ? 'true' : undefined" @click="activeView = 'sort'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'category' }]" role="button" tabindex="0" @click="activeView = 'category'" @keydown.enter.space.prevent="activeView = 'category'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'category' }]" :aria-current="activeView === 'category' ? 'true' : undefined" @click="activeView = 'category'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
-            </div>
+            </button>
           </div>
         </div>
         <div class="nav-bottom">
-          <div class="nav-item" role="button" tabindex="0" @click="$router.push('/dashboard')" @keydown.enter.space.prevent="$router.push('/dashboard')">
+          <button type="button" class="btn-plain nav-item" @click="$router.push('/dashboard')">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> {{ t('nav.dashboard') }}
-          </div>
-          <div class="nav-item" role="button" tabindex="0" @click="showXtreamOutput = true" @keydown.enter.space.prevent="showXtreamOutput = true">
+          </button>
+          <button type="button" class="btn-plain nav-item" @click="showXtreamOutput = true">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> {{ t('nav.downloadM3u') }}
-          </div>
-          <div class="nav-item" role="button" tabindex="0" @click="doShare" @keydown.enter.space.prevent="doShare">
+          </button>
+          <button type="button" class="btn-plain nav-item" @click="doShare">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> {{ t('nav.share') }}
-          </div>
-          <div class="nav-item" role="button" tabindex="0" @click="showViewProfiles = true" @keydown.enter.space.prevent="showViewProfiles = true">
+          </button>
+          <button type="button" class="btn-plain nav-item" @click="showViewProfiles = true">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> {{ t('viewProfiles.title') }}
-          </div>
+          </button>
         </div>
       </nav>
       <button v-if="mobileNavOpen" class="mobile-scrim" :aria-label="t('accessibility.closeMenu')" @click="mobileNavOpen = false"></button>
@@ -248,28 +248,28 @@
 
                         <div class="empty-smart-options">
                           <!-- Xtream Codes ile baglan -->
-                          <div class="empty-option-card" role="button" tabindex="0" @click="openXtream" @keydown.enter.space.prevent="openXtream">
-                            <div class="empty-option-icon xtream">
+                          <button type="button" class="btn-plain empty-option-card" @click="openXtream">
+                            <span class="empty-option-icon xtream">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-                            </div>
-                            <div class="empty-option-info">
-                              <div class="empty-option-title">{{ t('addTypes.xtreamOption') }}</div>
-                              <div class="empty-option-desc">{{ t('addTypes.xtreamOptionDesc') }}</div>
-                            </div>
+                            </span>
+                            <span class="empty-option-info">
+                              <span class="empty-option-title">{{ t('addTypes.xtreamOption') }}</span>
+                              <span class="empty-option-desc">{{ t('addTypes.xtreamOptionDesc') }}</span>
+                            </span>
                             <svg class="empty-option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                          </div>
+                          </button>
 
                           <!-- M3U dosyasindan ice aktar -->
-                          <div class="empty-option-card" role="button" tabindex="0" @click="showM3uImportInEditor = true" @keydown.enter.space.prevent="showM3uImportInEditor = true">
-                            <div class="empty-option-icon m3u">
+                          <button type="button" class="btn-plain empty-option-card" @click="showM3uImportInEditor = true">
+                            <span class="empty-option-icon m3u">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-                            </div>
-                            <div class="empty-option-info">
-                              <div class="empty-option-title">{{ t('addTypes.m3uOption') }}</div>
-                              <div class="empty-option-desc">{{ t('addTypes.m3uOptionDesc') }}</div>
-                            </div>
+                            </span>
+                            <span class="empty-option-info">
+                              <span class="empty-option-title">{{ t('addTypes.m3uOption') }}</span>
+                              <span class="empty-option-desc">{{ t('addTypes.m3uOptionDesc') }}</span>
+                            </span>
                             <svg class="empty-option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                          </div>
+                          </button>
                         </div>
                       </div>
                     </template>
@@ -431,88 +431,16 @@
               </div>
 
               <!-- TAB: TV Guide Grid -->
-              <div v-if="epgTab === 'guide'" class="epg-guide-wrap">
-                <!-- Date Navigation -->
-                <div class="epg-date-nav">
-                  <button class="epg-date-btn" @click="changeGuideDate(-1)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-                  </button>
-                  <div class="epg-date-pills">
-                    <button v-for="d in guideDateOptions" :key="d.value"
-                      :class="['epg-date-pill', { active: guideDate === d.value, today: d.isToday }]"
-                      @click="guideDate = d.value; loadGuide()">
-                      <span class="epg-date-day">{{ d.dayName }}</span>
-                      <span class="epg-date-num">{{ d.dayNum }}</span>
-                    </button>
-                  </div>
-                  <button class="epg-date-btn" @click="changeGuideDate(1)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                  </button>
-                </div>
-
-                <!-- Guide Grid -->
-                <div v-if="guideLoading" class="epg-guide-loading">
-                  <span class="spinner"></span>
-                  <span>{{ t('epg.loadingGuide') }}</span>
-                </div>
-                <div v-else-if="guideChannels.length === 0" class="epg-guide-empty">
-                  <div class="epg-guide-empty-icon">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                  </div>
-                  <p>{{ t('epg.noData') }}</p>
-                  <span class="epg-guide-empty-hint">{{ t('epg.emptyHint') }}</span>
-                </div>
-                <div v-else class="epg-grid-container" ref="epgGridRef">
-                  <!-- Time Header -->
-                  <div class="epg-grid-corner">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  </div>
-                  <div class="epg-time-header" ref="epgTimeHeaderRef">
-                    <div class="epg-time-track" :style="{ width: guideTrackWidth + 'px' }">
-                      <div v-for="h in 24" :key="h" class="epg-time-slot" :style="{ left: ((h-1) * hourWidth) + 'px', width: hourWidth + 'px' }">
-                        <span class="epg-time-label">{{ String(h-1).padStart(2,'0') }}:00</span>
-                      </div>
-                      <!-- Now indicator in header -->
-                      <div v-if="isGuideToday" class="epg-now-marker-top" :style="{ left: nowOffset + 'px' }"></div>
-                    </div>
-                  </div>
-                  <!-- Channel Rows -->
-                  <div class="epg-channel-col" ref="epgChannelColRef">
-                    <div v-for="ch in guideChannels" :key="ch.id" class="epg-ch-row-label">
-                      <img v-if="canShowImage(ch.logo_url)" :src="ch.logo_url" class="epg-ch-logo" loading="lazy" :alt="t('accessibility.channelLogo', { name: ch.name })" @error="markImageBroken(ch.logo_url)" />
-                      <div v-else class="epg-ch-logo-fb">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
-                      </div>
-                      <span class="epg-ch-name">{{ ch.name }}</span>
-                    </div>
-                  </div>
-                  <div class="epg-grid-body" ref="epgGridBodyRef" @scroll="onGridScroll">
-                    <div class="epg-grid-track" :style="{ width: guideTrackWidth + 'px' }">
-                      <div v-for="ch in guideChannels" :key="ch.id" class="epg-grid-row">
-                        <!-- Program blocks -->
-                        <div v-for="prog in ch.programs" :key="prog.id"
-                          :class="['epg-prog-block', { live: isProgramLive(prog), past: isProgramPast(prog) }]"
-                          :style="getProgramStyle(prog)"
-                          @click="showProgramDetail(prog, ch)"
-                          :title="prog.title">
-                          <span class="epg-prog-block-title">{{ prog.title }}</span>
-                          <span class="epg-prog-block-time">{{ formatTime(prog.start_time) }}</span>
-                        </div>
-                        <!-- Empty state for row -->
-                        <div v-if="!ch.programs.length" class="epg-row-empty">{{ t('epg.rowEmpty') }}</div>
-                      </div>
-                      <!-- Now indicator line -->
-                      <div v-if="isGuideToday" class="epg-now-line" :style="{ left: nowOffset + 'px' }">
-                        <div class="epg-now-dot"></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-if="guideLoadingMore || guideChannels.length < guideTotal" class="epg-loading-more" role="status">
-                    <span v-if="guideLoadingMore" class="spinner spinner-sm"></span>
-                    <span>{{ t('epg.loadedCount', { loaded: guideChannels.length, total: guideTotal }) }}</span>
-                  </div>
-                </div>
-              </div>
+              <KeepAlive>
+                <EpgGuidePanel
+                  v-if="epgTab === 'guide'"
+                  :playlist-id="String(playlistId)"
+                  :reload-key="guideReloadKey"
+                  :can-show-image="canShowImage"
+                  @image-error="markImageBroken"
+                  @select-program="showProgramDetail"
+                />
+              </KeepAlive>
 
               <!-- TAB: Sources Management -->
               <div v-if="epgTab === 'sources'" class="epg-sources-wrap">
@@ -953,120 +881,10 @@
                 </div>
 
                 <!-- Filtre Kurallari -->
-                <div class="add-types-section">
-                  <h4 class="add-types-title">{{ t('filterRules.title') }}</h4>
-                  <p class="add-types-desc">{{ t('filterRules.desc') }}</p>
-
-                  <ul v-if="filterRules.length" class="filter-rule-list">
-                    <li v-for="(rule, idx) in filterRules" :key="rule.id" class="filter-rule-row" :class="{ 'filter-rule-disabled': !rule.enabled }">
-                      <span class="badge" :class="rule.exclude ? 'badge-danger' : 'badge-success'">{{ rule.exclude ? t('filterRules.exclude') : t('filterRules.include') }}</span>
-                      <span class="filter-rule-field">{{ t('filterRules.fields.' + rule.field) }}</span>
-                      <code class="filter-rule-pattern" :title="rule.pattern">{{ rule.pattern }}</code>
-                      <div class="filter-rule-actions">
-                        <button class="btn btn-ghost btn-icon-sm" type="button" :disabled="idx === 0" :title="t('filterRules.moveUp')" @click="moveFilterRule(rule, 'up')">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
-                        </button>
-                        <button class="btn btn-ghost btn-icon-sm" type="button" :disabled="idx === filterRules.length - 1" :title="t('filterRules.moveDown')" @click="moveFilterRule(rule, 'down')">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                        </button>
-                        <button class="btn btn-ghost btn-icon-sm" type="button" :title="rule.enabled ? t('filterRules.disable') : t('filterRules.enable')" @click="toggleFilterRule(rule)">
-                          <svg v-if="rule.enabled" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                          <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                        </button>
-                        <button class="btn btn-ghost btn-icon-sm" type="button" :title="t('common.delete')" @click="deleteFilterRule(rule)">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </button>
-                      </div>
-                    </li>
-                  </ul>
-                  <p v-else class="filter-rule-empty">{{ t('filterRules.empty') }}</p>
-
-                  <form class="filter-rule-form" @submit.prevent="addFilterRule">
-                    <select v-model="newRule.field" class="input filter-rule-select" :aria-label="t('filterRules.fieldLabel')">
-                      <option value="group">{{ t('filterRules.fields.group') }}</option>
-                      <option value="name">{{ t('filterRules.fields.name') }}</option>
-                      <option value="url">{{ t('filterRules.fields.url') }}</option>
-                    </select>
-                    <input v-model="newRule.pattern" class="input filter-rule-input" type="text" autocomplete="off" :placeholder="t('filterRules.patternPlaceholder')" />
-                    <select v-model="newRule.exclude" class="input filter-rule-select" :aria-label="t('filterRules.modeLabel')">
-                      <option :value="true">{{ t('filterRules.exclude') }}</option>
-                      <option :value="false">{{ t('filterRules.include') }}</option>
-                    </select>
-                    <button class="btn btn-secondary btn-sm" type="button" :disabled="!newRule.pattern.trim() || ruleTesting" @click="testFilterRule">
-                      <span v-if="ruleTesting" class="spinner" style="width:12px;height:12px"></span>
-                      {{ t('filterRules.test') }}
-                    </button>
-                    <button class="btn btn-primary btn-sm" type="submit" :disabled="!newRule.pattern.trim() || ruleSaving">
-                      <span v-if="ruleSaving" class="spinner" style="width:12px;height:12px"></span>
-                      {{ t('filterRules.add') }}
-                    </button>
-                  </form>
-                  <div v-if="ruleTestResult" class="filter-rule-test-result">
-                    <p class="filter-rule-test-summary">{{ t('filterRules.testSummary', { count: ruleTestResult.matches.length, sampled: ruleTestResult.sampled }) }}</p>
-                    <ul v-if="ruleTestResult.matches.length" class="filter-rule-test-matches">
-                      <li v-for="match in ruleTestResult.matches" :key="match.name">
-                        {{ match.name }} <span v-if="match.group" class="filter-rule-test-group">{{ match.group }}</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
+                <FilterRulesPanel :playlist-id="String(playlistId)" />
 
                 <!-- Ek Kaynaklar (coklu kaynak) -->
-                <div v-if="savedXtream" class="add-types-section">
-                  <h4 class="add-types-title">{{ t('multiSource.title') }}</h4>
-                  <p class="add-types-desc">{{ t('multiSource.desc') }}</p>
-
-                  <ul v-if="extraSources.length" class="source-list">
-                    <li v-for="source in extraSources" :key="source.id" class="source-row">
-                      <div class="source-info">
-                        <span class="source-label">{{ source.label || source.username }}</span>
-                        <span class="source-detail">{{ source.username }} @ {{ source.server_url }}</span>
-                      </div>
-                      <button class="btn btn-ghost btn-icon-sm" type="button" :title="t('common.delete')" @click="deleteSource(source)">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      </button>
-                    </li>
-                  </ul>
-                  <p v-else class="filter-rule-empty">{{ t('multiSource.empty') }}</p>
-
-                  <form class="source-form" @submit.prevent="addSource">
-                    <input v-model="newSource.label" class="input" type="text" autocomplete="off" :placeholder="t('multiSource.labelPlaceholder')" />
-                    <input v-model="newSource.serverUrl" class="input" type="text" autocomplete="off" :placeholder="t('multiSource.serverPlaceholder')" required />
-                    <input v-model="newSource.username" class="input" type="text" autocomplete="off" :placeholder="t('multiSource.usernamePlaceholder')" required />
-                    <input v-model="newSource.password" class="input" type="password" autocomplete="new-password" :placeholder="t('multiSource.passwordPlaceholder')" required />
-                    <button class="btn btn-secondary btn-sm" type="submit" :disabled="sourceSaving || !newSource.serverUrl.trim() || !newSource.username.trim() || !newSource.password">
-                      <span v-if="sourceSaving" class="spinner" style="width:12px;height:12px"></span>
-                      {{ t('multiSource.add') }}
-                    </button>
-                  </form>
-
-                  <button class="btn btn-primary" type="button" style="margin-top:12px" :disabled="syncingAll || syncing" @click="syncAllSources">
-                    <span v-if="syncingAll" class="spinner" style="width:14px;height:14px"></span>
-                    <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                    {{ syncingAll ? t('multiSource.syncingAll') : t('multiSource.syncAll') }}
-                  </button>
-
-                  <div v-if="syncAllResult" class="sync-report" style="margin-top:12px">
-                    <h4 class="sync-report-title">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                      {{ t('multiSource.reportTitle') }}
-                    </h4>
-                    <div class="sync-report-stats">
-                      <span class="badge badge-success">{{ t('updateView.addedCount', { count: syncAllResult.added }) }}</span>
-                      <span class="badge badge-accent">{{ t('updateView.updatedCount', { count: syncAllResult.updated }) }}</span>
-                      <span v-if="syncAllResult.removed" class="badge badge-danger">{{ t('updateView.removedCount', { count: syncAllResult.removed }) }}</span>
-                      <span v-if="syncAllResult.filteredOut" class="badge">{{ t('updateView.filteredOutCount', { count: syncAllResult.filteredOut }) }}</span>
-                    </div>
-                    <ul class="source-report-list">
-                      <li v-for="entry in syncAllResult.sources" :key="entry.sourceId || 'main'" class="source-report-row">
-                        <span class="source-report-label">{{ entry.label }}</span>
-                        <span v-if="entry.ok" class="source-report-ok">{{ t('multiSource.sourceOk', { added: entry.added, updated: entry.updated }) }}</span>
-                        <span v-else class="source-report-fail">{{ t('multiSource.sourceFailed', { error: entry.error }) }}</span>
-                      </li>
-                    </ul>
-                    <button class="btn btn-ghost btn-sm" type="button" @click="syncAllResult = null">{{ t('common.close') }}</button>
-                  </div>
-                </div>
+                <SourcesPanel v-if="savedXtream" :playlist-id="String(playlistId)" :syncing="syncing" @synced="onSourcesSynced" />
 
                 <div class="update-info">
                   <div class="update-stat">
@@ -1090,16 +908,16 @@
             </div>
             <div class="ep-body">
               <div class="ep-logo-area">
-                <div v-if="canShowImage(editForm.logo_url)" class="ep-logo-preview" role="button" tabindex="0" @click="triggerLogoUpload" @keydown.enter.space.prevent="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
+                <button type="button" v-if="canShowImage(editForm.logo_url)" class="btn-plain ep-logo-preview" @click="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
                   <img :src="editForm.logo_url" :alt="t('accessibility.channelLogo', { name: editingChannel.name })" @error="markImageBroken(editForm.logo_url)" />
-                  <div class="ep-logo-overlay">
+                  <span class="ep-logo-overlay">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  </div>
-                </div>
-                <div v-else class="ep-logo-placeholder ep-logo-upload" role="button" tabindex="0" @click="triggerLogoUpload" @keydown.enter.space.prevent="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
+                  </span>
+                </button>
+                <button type="button" v-else class="btn-plain ep-logo-placeholder ep-logo-upload" @click="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   <span class="ep-logo-upload-hint">{{ t('common.upload') }}</span>
-                </div>
+                </button>
                 <input ref="logoFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" @change="handleLogoUpload" />
               </div>
               <div class="ep-form">
@@ -1424,20 +1242,26 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, inject, watch, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, inject, watch, computed, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
-import AddChannelModal from '../components/AddChannelModal.vue'
-import BulkRenameModal from '../components/BulkRenameModal.vue'
-import BulkUpdateModal from '../components/BulkUpdateModal.vue'
-import SharePlaylistModal from '../components/SharePlaylistModal.vue'
 import StreamTestControl from '../components/StreamTestControl.vue'
-import XtreamImportWizard from '../components/XtreamImportWizard.vue'
-import XtreamOutputModal from '../components/XtreamOutputModal.vue'
-import ConfirmModal from '../components/ConfirmModal.vue'
-import ViewProfilesModal from '../components/ViewProfilesModal.vue'
-import LogoLibraryModal from '../components/LogoLibraryModal.vue'
+import EpgGuidePanel from '../components/editor/EpgGuidePanel.vue'
+import FilterRulesPanel from '../components/editor/FilterRulesPanel.vue'
+import SourcesPanel from '../components/editor/SourcesPanel.vue'
+import { apiErrorMessage } from '../utils/apiError'
+
+// Pencereler yalnizca acildiklarinda indirilir; editorun ilk yuku kuculur.
+const AddChannelModal = defineAsyncComponent(() => import('../components/AddChannelModal.vue'))
+const BulkRenameModal = defineAsyncComponent(() => import('../components/BulkRenameModal.vue'))
+const BulkUpdateModal = defineAsyncComponent(() => import('../components/BulkUpdateModal.vue'))
+const SharePlaylistModal = defineAsyncComponent(() => import('../components/SharePlaylistModal.vue'))
+const XtreamImportWizard = defineAsyncComponent(() => import('../components/XtreamImportWizard.vue'))
+const XtreamOutputModal = defineAsyncComponent(() => import('../components/XtreamOutputModal.vue'))
+const ConfirmModal = defineAsyncComponent(() => import('../components/ConfirmModal.vue'))
+const ViewProfilesModal = defineAsyncComponent(() => import('../components/ViewProfilesModal.vue'))
+const LogoLibraryModal = defineAsyncComponent(() => import('../components/LogoLibraryModal.vue'))
 
 const route = useRoute()
 const router = useRouter()
@@ -1554,7 +1378,7 @@ async function saveAutoSync() {
     autoSyncBackup.value = !!data.backup_before_sync
     toast(t('autoSync.saved'), 'success')
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.updateError'), 'error')
   } finally {
     autoSyncSaving.value = false
   }
@@ -1568,20 +1392,6 @@ const syncPreview = ref(null)
 const syncSelection = reactive({ live: new Set(), series: new Set(), vod: new Set() })
 const syncSearches = reactive({ live: '', series: '', vod: '' })
 const syncResult = ref(null)
-
-// Filtre kurallari
-const filterRules = ref([])
-const newRule = reactive({ field: 'group', pattern: '', exclude: true })
-const ruleSaving = ref(false)
-const ruleTesting = ref(false)
-const ruleTestResult = ref(null)
-
-// Ek kaynaklar (coklu kaynak)
-const extraSources = ref([])
-const newSource = reactive({ label: '', serverUrl: '', username: '', password: '' })
-const sourceSaving = ref(false)
-const syncingAll = ref(false)
-const syncAllResult = ref(null)
 
 // EPG
 const epgSources = ref([])
@@ -1604,40 +1414,12 @@ let epgAcTimer = null
 const epgIdAcResults = ref([])
 const epgIdAcOpen = ref(false)
 let epgIdAcTimer = null
-// EPG Guide
+// EPG Guide (izgara EpgGuidePanel bileseninde)
 const epgTab = ref('guide')
-const guideDate = ref(todayStr())
-const guideChannels = ref([])
-const guideLoading = ref(false)
-const guidePage = ref(1)
-const guideTotal = ref(0)
-const guideLoadingMore = ref(false)
-const GUIDE_PAGE_SIZE = 100
-const hourWidth = 240
-const guideTrackWidth = 24 * hourWidth
-const epgGridRef = ref(null)
-const epgTimeHeaderRef = ref(null)
-const epgChannelColRef = ref(null)
-const epgGridBodyRef = ref(null)
+const guideReloadKey = ref(0)
 const selectedProgram = ref(null)
 const selectedProgramChannel = ref(null)
-const nowOffset = ref(0)
 const nowMs = ref(Date.now())
-
-function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
-const isGuideToday = computed(() => guideDate.value === todayStr())
-const guideDateOptions = computed(() => {
-  const days = []
-  const dayNames = [t('days.sun'), t('days.mon'), t('days.tue'), t('days.wed'), t('days.thu'), t('days.fri'), t('days.sat')]
-  const base = new Date(guideDate.value + 'T00:00:00')
-  for (let i = -2; i <= 4; i++) {
-    const d = new Date(base)
-    d.setDate(d.getDate() + i)
-    const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-    days.push({ value: val, dayName: dayNames[d.getDay()], dayNum: d.getDate(), isToday: val === todayStr() })
-  }
-  return days
-})
 
 // Bulk
 const showBulkMove = ref(false)
@@ -1701,6 +1483,7 @@ const emptySmartTitle = computed(() => {
 })
 
 const showM3uImportInEditor = ref(false)
+let m3uImportCloseTimer = null
 
 function toggleStreamSection(type) {
   if (activeStreamType.value === type) { mobileNavOpen.value = false; return }
@@ -1711,24 +1494,47 @@ function toggleStreamSection(type) {
   page.value = 1
   search.value = ''
   selectedIds.value = new Set()
+  // Filtresiz loadChannels toplami zaten getirir; bilinen sayiyla hemen goster.
+  totalChannelCount.value = streamTypeCounts.value[type] || 0
   loadChannels()
-  loadTotalCount()
   loadCategories()
   mobileNavOpen.value = false
 }
 
+const STREAM_TYPES = ['live', 'vod', 'series']
+
+// xtream_stream_types metin kolonudur; bozuk ya da beklenmedik deger editoru
+// acilista dusurmemeli.
+function parseStreamTypes(value) {
+  if (Array.isArray(value)) return value.length ? value : ['live']
+  if (typeof value !== 'string' || !value) return ['live']
+  try {
+    const parsed = JSON.parse(value)
+    const types = Array.isArray(parsed) ? parsed.filter(type => STREAM_TYPES.includes(type)) : []
+    return types.length ? types : ['live']
+  } catch {
+    return ['live']
+  }
+}
+
+function applyPlaylistDetails(pl) {
+  playlistShared.value = Boolean(pl?.is_shared)
+  applyAutoSyncSettings(pl)
+  if (pl?.xtream_server_url) {
+    savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
+    savedXtreamTypes.value = parseStreamTypes(pl.xtream_stream_types)
+  }
+}
+
+// Uc turun sayisi tek seferde alinir; aktif turun toplami da buradan gelir.
+// Eskiden loadTotalCount ayni COUNT istegini ayrica atiyordu.
 async function loadStreamTypeCounts() {
   try {
-    const [liveRes, vodRes, seriesRes] = await Promise.all([
-      api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: 'live' } }),
-      api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: 'vod' } }),
-      api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: 'series' } })
-    ])
-    streamTypeCounts.value = {
-      live: liveRes.data.total || 0,
-      vod: vodRes.data.total || 0,
-      series: seriesRes.data.total || 0
-    }
+    const responses = await Promise.all(STREAM_TYPES.map(streamType =>
+      api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType } })))
+    const counts = Object.fromEntries(STREAM_TYPES.map((type, index) => [type, responses[index].data.total || 0]))
+    streamTypeCounts.value = counts
+    totalChannelCount.value = counts[activeStreamType.value] || 0
   } catch {}
 }
 
@@ -1783,7 +1589,7 @@ async function refreshAfterAiChange() {
     const { data } = await api.get(`/playlists/${playlistId}/categories`, { params: { streamType: activeStreamType.value } })
     categories.value = data
   } catch { /* kategori tazeleme kritik degil */ }
-  await Promise.all([loadChannels(), loadTotalCount(), loadStreamTypeCounts()])
+  await Promise.all([loadChannels(), loadStreamTypeCounts()])
 }
 
 onMounted(() => {
@@ -1799,19 +1605,14 @@ onUnmounted(() => {
 onMounted(async () => {
   try {
     const [plRes, catRes] = await Promise.all([
-      api.get('/playlists'),
+      api.get(`/playlists/${playlistId}`),
       api.get(`/playlists/${playlistId}/categories`, { params: { streamType: activeStreamType.value } })
     ])
-    const pl = plRes.data.find(p => String(p.id) === String(playlistId))
-    playlistName.value = pl?.name || 'Playlist'
-    playlistShared.value = Boolean(pl?.is_shared)
-    applyAutoSyncSettings(pl)
-    if (pl?.xtream_server_url) {
-      savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
-      savedXtreamTypes.value = pl.xtream_stream_types ? JSON.parse(pl.xtream_stream_types) : ['live']
-    }
+    const pl = plRes.data
+    playlistName.value = pl?.name || t('editor.untitledPlaylist')
+    applyPlaylistDetails(pl)
     categories.value = catRes.data
-    await Promise.all([loadChannels(), loadTotalCount(), loadStreamTypeCounts(), loadFilterRules(), loadSources()])
+    await Promise.all([loadChannels(), loadStreamTypeCounts()])
   } catch { toast(t('toast.loadError'), 'error') }
   finally { pageLoading.value = false }
 })
@@ -1853,10 +1654,15 @@ async function loadChannels() {
   finally { if (requestId === channelsRequestId) channelsLoading.value = false }
 }
 
+// Yalnizca aktif turun sayisini tazeler (silme/ekleme sonrasi); sol menudeki
+// tur sayaci da guncel kalir.
 async function loadTotalCount() {
+  const streamType = activeStreamType.value
   try {
-    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: activeStreamType.value } })
+    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType } })
+    if (streamType !== activeStreamType.value) return
     totalChannelCount.value = data.total || 0
+    streamTypeCounts.value = { ...streamTypeCounts.value, [streamType]: data.total || 0 }
   } catch {}
 }
 
@@ -1923,7 +1729,7 @@ async function saveChannel() {
     toast(t('toast.channelUpdated'), 'success'); editingChannel.value = null
     loadChannels(); loadCategories(); loadTotalCount()
     for (const catId of openAccordions.value) loadAccChannels(catId)
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 function deleteChannel(ch) {
@@ -1947,7 +1753,7 @@ async function resetChannel() {
     editingChannel.value = data
     toast(t('toast.resetToOriginal'), 'success')
     loadChannels()
-  } catch (e) { toast(e.response?.data?.error?.message || t('toast.resetError'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'toast.resetError'), 'error') }
 }
 
 function triggerLogoUpload() {
@@ -1993,7 +1799,7 @@ async function applyLibraryLogo(logo) {
     toast(t('logoLibrary.applied', { name: logo.name }), 'success')
   } catch (error) {
     editForm.value.logo_url = previous
-    toast(error.response?.data?.error?.message || t('logoLibrary.applyFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'logoLibrary.applyFailed'), 'error')
   }
 }
 
@@ -2034,7 +1840,7 @@ async function handleLogoUpload(event) {
     if (row) row.logo_url = logoUrl
     toast(t('toast.logoUploaded'), 'success')
   } catch (err) {
-    toast(err.response?.data?.error?.message || t('toast.logoUploadError'), 'error')
+    toast(apiErrorMessage(err, t, 'toast.logoUploadError'), 'error')
   } finally {
     logoUploading.value = false
   }
@@ -2083,7 +1889,7 @@ async function doBulkMove() {
         loadAccChannels(catId)
       }
     }
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 function refreshFeatureData({ clearSelected = false } = {}) {
@@ -2091,7 +1897,6 @@ function refreshFeatureData({ clearSelected = false } = {}) {
   for (const catId of Object.keys(accChannels)) delete accChannels[catId]
   loadChannels()
   loadCategories()
-  loadTotalCount()
   loadStreamTypeCounts()
   for (const catId of openAccordions.value) loadAccChannels(catId)
 }
@@ -2107,31 +1912,31 @@ function handleBulkApplied() {
 async function createCategory() {
   if (!newCatName.value.trim()) return
   try { await api.post(`/playlists/${playlistId}/categories`, { name: newCatName.value.trim() }); newCatName.value = ''; showCatCreate.value = false; toast(t('toast.created'), 'success'); loadCategories() }
-  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 function startEditCat(cat) { editingCat.value = cat; editCatName.value = cat.name }
 async function updateCategory() {
   if (!editCatName.value.trim()) return
   try { await api.put(`/categories/${editingCat.value.id}`, { name: editCatName.value.trim() }); editingCat.value = null; toast(t('toast.updated'), 'success'); loadCategories() }
-  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 function confirmDeleteCat(cat) { deletingCat.value = cat }
 async function toggleCatHidden(cat) {
   try {
     const { data } = await api.put(`/categories/${cat.id}`, { is_hidden: !cat.is_hidden })
     categories.value = categories.value.map(item => item.id === cat.id ? { ...item, ...data } : item)
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 function startInlineEdit(cat) { inlineEditCatId.value = cat.id; inlineEditName.value = cat.name }
 async function saveInlineEdit(cat) {
   if (!inlineEditName.value.trim() || inlineEditName.value === cat.name) { inlineEditCatId.value = null; return }
   try { await api.put(`/categories/${cat.id}`, { name: inlineEditName.value.trim() }); toast(t('toast.renamed'), 'success'); loadCategories() }
-  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
   finally { inlineEditCatId.value = null }
 }
 async function doDeleteCat() {
   try { await api.delete(`/categories/${deletingCat.value.id}`); if (selectedCatId.value === deletingCat.value?.id) selectedCatId.value = null; deletingCat.value = null; toast(t('toast.deleted'), 'success'); loadCategories(); loadChannels() }
-  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 async function catDrop(idx) {
@@ -2252,7 +2057,7 @@ async function saveAccountEdit() {
     accountEditOpen.value = false
     toast(t('xtream.accountUpdated'), 'success')
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('common.error'), 'error')
+    toast(apiErrorMessage(e, t, 'common.error'), 'error')
   } finally {
     accountEditSaving.value = false
   }
@@ -2264,18 +2069,12 @@ async function handleXtreamImported(data) {
     duration: ((Number(data.duration) || 0) / 1000).toFixed(1)
   }), 'success')
   try {
-    const plRes = await api.get('/playlists')
-    const pl = plRes.data.find(p => String(p.id) === String(playlistId))
-    playlistShared.value = Boolean(pl?.is_shared)
-    applyAutoSyncSettings(pl)
-    if (pl?.xtream_server_url) {
-      savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
-      savedXtreamTypes.value = pl.xtream_stream_types ? JSON.parse(pl.xtream_stream_types) : ['live']
-    }
+    const { data: pl } = await api.get(`/playlists/${playlistId}`)
+    applyPlaylistDetails(pl)
   } catch {
     toast(t('toast.playlistsLoadError'), 'error')
   }
-  loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
+  loadCategories(); loadChannels(); loadStreamTypeCounts()
   for (const catId of openAccordions.value) loadAccChannels(catId)
 }
 async function startSyncPreview() {
@@ -2291,7 +2090,7 @@ async function startSyncPreview() {
       syncSearches[type] = ''
     }
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.updateError'), 'error')
   } finally {
     syncPreviewLoading.value = false
   }
@@ -2345,123 +2144,20 @@ async function doSync() {
     syncResult.value = data
     syncPreview.value = null
     toast(t('toast.syncResult', { added: data.added, updated: data.updated, removed: data.removed }), 'success')
-    const plRes = await api.get('/playlists')
-    const pl = plRes.data.find(p => String(p.id) === String(playlistId))
+    const { data: pl } = await api.get(`/playlists/${playlistId}`)
     if (pl?.last_synced_at) savedXtream.value = { ...savedXtream.value, lastSynced: pl.last_synced_at }
-    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
-  } catch (e) { toast(e.response?.data?.error?.message || t('toast.updateError'), 'error') }
+    loadCategories(); loadChannels(); loadStreamTypeCounts()
+  } catch (e) { toast(apiErrorMessage(e, t, 'toast.updateError'), 'error') }
   finally { syncing.value = false }
 }
 
-// ---- Filtre kurallari ----
-async function loadFilterRules() {
+// Ek kaynaklarin toplu esitlemesi bittiginde (SourcesPanel) liste ve son esitleme zamani tazelenir.
+async function onSourcesSynced() {
   try {
-    const { data } = await api.get(`/playlists/${playlistId}/filter-rules`)
-    filterRules.value = data
-  } catch { filterRules.value = [] }
-}
-
-async function addFilterRule() {
-  if (!newRule.pattern.trim() || ruleSaving.value) return
-  ruleSaving.value = true
-  ruleTestResult.value = null
-  try {
-    await api.post(`/playlists/${playlistId}/filter-rules`, {
-      field: newRule.field,
-      pattern: newRule.pattern.trim(),
-      exclude: newRule.exclude,
-    })
-    newRule.pattern = ''
-    toast(t('filterRules.added'), 'success')
-    await loadFilterRules()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
-  finally { ruleSaving.value = false }
-}
-
-async function deleteFilterRule(rule) {
-  try {
-    await api.delete(`/filter-rules/${rule.id}`)
-    toast(t('filterRules.deleted'), 'success')
-    await loadFilterRules()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
-}
-
-async function toggleFilterRule(rule) {
-  try {
-    await api.put(`/filter-rules/${rule.id}`, { enabled: !rule.enabled })
-    await loadFilterRules()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
-}
-
-async function moveFilterRule(rule, direction) {
-  try {
-    await api.put(`/filter-rules/${rule.id}/order`, { direction })
-    await loadFilterRules()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
-}
-
-async function testFilterRule() {
-  if (!newRule.pattern.trim() || ruleTesting.value) return
-  ruleTesting.value = true
-  try {
-    const { data } = await api.post(`/playlists/${playlistId}/filter-rules/test`, {
-      field: newRule.field,
-      pattern: newRule.pattern.trim(),
-    })
-    ruleTestResult.value = data
-  } catch (e) {
-    ruleTestResult.value = null
-    toast(e.response?.data?.error?.message || t('common.error'), 'error')
-  } finally { ruleTesting.value = false }
-}
-
-// ---- Ek kaynaklar (coklu kaynak) ----
-async function loadSources() {
-  try {
-    const { data } = await api.get(`/playlists/${playlistId}/sources`)
-    extraSources.value = data
-  } catch { extraSources.value = [] }
-}
-
-async function addSource() {
-  if (sourceSaving.value) return
-  sourceSaving.value = true
-  try {
-    await api.post(`/playlists/${playlistId}/sources`, {
-      label: newSource.label.trim() || undefined,
-      serverUrl: newSource.serverUrl.trim(),
-      username: newSource.username.trim(),
-      password: newSource.password,
-    })
-    newSource.label = ''; newSource.serverUrl = ''; newSource.username = ''; newSource.password = ''
-    toast(t('multiSource.added'), 'success')
-    await loadSources()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
-  finally { sourceSaving.value = false }
-}
-
-async function deleteSource(source) {
-  try {
-    await api.delete(`/sources/${source.id}`)
-    toast(t('multiSource.deleted'), 'success')
-    await loadSources()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
-}
-
-async function syncAllSources() {
-  if (syncingAll.value || syncing.value) return
-  syncingAll.value = true
-  syncAllResult.value = null
-  try {
-    const { data } = await api.post(`/playlists/${playlistId}/sync-all`)
-    syncAllResult.value = data
-    toast(t('multiSource.syncResult', { added: data.added, updated: data.updated, removed: data.removed }), data.failedSources ? 'error' : 'success')
-    const plRes = await api.get('/playlists')
-    const pl = plRes.data.find(p => String(p.id) === String(playlistId))
+    const { data: pl } = await api.get(`/playlists/${playlistId}`)
     if (pl?.last_synced_at) savedXtream.value = { ...savedXtream.value, lastSynced: pl.last_synced_at }
-    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
-  } catch (e) { toast(e.response?.data?.error?.message || t('toast.updateError'), 'error') }
-  finally { syncingAll.value = false }
+  } catch { /* zaman damgasi kritik degil */ }
+  loadCategories(); loadChannels(); loadStreamTypeCounts()
 }
 
 async function doAddTypes(types) {
@@ -2472,9 +2168,9 @@ async function doAddTypes(types) {
     addTypesResult.value = data
     savedXtreamTypes.value = data.allTypes
     toast(t('addTypes.result', { added: data.added, types: data.addedTypes.join(', '), duration: (data.duration / 1000).toFixed(1) }), 'success')
-    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
+    loadCategories(); loadChannels(); loadStreamTypeCounts()
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.updateError'), 'error')
   } finally { addingTypes.value = false }
 }
 
@@ -2501,10 +2197,11 @@ async function doEditorM3uImport() {
     const { data } = await api.post(`/playlists/${playlistId}/import/m3u`, payload)
     editorM3uResult.value = data
     toast(t('toast.importSuccess', { channels: data.totalChannels, categories: data.totalCategories, duration: (data.duration / 1000).toFixed(1) }), 'success')
-    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
-    setTimeout(() => { showM3uImportInEditor.value = false }, 2000)
+    loadCategories(); loadChannels(); loadStreamTypeCounts()
+    clearTimeout(m3uImportCloseTimer)
+    m3uImportCloseTimer = setTimeout(() => { showM3uImportInEditor.value = false }, 2000)
   } catch (e) {
-    editorM3uError.value = e.response?.data?.error?.message || t('toast.genericError')
+    editorM3uError.value = apiErrorMessage(e, t, 'toast.genericError')
   } finally { editorM3uImporting.value = false }
 }
 
@@ -2518,7 +2215,7 @@ async function saveEpgRefreshInterval(s, raw) {
     s.refresh_interval_minutes = minutes
     toast(t('autoSync.saved'), 'success')
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.updateError'), 'error')
     loadEpgSources()
   } finally {
     s._savingInterval = false
@@ -2527,13 +2224,13 @@ async function saveEpgRefreshInterval(s, raw) {
 async function addEpgSource() {
   if (!newEpgUrl.value.trim()) return; addingEpg.value = true
   try { const { data } = await api.post('/epg/sources', { url: newEpgUrl.value.trim() }); toast(t('toast.epgAdded', { channels: data.channelCount, programs: data.programCount }), 'success'); newEpgUrl.value = ''; loadEpgSources(); loadGuide() }
-  catch (e) { toast(e.response?.data?.error?.message || t('toast.epgError'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'toast.epgError'), 'error') }
   finally { addingEpg.value = false }
 }
 async function refreshEpgSource(source) {
   source._refreshing = true
   try { const { data } = await api.post(`/epg/sources/${source.id}/refresh`); toast(t('toast.epgRefreshed', { channels: data.channelCount, programs: data.programCount }), 'success'); loadEpgSources(); loadGuide() }
-  catch (e) { toast(e.response?.data?.error?.message || t('toast.epgRefreshError'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'toast.epgRefreshError'), 'error') }
   finally { source._refreshing = false }
 }
 function deleteEpgSource(source) {
@@ -2542,7 +2239,7 @@ function deleteEpgSource(source) {
 
 async function performDeleteEpgSource(source) {
   try { await api.delete(`/epg/sources/${source.id}`); toast(t('toast.epgSourceDeleted'), 'success'); loadEpgSources(); loadGuide() }
-  catch (e) { toast(e.response?.data?.error?.message || t('toast.deletionError'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'toast.deletionError'), 'error') }
 }
 function parseWordList(text) {
   return String(text || '').split(',').map(w => w.trim()).filter(Boolean)
@@ -2574,7 +2271,7 @@ async function createEpgProfile() {
     toast(t('epgProfiles.saved'), 'success')
     newProfile.value = { name: '', stripPrefixes: '', stripSuffixes: '', ignoreWords: '' }
     loadEpgProfiles()
-  } catch (e) { toast(e.response?.data?.error?.message || t('epgProfiles.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'epgProfiles.error'), 'error') }
   finally { savingProfile.value = false }
 }
 async function runEpgProfile(profile) {
@@ -2584,7 +2281,7 @@ async function runEpgProfile(profile) {
     matchResult.value = data.result
     toast(t('epgProfiles.runDone', { matched: data.result.matched, total: data.result.total }), 'success')
     loadEpgProfiles(); loadGuide(); loadChannels()
-  } catch (e) { toast(e.response?.data?.error?.message || t('epgProfiles.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'epgProfiles.error'), 'error') }
   finally { runningProfileId.value = null }
 }
 function deleteEpgProfile(profile) {
@@ -2593,7 +2290,7 @@ function deleteEpgProfile(profile) {
 
 async function performDeleteEpgProfile(profile) {
   try { await api.delete(`/epg-profiles/${profile.id}`); toast(t('epgProfiles.deleted'), 'success'); loadEpgProfiles() }
-  catch (e) { toast(e.response?.data?.error?.message || t('epgProfiles.error'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'epgProfiles.error'), 'error') }
 }
 // EPG Source Library (iptv-org)
 const libCountries = ref([])
@@ -2633,7 +2330,7 @@ async function addFromLibrary(g) {
   if (!g.url || libAdding.value) return
   libAdding.value = g.site
   try { const { data } = await api.post('/epg/sources', { url: g.url }); toast(t('toast.epgAdded', { channels: data.channelCount, programs: data.programCount }), 'success'); loadEpgSources(); loadGuide() }
-  catch (e) { toast(e.response?.data?.error?.message || t('toast.epgError'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'toast.epgError'), 'error') }
   finally { libAdding.value = null }
 }
 
@@ -2643,69 +2340,9 @@ async function doAutoMatch() {
   catch { toast(t('toast.matchingError'), 'error') }
   finally { autoMatching.value = false }
 }
-async function loadGuide() {
-  guideLoading.value = true
-  guidePage.value = 1
-  guideChannels.value = []
-  guideTotal.value = 0
-  try {
-    const { data } = await api.get(`/playlists/${playlistId}/epg/guide`, { params: { date: guideDate.value, tzOffset: new Date().getTimezoneOffset(), page: 1, limit: GUIDE_PAGE_SIZE } })
-    guideChannels.value = data.channels || []
-    guideTotal.value = data.total || 0
-    updateNowOffset()
-  } catch { guideChannels.value = []; guideTotal.value = 0 }
-  finally { guideLoading.value = false }
-}
-async function loadMoreGuide() {
-  if (guideLoading.value || guideLoadingMore.value) return
-  if (guideChannels.value.length >= guideTotal.value) return
-  guideLoadingMore.value = true
-  try {
-    const nextPage = guidePage.value + 1
-    const { data } = await api.get(`/playlists/${playlistId}/epg/guide`, { params: { date: guideDate.value, tzOffset: new Date().getTimezoneOffset(), page: nextPage, limit: GUIDE_PAGE_SIZE } })
-    if ((data.channels || []).length) {
-      guideChannels.value = [...guideChannels.value, ...data.channels]
-      guidePage.value = nextPage
-    } else {
-      guideTotal.value = guideChannels.value.length
-    }
-  } catch { /* sessiz: bir sonraki scroll'da tekrar dener */ }
-  finally { guideLoadingMore.value = false }
-}
-function changeGuideDate(delta) {
-  const d = new Date(guideDate.value + 'T00:00:00')
-  d.setDate(d.getDate() + delta)
-  guideDate.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-  loadGuide()
-}
-function updateNowOffset() {
-  const now = new Date()
-  nowMs.value = now.getTime()
-  const mins = now.getHours() * 60 + now.getMinutes()
-  nowOffset.value = (mins / 60) * hourWidth
-}
-function getProgramStyle(prog) {
-  const start = new Date(prog.start_time)
-  const end = new Date(prog.end_time || start)
-  const dayStart = new Date(guideDate.value + 'T00:00:00')
-  const startMins = Math.max(0, (start - dayStart) / 60000)
-  const endMins = Math.min(1440, (end - dayStart) / 60000)
-  const left = (startMins / 60) * hourWidth
-  const width = Math.max(((endMins - startMins) / 60) * hourWidth, 30)
-  return { left: left + 'px', width: width + 'px' }
-}
-function isProgramPast(prog) {
-  return new Date(prog.end_time).getTime() < nowMs.value
-}
-function onGridScroll() {
-  const body = epgGridBodyRef.value
-  if (!body) return
-  if (epgTimeHeaderRef.value) epgTimeHeaderRef.value.scrollLeft = body.scrollLeft
-  if (epgChannelColRef.value) epgChannelColRef.value.scrollTop = body.scrollTop
-  // Sona yaklasinca sonraki kanal sayfasini yukle (buyuk playlistlerde tumunu
-  // tek seferde basmak tarayiciyi kilitler)
-  if (body.scrollTop + body.clientHeight > body.scrollHeight - 400) loadMoreGuide()
-}
+// Rehberi yeniden yukle: bilesen reloadKey'i izler. Rehber sekmesi kapaliyken
+// cagrilirsa bilesen bir sonraki acilista zaten taze veriyle baslar.
+function loadGuide() { guideReloadKey.value++ }
 function showProgramDetail(prog, ch) {
   selectedProgram.value = prog
   selectedProgramChannel.value = ch
@@ -2735,6 +2372,7 @@ function formatDateTime(d) { if (!d) return ''; return new Date(d).toLocaleStrin
 function getProgramDuration(prog) { return Math.round((new Date(prog.end_time) - new Date(prog.start_time)) / 60000) }
 function getProgramProgress(prog) { const now = Date.now(); const s = new Date(prog.start_time).getTime(); const e = new Date(prog.end_time).getTime(); return Math.min(100, Math.max(0, Math.round(((now - s) / (e - s)) * 100))) }
 // Update now offset every minute
+function updateNowOffset() { nowMs.value = Date.now() }
 let _nowTimer = setInterval(updateNowOffset, 60000)
 
 // Akis saglik taramasi: baslat + ilerlemeyi 2sn'de bir yokla.
@@ -2773,6 +2411,12 @@ async function startHealthScan() {
 onUnmounted(() => {
   if (_nowTimer) clearInterval(_nowTimer)
   if (_healthTimer) clearInterval(_healthTimer)
+  // Bekleyen gecikmeli aramalar sayfa kapandiktan sonra istek atmasin.
+  clearTimeout(searchTimer)
+  clearTimeout(libQueryTimer)
+  clearTimeout(epgAcTimer)
+  clearTimeout(epgIdAcTimer)
+  clearTimeout(m3uImportCloseTimer)
 })
 
 function doShare() {
@@ -2821,7 +2465,7 @@ async function fetchXtreamMetadata() {
     editingChannel.value = data
     toast(t('toast.metadataFetched'), 'success')
   } catch (e) {
-    const msg = e.response?.data?.error?.message || t('toast.metadataError')
+    const msg = apiErrorMessage(e, t, 'toast.metadataError')
     toast(msg, 'error')
   } finally { fetchingMetadata.value = false }
 }
@@ -2867,7 +2511,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 }
 .nav-section { margin-bottom: 4px; }
 .nav-section-header {
-  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px; width: 100%;
   cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-primary);
   transition: background 0.15s;
 }
@@ -2878,7 +2522,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .nav-chevron.open { transform: rotate(180deg); }
 .nav-items { padding: 2px 0; }
 .nav-item {
-  display: flex; align-items: center; gap: 8px; padding: 8px 16px 8px 28px;
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px 8px 28px; width: calc(100% - 8px);
   cursor: pointer; font-size: 13px; color: var(--text-secondary);
   transition: all 0.15s; border-left: 2px solid transparent;
   border-radius: 0 6px 6px 0; margin-right: 8px;
@@ -3116,170 +2760,6 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 }
 .epg-topbar-actions { display: flex; align-items: center; gap: 8px; }
 
-/* Date Navigation */
-.epg-date-nav {
-  display: flex; align-items: center; gap: 6px; padding: 10px 16px;
-  border-bottom: 1px solid var(--border); background: var(--bg-secondary); flex-shrink: 0;
-}
-.epg-date-btn {
-  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
-  background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: var(--radius-sm);
-  color: var(--text-secondary); cursor: pointer; transition: all var(--transition); flex-shrink: 0;
-}
-.epg-date-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-light); }
-.epg-date-pills { display: flex; gap: 4px; flex: 1; justify-content: center; overflow-x: auto; }
-.epg-date-pill {
-  display: flex; flex-direction: column; align-items: center; gap: 1px;
-  padding: 5px 12px; border-radius: var(--radius); cursor: pointer;
-  background: transparent; border: 1px solid transparent;
-  transition: all var(--transition); min-width: 52px;
-}
-.epg-date-pill:hover { background: var(--bg-hover); border-color: var(--border); }
-.epg-date-pill.active {
-  background: var(--accent-soft); border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(99,102,241,0.15);
-}
-.epg-date-pill.today .epg-date-day { color: var(--accent-hover); }
-.epg-date-pill.active .epg-date-day { color: var(--accent-hover); font-weight: 700; }
-.epg-date-pill.active .epg-date-num { color: var(--text-primary); }
-.epg-date-day { font-size: 10px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
-.epg-date-num { font-size: 15px; font-weight: 600; color: var(--text-secondary); line-height: 1.2; }
-
-/* Guide states */
-.epg-guide-wrap { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
-.epg-guide-loading {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 12px; flex: 1; color: var(--text-muted); font-size: 13px;
-}
-.epg-guide-empty {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 10px; flex: 1; padding: 40px; text-align: center;
-}
-.epg-guide-empty-icon { opacity: 0.2; }
-.epg-guide-empty p { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
-.epg-guide-empty-hint { font-size: 12px; color: var(--text-muted); max-width: 320px; line-height: 1.5; }
-
-/* Grid Container - CSS Grid layout */
-.epg-grid-container {
-  flex: 1; display: grid; overflow: hidden;
-  grid-template-columns: 180px 1fr;
-  grid-template-rows: 36px 1fr;
-}
-.epg-grid-corner {
-  grid-row: 1; grid-column: 1;
-  background: var(--bg-tertiary); border-bottom: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--text-muted); z-index: 4;
-}
-.epg-time-header {
-  grid-row: 1; grid-column: 2;
-  overflow: hidden; background: var(--bg-tertiary);
-  border-bottom: 1px solid var(--border); z-index: 3; position: relative;
-}
-.epg-time-track { position: relative; height: 100%; }
-.epg-time-slot {
-  position: absolute; top: 0; height: 100%;
-  border-left: 1px solid var(--border);
-  display: flex; align-items: center; padding-left: 8px;
-}
-.epg-time-label { font-size: 10px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.5px; }
-
-/* Channel column */
-.epg-channel-col {
-  grid-row: 2; grid-column: 1;
-  overflow: hidden; background: var(--bg-secondary);
-  border-right: 1px solid var(--border); z-index: 2;
-}
-.epg-ch-row-label {
-  display: flex; align-items: center; gap: 8px; padding: 0 10px;
-  height: 52px; border-bottom: 1px solid var(--border);
-  overflow: hidden;
-}
-.epg-ch-logo {
-  width: 28px; height: 28px; border-radius: 6px; object-fit: contain;
-  flex-shrink: 0; background: var(--bg-tertiary);
-}
-.epg-ch-logo-fb {
-  width: 28px; height: 28px; border-radius: 6px; background: var(--bg-tertiary);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--text-muted); flex-shrink: 0;
-}
-.epg-ch-name {
-  font-size: 11px; font-weight: 500; color: var(--text-primary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
-/* Grid body */
-.epg-grid-body {
-  grid-row: 2; grid-column: 2;
-  overflow: auto; position: relative;
-}
-.epg-grid-track { position: relative; min-height: 100%; }
-.epg-grid-row {
-  position: relative; height: 52px; border-bottom: 1px solid var(--border);
-  /* Saat cizgileri: kanal basina 24 DOM dugumu yerine tek arka plan */
-  background-image: repeating-linear-gradient(to right, var(--border) 0, var(--border) 1px, transparent 1px, transparent 240px);
-  /* Ekran disi satirlari render'dan atla (binlerce satirda fark yaratir) */
-  content-visibility: auto; contain-intrinsic-size: 52px;
-}
-.epg-loading-more {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 10px; color: var(--text-muted); font-size: 12px;
-  border-top: 1px solid var(--border);
-}
-
-/* Program blocks */
-.epg-prog-block {
-  position: absolute; top: 3px; bottom: 3px;
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: 6px; padding: 4px 8px; cursor: pointer;
-  overflow: hidden; display: flex; flex-direction: column; justify-content: center;
-  transition: all 0.15s ease; z-index: 1;
-}
-.epg-prog-block:hover {
-  background: var(--bg-card-hover); border-color: var(--border-light);
-  z-index: 2; box-shadow: var(--shadow-sm);
-  transform: scaleY(1.04);
-}
-.epg-prog-block.live {
-  background: linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(239,68,68,0.05) 100%);
-  border-color: rgba(239,68,68,0.3);
-  box-shadow: 0 0 8px rgba(239,68,68,0.1);
-}
-.epg-prog-block.live:hover {
-  border-color: rgba(239,68,68,0.5);
-  box-shadow: 0 0 16px rgba(239,68,68,0.15);
-}
-.epg-prog-block.past { opacity: 0.45; }
-.epg-prog-block-title {
-  font-size: 11px; font-weight: 500; color: var(--text-primary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  line-height: 1.3;
-}
-.epg-prog-block-time {
-  font-size: 9px; color: var(--text-muted); font-weight: 500;
-}
-.epg-row-empty {
-  position: absolute; inset: 0; display: flex; align-items: center;
-  justify-content: center; font-size: 11px; color: var(--text-muted);
-}
-
-/* Now indicator */
-.epg-now-line {
-  position: absolute; top: 0; bottom: 0; width: 2px;
-  background: var(--danger); z-index: 10; pointer-events: none;
-}
-.epg-now-dot {
-  position: absolute; top: -4px; left: -4px;
-  width: 10px; height: 10px; border-radius: 50%;
-  background: var(--danger); box-shadow: 0 0 8px rgba(239,68,68,0.5);
-}
-.epg-now-marker-top {
-  position: absolute; top: 0; bottom: 0; width: 2px;
-  background: var(--danger); z-index: 5;
-}
-
 /* ===== EPG Sources Tab ===== */
 .epg-sources-wrap { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .epg-add-card {
@@ -3486,8 +2966,8 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .empty-option-icon.xtream { background: linear-gradient(135deg, #6366f1, #818cf8); color: white; }
 .empty-option-icon.m3u { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
 .empty-option-info { flex: 1; min-width: 0; }
-.empty-option-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
-.empty-option-desc { font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; }
+.empty-option-title { display: block; font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.empty-option-desc { display: block; font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; }
 .empty-option-arrow { color: var(--text-muted); flex-shrink: 0; transition: var(--transition); }
 .empty-option-card:hover .empty-option-arrow { color: var(--accent); transform: translateX(3px); }
 
@@ -3502,48 +2982,6 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .add-types-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 .add-types-complete { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--success); margin-top: 8px; }
 
-/* Filtre kurallari */
-.filter-rule-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.filter-rule-row {
-  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-  background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius);
-}
-.filter-rule-disabled { opacity: 0.5; }
-.filter-rule-field { font-size: 11px; color: var(--text-muted); min-width: 56px; }
-.filter-rule-pattern {
-  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 12px; color: var(--text-primary); background: var(--bg-tertiary);
-  padding: 2px 6px; border-radius: 4px;
-}
-.filter-rule-actions { display: flex; gap: 2px; flex-shrink: 0; }
-.filter-rule-empty { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
-.filter-rule-form { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.filter-rule-select { width: auto; flex: 0 0 auto; }
-.filter-rule-input { flex: 1; min-width: 140px; }
-.filter-rule-test-result {
-  margin-top: 10px; padding: 10px 12px; background: var(--bg-secondary);
-  border: 1px solid var(--border); border-radius: var(--radius);
-}
-.filter-rule-test-summary { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
-.filter-rule-test-matches { list-style: none; margin: 0; padding: 0; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
-.filter-rule-test-group { color: var(--text-muted); margin-left: 6px; }
-
-/* Ek kaynaklar */
-.source-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.source-row {
-  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-  background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius);
-}
-.source-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.source-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.source-detail { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.source-form { display: flex; gap: 6px; flex-wrap: wrap; }
-.source-form .input { flex: 1; min-width: 120px; }
-.source-report-list { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.source-report-row { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
-.source-report-label { font-weight: 600; color: var(--text-primary); }
-.source-report-ok { color: var(--success); }
-.source-report-fail { color: var(--danger); }
 .result-box { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .result-box.success { background: var(--success-soft); color: var(--success); border: 1px solid rgba(16,185,129,0.2); }
 
@@ -3620,7 +3058,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .ep-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
 .ep-logo-area { display: flex; justify-content: center; padding: 14px; }
 .ep-logo-preview {
-  position: relative; cursor: pointer; width: 64px; height: 64px; border-radius: 8px; overflow: hidden;
+  display: block; position: relative; cursor: pointer; width: 64px; height: 64px; border-radius: 8px; overflow: hidden;
 }
 .ep-logo-preview img {
   width: 64px; height: 64px; border-radius: 8px; object-fit: contain; background: var(--bg-tertiary);

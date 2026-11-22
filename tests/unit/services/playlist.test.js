@@ -22,6 +22,20 @@ function builder({ rows = [], first, returning = [], updated = 1 } = {}) {
 describe('PlaylistService', () => {
   beforeEach(() => jest.clearAllMocks());
 
+  test('enforces the minimum sync interval for every caller and resets the backoff on change', async () => {
+    const owned = builder({ first: { id: 'p1', user_id: 'user-1' } });
+    mockDb.mockReturnValue(owned);
+
+    await expect(playlistService.updateSyncSettings('user-1', 'p1', { syncIntervalMinutes: 1 }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(owned.update).not.toHaveBeenCalled();
+
+    await playlistService.updateSyncSettings('user-1', 'p1', { syncIntervalMinutes: 360 });
+    expect(owned.update).toHaveBeenCalledWith(expect.objectContaining({
+      sync_interval_minutes: 360, sync_failure_count: 0, sync_next_attempt_at: null,
+    }));
+  });
+
   test('lists tenant playlists using a projection that excludes credentials and share secrets', async () => {
     const channelCounts = builder();
     const playlists = builder({ rows: [{ id: 'p1', name: 'News', channel_count: 2, has_xtream_source: true }] });
@@ -39,6 +53,23 @@ describe('PlaylistService', () => {
     expect(joinSql).toContain('LEFT JOIN LATERAL');
     expect(joinSql).toContain('channels.playlist_id = playlists.id');
     expect(playlists.groupBy).not.toHaveBeenCalled();
+  });
+
+  test('gets a single playlist scoped by owner with the same safe projection', async () => {
+    const playlists = builder({ first: { id: 'p1', name: 'News', user_id: 'user-1' } });
+    mockDb.mockReturnValue(playlists);
+
+    await expect(playlistService.getById('user-1', 'p1')).resolves.toEqual(expect.objectContaining({ id: 'p1' }));
+    expect(playlists.where).toHaveBeenCalledWith('playlists.id', 'p1');
+    expect(playlists.where).toHaveBeenCalledWith('playlists.user_id', 'user-1');
+    const selectedFields = playlists.select.mock.calls.flat();
+    expect(selectedFields).not.toContain('playlists.xtream_password_enc');
+    expect(selectedFields).not.toContain('playlists.share_token');
+  });
+
+  test('reports another user\'s playlist as not found', async () => {
+    mockDb.mockReturnValue(builder({ first: undefined }));
+    await expect(playlistService.getById('user-2', 'p1')).rejects.toMatchObject({ code: 'NOT_FOUND', statusCode: 404 });
   });
 
   test('creates a playlist with server-generated ownership', async () => {

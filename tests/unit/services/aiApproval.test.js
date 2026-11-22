@@ -25,6 +25,8 @@ jest.mock('../../../src/services/ai/tools', () => ({
   definitions: jest.fn(() => [{ type: 'function', function: { name: 'delete_channels', description: 'x', parameters: { type: 'object', properties: { channelIds: { type: 'array' } } } } }]),
   execute: (...args) => mockExecute(...args),
   isDestructive: (name) => name === 'delete_channels',
+  needsApproval: (name) => name === 'delete_channels',
+  resolveCall: (name, args) => ({ name, args: args || {}, wrapped: false }),
   isReadOnly: (name) => name.startsWith('list_') || name.startsWith('get_'),
   names: ['list_playlists', 'delete_channels'],
 }));
@@ -197,6 +199,110 @@ describe('AI destructive approval flow', () => {
     await expect(aiService.resolveApproval('user-1', 'pending-1', { approved: true }))
       .rejects.toThrow(/zaten sonuçlandırılmış/i);
   });
+
+  test('two concurrent approvals run the stored call only once', async () => {
+    const pendingRow = {
+      id: 'pending-1',
+      user_id: 'user-1',
+      conversation_id: 'conv-1',
+      status: 'pending',
+      tool_name: 'delete_channels',
+      queued_calls: JSON.stringify([{ id: 'call-1', function: { name: 'delete_channels', arguments: '{"channelIds":["c1"]}' } }]),
+    };
+    // Ikinci istek satiri hala 'pending' okur ama kosullu UPDATE 0 satir dondurur.
+    mockTables({
+      ai_pending_actions: () => {
+        const query = builder({ first: pendingRow });
+        query.update = jest.fn().mockResolvedValue(0);
+        return query;
+      },
+      ai_conversations: () => builder({ first: { id: 'conv-1', user_id: 'user-1', playlist_id: null } }),
+    });
+
+    await expect(aiService.resolveApproval('user-1', 'pending-1', { approved: true }))
+      .rejects.toThrow(/zaten sonuçlandırılmış/i);
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+
+  test('writing a new message instead of approving closes the pending call', async () => {
+    const pendingRow = {
+      id: 'pending-1',
+      status: 'pending',
+      queued_calls: JSON.stringify([{ id: 'call-9', function: { name: 'delete_channels', arguments: '{}' } }]),
+    };
+    const inserts = mockTables({
+      ai_settings: () => builder({ first: { ...SETTINGS, require_approval: false } }),
+      ai_conversations: () => builder({ first: { id: 'conv-1', user_id: 'user-1', playlist_id: null } }),
+      ai_pending_actions: () => {
+        const query = builder({ rows: [pendingRow] });
+        query.update = jest.fn().mockResolvedValue(1);
+        return query;
+      },
+    });
+    providerReplies({ choices: [{ message: { content: 'Tamam, silmiyorum.' } }] });
+
+    await aiService.chat('user-1', { conversationId: 'conv-1', message: 'vazgeç, başka bir şey yap' });
+
+    const closing = inserts.ai_messages.find((row) => row.role === 'tool' && row.tool_call_id === 'call-9');
+    expect(closing).toBeDefined();
+    expect(closing.content).toMatch(/onay vermeden/);
+    expect(mockExecute).not.toHaveBeenCalled();
+  });
+});
+
+describe('AI history repair', () => {
+  test('drops tool calls whose results are missing so the provider never rejects the history', () => {
+    const repaired = aiService._pairToolCalls([
+      { role: 'user', content: 'sil' },
+      { role: 'assistant', content: null, tool_calls: [{ id: 'a' }, { id: 'b' }] },
+      { role: 'tool', tool_call_id: 'a', content: '{}' },
+      { role: 'assistant', content: 'yarım kaldı', tool_calls: [{ id: 'c' }] },
+      { role: 'tool', tool_call_id: 'zzz', content: '{}' },
+      { role: 'user', content: 'devam' },
+    ]);
+    expect(repaired).toEqual([
+      { role: 'user', content: 'sil' },
+      { role: 'assistant', content: null, tool_calls: [{ id: 'a' }] },
+      { role: 'tool', tool_call_id: 'a', content: '{}' },
+      { role: 'assistant', content: 'yarım kaldı' },
+      { role: 'user', content: 'devam' },
+    ]);
+  });
+});
+
+describe('AI provider key handling', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('the stored key is never sent to a different provider address', async () => {
+    mockTables();
+    await expect(aiService._credentials('user-1', { baseUrl: 'https://saldirgan.ornek/v1' }))
+      .rejects.toThrow(/kayıtlı anahtar başka bir adrese gönderilmez/i);
+  });
+
+  test('the stored key is reused for the same provider', async () => {
+    mockTables();
+    const credentials = await aiService._credentials('user-1', { baseUrl: 'https://api.openai.com/v1/' });
+    expect(credentials.apiKey).toBe('sk-test');
+  });
+
+  test('changing the provider without a new key clears the stored key', async () => {
+    let patch;
+    mockTables({
+      ai_settings: () => {
+        const query = builder({ first: SETTINGS });
+        query.update = jest.fn((value) => { patch = value; return query; });
+        return query;
+      },
+    });
+    await aiService.saveSettings('user-1', { baseUrl: 'https://baska.ornek/v1' });
+    expect(patch.api_key_enc).toBeNull();
+  });
+
+  test('approval is on by default for a user who never saved settings', async () => {
+    mockTables({ ai_settings: () => builder({ first: undefined }) });
+    const settings = await aiService.getSettings('user-1');
+    expect(settings.requireApproval).toBe(true);
+  });
 });
 
 describe('AI produced files', () => {
@@ -257,5 +363,43 @@ describe('AI message length', () => {
   test('an empty message with no attachment is rejected', async () => {
     mockTables();
     await expect(aiService.chat('user-1', { message: '   ' })).rejects.toThrow(/boş olamaz/i);
+  });
+});
+
+describe('AI provider resilience', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('a rate-limited request is retried after the advertised delay', async () => {
+    mockTables({ ai_settings: () => builder({ first: { ...SETTINGS, require_approval: false } }) });
+    const busy = Object.assign(new Error('busy'), { remoteStatus: 429, retryAfter: '0' });
+    mockSafeFetchText
+      .mockRejectedValueOnce(busy)
+      .mockResolvedValueOnce({ text: JSON.stringify({ choices: [{ message: { content: 'Tamam.' } }] }) });
+
+    const result = await aiService.chat('user-1', { message: 'merhaba' });
+
+    expect(result.reply).toBe('Tamam.');
+    expect(mockSafeFetchText).toHaveBeenCalledTimes(2);
+  });
+
+  test('a local model host can be allowed without opening the whole private network', async () => {
+    process.env.AI_PROVIDER_PRIVATE_HOSTS = 'ollama:11434';
+    try {
+      mockTables({
+        ai_settings: () => builder({ first: { ...SETTINGS, base_url: 'http://ollama:11434/v1', require_approval: false } }),
+      });
+      providerReplies({ choices: [{ message: { content: 'Yerel model.' } }] });
+      await aiService.chat('user-1', { message: 'merhaba' });
+      expect(mockSafeFetchText.mock.calls[0][1].allowPrivateHost).toBe(true);
+    } finally {
+      delete process.env.AI_PROVIDER_PRIVATE_HOSTS;
+    }
+  });
+
+  test('provider requests stay behind the SSRF guard by default', async () => {
+    mockTables({ ai_settings: () => builder({ first: { ...SETTINGS, require_approval: false } }) });
+    providerReplies({ choices: [{ message: { content: 'ok' } }] });
+    await aiService.chat('user-1', { message: 'merhaba' });
+    expect(mockSafeFetchText.mock.calls[0][1].allowPrivateHost).toBe(false);
   });
 });

@@ -1,5 +1,10 @@
 <template>
-  <div class="auth-page">
+  <!-- Masaüstü: giriş ekranı yok; ana süreç yerel hesabı açıp sayfayı yeniler. -->
+  <div v-if="isDesktop" class="auth-page desktop-connecting" role="status">
+    <span class="spinner"></span>
+    <p>{{ t('desktop.connecting') }}</p>
+  </div>
+  <div v-else class="auth-page">
     <div class="auth-bg"></div>
     <div class="auth-container">
       <div class="auth-card">
@@ -92,6 +97,8 @@ import { ref, computed, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useI18n } from '../langs/useI18n'
+import { apiErrorMessage } from '../utils/apiError'
+import { isDesktop } from '../desktop'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -149,7 +156,7 @@ async function handleSubmit() {
     }
     router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard')
   } catch (err) {
-    error.value = err.response?.data?.error?.message || t('toast.genericError')
+    error.value = apiErrorMessage(err, t, 'toast.genericError')
   } finally {
     loading.value = false
   }
@@ -157,6 +164,7 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
+.desktop-connecting { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; min-height: 60vh; color: var(--text-secondary); font-size: 14px; }
 .auth-page {
   min-height: 100vh; display: flex; align-items: center; justify-content: center;
   padding: 20px; position: relative; overflow: hidden;

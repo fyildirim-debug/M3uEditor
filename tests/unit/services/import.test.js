@@ -305,7 +305,8 @@ describe('ImportService', () => {
     await service._bulkUpsertChannels('playlist-1', records, onProgress, connection);
 
     expect(insertedBatchSizes).toEqual([1000, 1000, 501]);
-    expect(connection.raw).toHaveBeenCalledTimes(3);
+    const upserts = connection.raw.mock.calls.filter(([sql]) => sql.includes('ON CONFLICT'));
+    expect(upserts).toHaveLength(3);
     expect(onProgress).toHaveBeenLastCalledWith({ processed: 2501, total: 2501 });
   });
 
@@ -337,7 +338,7 @@ describe('ImportService', () => {
       extras: JSON.stringify(incomingExtras),
     }], null, connection);
 
-    const sql = rawQueries[0];
+    const sql = rawQueries.find((query) => query.includes('ON CONFLICT'));
     expect(sql).toContain("extras = COALESCE(EXCLUDED.extras, '{}'::jsonb)");
     expect(sql).toContain("|| (COALESCE(channels.extras, '{}'::jsonb) - ARRAY[");
     const providerKeys = new Set(sql.match(/ARRAY\[([\s\S]*?)\]::text\[\]/)[1]
@@ -368,6 +369,125 @@ describe('ImportService', () => {
     expect(providerKeys).toEqual(new Set([
       'stream_id', 'stream_type', 'rating', 'genre', 'plot', 'year', 'tmdb_id', 'container_extension',
     ]));
+  });
+
+  test('refuses a proportional mass removal on large types and reports it', () => {
+    const existing = Array.from({ length: 30 }, (_, index) => ({ source_id: String(index), stream_type: 'live' }));
+    // 10/30 (%33) kayboluyor -> esik (%30) asildi, silme atlanir
+    const fetchedMost = new Set(existing.slice(10).map((channel) => `live:${channel.source_id}`));
+    expect(service._planStaleRemovals(existing, fetchedMost, ['live'])).toEqual({ stale: [], skippedTypes: ['live'] });
+
+    // 5/30 (%17) kayboluyor -> normal kismi silme
+    const fetchedAlmostAll = new Set(existing.slice(5).map((channel) => `live:${channel.source_id}`));
+    const plan = service._planStaleRemovals(existing, fetchedAlmostAll, ['live']);
+    expect(plan.skippedTypes).toEqual([]);
+    expect(plan.stale).toHaveLength(5);
+
+    // Kucuk turlerde (< 20) yalnizca %100 kayip reddedilir
+    const small = Array.from({ length: 4 }, (_, index) => ({ source_id: String(index), stream_type: 'vod' }));
+    expect(service._planStaleRemovals(small, new Set(['vod:0']), ['vod']).stale).toHaveLength(3);
+  });
+
+  test('returns the documented shape when the provider sends no categories', async () => {
+    const connection = jest.fn();
+    await expect(service._upsertCategories('playlist-1', [], connection)).resolves.toEqual({ map: {}, addedNames: [] });
+    expect(connection).not.toHaveBeenCalled();
+  });
+
+  function upsertConnection({ max = -1, owners = [] } = {}) {
+    const inserted = [];
+    const raws = [];
+    const connection = jest.fn(() => ({
+      insert: jest.fn((rows) => {
+        inserted.push(rows);
+        return { toSQL: () => ({ sql: 'insert into channels', bindings: [] }) };
+      }),
+    }));
+    connection.raw = jest.fn(async (sql, bindings) => {
+      raws.push({ sql, bindings });
+      if (sql.includes('MAX(sort_order)')) return { rows: [{ max }] };
+      if (sql.includes('stream_url = ANY')) {
+        return { rows: owners.filter((owner) => bindings[1].includes(owner.stream_url)) };
+      }
+      return { rowCount: 0 };
+    });
+    return { connection, inserted, raws };
+  }
+
+  test('skips duplicate stream URLs instead of failing the whole sync', async () => {
+    const { connection, inserted } = upsertConnection({
+      owners: [
+        // Ayni adres baska bir kimlige ait mevcut satirda -> gelen kayit atlanir
+        { stream_url: 'https://stream/taken', stream_type: 'live', source_id: '99' },
+        // Ayni kimligin kendi adresi -> normal guncelleme
+        { stream_url: 'https://stream/1', stream_type: 'live', source_id: '1' },
+      ],
+    });
+    const records = [
+      { id: 'a', source_id: '1', stream_type: 'live', stream_url: 'https://stream/1' },
+      { id: 'b', source_id: '2', stream_type: 'live', stream_url: 'https://stream/1' }, // ayni toplu islemde ayni adres
+      { id: 'c', source_id: '3', stream_type: 'live', stream_url: 'https://stream/taken' },
+      { id: 'd', source_id: '4', stream_type: 'live', stream_url: 'https://stream/4' },
+    ];
+
+    const result = await service._bulkUpsertChannels('playlist-1', records, null, connection);
+
+    expect(inserted.flat().map((row) => row.source_id)).toEqual(['1', '4']);
+    expect(result.skippedDuplicates).toBe(2);
+    expect([...result.skippedKeys].sort()).toEqual(['live:2', 'live:3']);
+  });
+
+  test('keeps user order and category moves; appends only new rows after the current maximum', async () => {
+    const { connection, inserted, raws } = upsertConnection({ max: 41 });
+    const records = [
+      { id: 'a', source_id: '1', stream_type: 'live', stream_url: 'https://stream/1', sort_order: 0 },
+      { id: 'b', source_id: '2', stream_type: 'live', stream_url: 'https://stream/2', sort_order: 1 },
+      { id: 'c', source_id: '3', stream_type: 'live', stream_url: 'https://stream/3', sort_order: 2 },
+    ];
+
+    await service._bulkUpsertChannels('playlist-1', records, null, connection, undefined, {
+      existingKeys: new Set(['live:2']),
+    });
+
+    const rows = inserted.flat();
+    expect(rows.find((row) => row.source_id === '1').sort_order).toBe(42);
+    expect(rows.find((row) => row.source_id === '3').sort_order).toBe(43);
+    const upsertSql = raws.find((entry) => entry.sql.includes('ON CONFLICT')).sql;
+    expect(upsertSql).not.toMatch(/sort_order = EXCLUDED\.sort_order/);
+    expect(upsertSql).not.toMatch(/category_id = EXCLUDED\.category_id/);
+    expect(upsertSql).toContain('category_id = CASE WHEN channels.category_id IS NOT DISTINCT FROM channels.original_category_id THEN EXCLUDED.category_id ELSE channels.category_id END');
+  });
+
+  test('provider records remember the provider category for later user-move detection', () => {
+    const record = service._recordForChannel('playlist-1', {
+      stream_id: 7, name: 'X', stream_type: 'live', category_id: 'remote-1',
+    }, { 'remote-1': 'category-1' }, client, 0);
+    expect(record.original_category_id).toBe('category-1');
+  });
+
+  test('reports duplicates as skipped rather than added and resets the backoff counter on success', async () => {
+    jest.spyOn(service, '_fetchXtream').mockResolvedValue({
+      categories: [],
+      channels: [
+        { stream_id: 1, name: 'A', stream_type: 'live', container_extension: 'ts' },
+        { stream_id: 2, name: 'B', stream_type: 'live', container_extension: 'ts' },
+      ],
+      client,
+      streamTypes: ['live'],
+    });
+    jest.spyOn(service, '_getOrCreatePlaylist').mockResolvedValue({ id: 'playlist-1' });
+    jest.spyOn(service, '_upsertCategories').mockResolvedValue({ map: {}, addedNames: [] });
+    jest.spyOn(service, '_bulkUpsertChannels').mockResolvedValue({ skippedDuplicates: 1, skippedKeys: new Set(['live:2']) });
+    const { trx, captures } = transactionFixture();
+    mockDb.transaction.mockImplementation((callback) => callback(trx));
+
+    const result = await service.importFromXtream('user-1', { username: 'u', password: 'p' });
+
+    expect(result).toEqual(expect.objectContaining({ added: 1, updated: 0, skippedDuplicates: 1 }));
+    expect(captures.updates).toContainEqual(expect.objectContaining({
+      table: 'playlists',
+      payload: expect.objectContaining({ sync_failure_count: 0, sync_next_attempt_at: null }),
+    }));
   });
 
   test('sync rejects playlists with no saved provider credentials', async () => {

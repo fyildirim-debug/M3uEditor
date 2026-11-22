@@ -270,6 +270,9 @@ module.exports = {
       const [updated] = await db('channels').where({ id: channel.id }).update({
         epg_channel_id: args.epgChannelId ? String(args.epgChannelId).trim() : null,
         epg_source_id: sourceId,
+        // Tekil atama elle verilmis eslesmedir; otomatik eslestirme dokunmaz.
+        // Kaldirma kilidi de acar ki kanal yeniden otomatik eslesebilsin.
+        epg_locked: Boolean(args.epgChannelId),
         updated_at: db.fn.now(),
       }).returning('*');
       return { id: updated.id, name: updated.name, epgChannelId: updated.epg_channel_id };
@@ -285,7 +288,7 @@ module.exports = {
       const playlistId = args.playlistId || ctx.playlistId;
       await ownedPlaylist(ctx.userId, playlistId);
       const updated = await db('channels').where('playlist_id', playlistId)
-        .update({ epg_channel_id: null, epg_source_id: null, updated_at: db.fn.now() });
+        .update({ epg_channel_id: null, epg_source_id: null, epg_locked: false, updated_at: db.fn.now() });
       return { cleared: updated };
     },
   },
@@ -471,6 +474,7 @@ module.exports = {
         `UPDATE channels AS target
             SET epg_channel_id = source.epg_channel_id,
                 epg_source_id = source.epg_source_id,
+                epg_locked = true,
                 updated_at = NOW()
            FROM (
              SELECT DISTINCT ON (lower(name)) lower(name) AS key, epg_channel_id, epg_source_id

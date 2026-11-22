@@ -2,6 +2,8 @@
 
 A self-hosted IPTV playlist manager for importing, editing, organizing, exporting, and sharing M3U/Xtream playlists. It includes a responsive Vue interface, XMLTV guide support, multi-user isolation, and a production Docker stack.
 
+It runs two ways from the same code: as a **web application** (Docker, multi-user) and as a **desktop application for Windows and Linux** that needs no server, no Docker and no database setup — see [Desktop application](#desktop-application-windows-and-linux).
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-22%2B-43853d.svg)](https://nodejs.org/)
 [![Vue 3](https://img.shields.io/badge/Vue-3.5-42b883.svg)](https://vuejs.org/)
@@ -22,13 +24,14 @@ A self-hosted IPTV playlist manager for importing, editing, organizing, exportin
 - Cross-origin redirects strip sensitive headers, HTTPS downgrades are rejected, and numeric proxy settings are parsed correctly.
 - Updated dependencies and CI checks for PostgreSQL integration tests and accidentally tracked runtime data.
 
-Validation for this update: **631 tests passed across 49 suites**, including two real PostgreSQL integration tests; all 33 migrations applied successfully. Frontend lint/build and translation parity passed. Both dependency audits reported zero known vulnerabilities at validation time. Physical-player compatibility and production load testing remain separate checks.
+Validation for this update: **733 tests passed across 54 suites** (8 more run only against a real database with `RUN_DB_TESTS=1`, and pass); all 35 migrations apply, roll back and re-apply cleanly, including on the PostgreSQL 18 bundled with the desktop app. Frontend lint/build and translation parity passed. Both dependency audits reported zero known vulnerabilities at validation time. Physical-player compatibility and production load testing remain separate checks.
 
 Every release is documented in [CHANGELOG.md](CHANGELOG.md), including the audit
 finding each change closes.
 
 ## Highlights
 
+- Desktop application for Windows and Linux with a bundled database — install and use, nothing to set up
 - AI assistant that drives the whole application through chat with your own OpenAI-compatible provider
 - Xtream Codes imports for Live TV, VOD, and Series
 - Local or remote M3U import and escaped M3U export
@@ -79,6 +82,75 @@ Reorder categories on the left, then drag channels on the right. Order is persis
 Profile summary, theme switcher (System / Dark / Light) and password change.
 
 ![Account settings](screenshot/account.png)
+
+## Desktop application (Windows and Linux)
+
+The desktop build is the same application packaged with Electron. The API runs
+in a background process inside the app and **PostgreSQL ships with it**, so
+there is nothing to install or configure: no Docker, no database server, no
+account to register. On first start the app creates its database and a local
+account and opens straight on your playlists.
+
+| Platform | Package | Notes |
+| --- | --- | --- |
+| Windows 10/11 (x64) | `M3U-Editor-Setup-<version>-x64.exe` | Per-user install, no administrator rights needed. The installer is not code-signed yet, so SmartScreen shows *More info → Run anyway*. |
+| Linux (x64) | `M3U-Editor-<version>-x86_64.AppImage` | Runs on any distribution; uses the static AppImage runtime, so `libfuse2` is **not** required. `chmod +x` and start it. |
+| Debian / Ubuntu / Pardus | `M3U-Editor-<version>-amd64.deb` | `sudo apt install ./M3U-Editor-*.deb` |
+| Fedora / RHEL / openSUSE | `M3U-Editor-<version>-x86_64.rpm` | `sudo dnf install ./M3U-Editor-*.rpm` |
+
+Packages are built by the [Desktop workflow](.github/workflows/desktop.yml) on
+real Windows and Linux runners; each build is started and must answer
+`/health` before it is accepted. Pushing a `v*` tag attaches the packages to a
+draft GitHub release.
+
+**Where your data lives.** Everything stays on your computer, in the
+application data folder (*File → Open data folder*):
+
+| | Windows | Linux |
+| --- | --- | --- |
+| Data | `%APPDATA%\M3U Editor` | `~/.config/M3U Editor` |
+
+It holds the database (`pgdata/`), logos, backups, assistant attachments, logs
+(`logs/`) and `secrets.json` — the keys that encrypt stored Xtream passwords and
+the assistant's API key. Back up the whole folder together; without
+`secrets.json` the encrypted credentials cannot be read. Uninstalling the app
+does not delete this folder.
+
+**Differences from the web version.**
+
+- Single user. There is no login screen; signing out signs you back in to the
+  local account. (The account is a normal administrator account inside the
+  app.)
+- Scheduled syncs, EPG refreshes and assistant tasks run while the app is open.
+- The Xtream output and share links point to `127.0.0.1`, so other devices on
+  the network cannot use them. Export the M3U/XMLTV files instead, or run the
+  web version on a server for that.
+- Web search for the assistant is off (it relies on the SearXNG service of the
+  Docker stack). A local model works out of the box: Ollama
+  (`http://localhost:11434/v1`) and LM Studio (`http://localhost:1234/v1`) are
+  allowed as providers without opening the private network to anything else.
+- Private-network M3U/EPG sources stay blocked by default, as on the server.
+
+**Troubleshooting.** If the app reports that it could not start, *Open log
+folder* shows `server.log` and `postgres.log`. Do not run the app as root on
+Linux — PostgreSQL refuses to start as root. On Ubuntu 24.04 and later, where
+AppArmor restricts unprivileged user namespaces, an AppImage may close
+immediately; start it with `--no-sandbox` or use the `.deb` package, which sets
+up Chromium's sandbox helper correctly.
+
+**Building it yourself.**
+
+```bash
+cd frontend && npm ci && cd ../desktop && npm ci
+npm run dist:linux     # AppImage, deb, rpm (rpm needs the rpm package)
+npm run dist:win       # on Windows: NSIS installer
+npm start              # development: runs the app against the repository
+```
+
+`desktop/scripts/prepare.js` copies `src/` and the built frontend into the
+package. The desktop package has its own `package.json`; its runtime
+dependencies must equal the server's, which `npm run check-deps` (and CI)
+verifies.
 
 ## Requirements
 
@@ -157,17 +229,19 @@ docker compose exec api npm run reset-password -- <email>
 
 ## Docker deployment
 
-Create `.env` from `.env.example`. Generate the two secrets independently — do not reuse one value for both, and do not ship the placeholders:
+Create `.env` from `.env.example`. Generate the three secrets independently — do not reuse one value, and do not ship the placeholders. Compose refuses to start while any of them is empty:
 
 ```bash
 echo "JWT_SECRET=$(openssl rand -hex 32)"
 echo "CREDENTIAL_ENCRYPTION_KEY=$(openssl rand -hex 32)"
+echo "SEARXNG_SECRET=$(openssl rand -hex 32)"
 ```
 
 ```env
 DB_PASSWORD=a-strong-database-password
 JWT_SECRET=<output of the first command>
 CREDENTIAL_ENCRYPTION_KEY=<output of the second command>
+SEARXNG_SECRET=<output of the third command>
 APP_URL=https://m3u.example.com
 CORS_ORIGIN=https://m3u.example.com
 HTTP_PORT=8080
@@ -189,7 +263,7 @@ Terminate TLS in front of the stack and keep the container port private:
 - Bind the published port to loopback (`HTTP_PORT=8080` and a `127.0.0.1:8080:80` mapping), or attach the frontend to an internal Docker network reachable only by your proxy.
 - Put Caddy, Traefik, nginx, or a cloud load balancer in front, terminating HTTPS on 443 and redirecting 80 to 443.
 - Forward `X-Forwarded-For` and `X-Forwarded-Proto` from that proxy, and keep `TRUST_PROXY` set to the number of proxies in front of the API — rate limiting keys on the client IP derived from those headers.
-- Enable HSTS at the proxy only after HTTPS is verified end to end.
+- The bundled Nginx sends `Strict-Transport-Security: max-age=15552000` (no `includeSubDomains`, no `preload`). Browsers ignore it over plain HTTP, so it takes effect only once your proxy serves the site over HTTPS — verify HTTPS end to end before going live, or strip the header at the proxy until you have.
 
 A LAN-only deployment behind a firewall is the one case where plain HTTP is defensible, and even then any client on that LAN can read the traffic.
 
@@ -310,7 +384,7 @@ and reports the ones it was not confident about instead of guessing.
 
 Every authenticated page carries a chat launcher in the bottom-right corner, and
 the same settings live under **Account → AI Assistant**. The assistant is not a
-help bot: it operates the application through **175 server-side tools**, so it can
+help bot: it operates the application through **180+ server-side tools**, so it can
 do anything the UI can do — and a good deal the UI cannot. It also accepts file
 attachments, streams its answer as it is produced, can pause for your approval
 before destructive work, hands finished output back as downloadable files, and
@@ -384,7 +458,10 @@ nothing**: whichever model you point the assistant at, `web_search` and
 
 Two details worth knowing. SearXNG's JSON output is *off* by default, so
 `searxng/settings.yml` in this repository turns it on — without it the assistant
-would get HTML it cannot read. And because the service resolves to a private
+would get HTML it cannot read. The file is mounted read-only and carries only a
+placeholder key; the real one comes from the required `SEARXNG_SECRET`
+variable, which SearXNG reads directly, so no secret is ever written into the
+checkout. And because the service resolves to a private
 address, the SSRF guard would normally refuse it; the exception is granted to the
 **server-configured** URL only (`allowPrivateHost`), never to anything the user
 or the model supplies. `open_web_page` visits addresses that ultimately come from
@@ -499,8 +576,11 @@ up at all and is marked accordingly from the start.
 `list_task_runs` and `undo_task_run` expose the same thing to the assistant, so
 *"what did last night's task do?"* and *"undo it"* work in chat as well.
 
-Providers cap how many functions one request may carry (OpenAI's limit is 128),
-so each turn ships the first 120 tools plus three meta-tools —
+The catalogue currently holds 179 domain tools plus three meta-tools (182); with
+SearXNG configured, as in the Docker stack, `web_search` and `open_web_page` bring
+it to 184. Providers cap how many functions one request may carry (OpenAI's limit
+is 128), so each turn ships the 120 tools most relevant to the message plus the
+three meta-tools —
 `search_capabilities`, `describe_capability` and `invoke_capability`. The
 assistant searches the catalogue for anything not in its current list and invokes
 it by name, so no capability is ever out of reach.
@@ -591,22 +671,59 @@ src/
   services/           Authentication, import, EPG, and domain logic
   utils/              Encryption, SSRF-safe fetch, and validation
 frontend/src/         Vue application
+desktop/              Electron shell for the Windows/Linux desktop app
 screenshot/           UI screenshots used in this README
 tests/                Jest unit and property tests
 ```
 
 ## Latest updates
 
+### v1.11.0.0 — 2026-11-22
+
+- **Desktop application for Windows and Linux.** The same app with a bundled
+  PostgreSQL: install it and use it — no Docker, no database, no sign-up.
+  See [Desktop application](#desktop-application-windows-and-linux).
+- **Security and reliability pass.** The assistant's approval gate can no
+  longer be bypassed, scheduled tasks are confined to their playlist, stored
+  secrets are only sent back to where they were saved, failing syncs back off
+  instead of retrying every minute, manual EPG matches are locked against
+  auto-matching, and sync keeps your channel order. Details in
+  [CHANGELOG.md](CHANGELOG.md).
+- **Web search with nothing to configure.** The Docker stack ships an internal
+  SearXNG service, so `web_search` and `open_web_page` work with any provider.
+  See [Web search](#web-search-with-nothing-to-configure).
+- **Logo library.** *Find logo* in the channel panel searches a channel-logo
+  library; the assistant can fill in every missing logo in one go.
+- **Scheduled task run log and one-click undo.** Every run records what it did
+  and the backup taken before it, so a run can be rolled back.
+- **Dead-channel repair.** Broken stream addresses are re-pointed at a working
+  source instead of the channels being deleted.
+- **Xtream sharing.** A short M3U address and an Xtream Codes API link are
+  offered next to the classic server/username/password login.
+
 ### v1.10.0.0 — 2026-08-02
 
 - **AI assistant with full application access.** A chat panel on every
-  authenticated page drives 55 server-side tools covering playlists, categories,
-  channels, EPG, imports, exports, filter rules, health scans, backups, and
-  views — including playlist merging and pulling logos out of the EPG guide.
+  authenticated page drives the application through server-side tools (162 at
+  release, 180+ today) covering playlists, categories, channels, EPG, imports,
+  exports, filter rules, health scans, backups, and views — including playlist
+  merging and pulling logos out of the EPG guide.
   Bring your own OpenAI-compatible provider: base URL and API key are yours, the
   model list is fetched from the provider, and the key is stored encrypted.
   Destructive tools are gated behind a switch and every executed tool is shown
   in the chat trace. See [AI assistant](#ai-assistant).
+
+### v1.9.0.0 — 2026-08-01
+
+- **Automation.** Scheduled auto-sync for playlists and EPG (with an optional
+  backup before each sync), gzip backups with restore and retention, stream
+  health scans, regex filter rules applied before sync, merging several Xtream
+  sources into one playlist, advanced channel filters (no logo / no EPG /
+  duplicate / dead / unchecked), the iptv-org EPG source library, persistent EPG
+  matching profiles, and view templates that hide category sets on export.
+- **Quality of life.** Mobile sort buttons, keyboard shortcuts, URL deep links,
+  share revocation, editable Xtream credentials, session management, a theme
+  switcher in the header, and real import progress.
 
 ### v1.8.0.0 — 2026-08-01
 

@@ -54,7 +54,6 @@
     "admin": "Admin"
   },
   "status": {
-    "systemActive": "System active",
     "active": "Active",
     "connected": "Connected",
     "offline": "Offline"
@@ -69,7 +68,6 @@
     "hasAccount": "Already have an account?",
     "noAccount": "Don't have an account yet?",
     "freeSignup": "Free Sign Up",
-    "divider": "or",
     "email": "Email Address",
     "emailPlaceholder": "example@email.com",
     "password": "Password",
@@ -77,7 +75,6 @@
     "confirmPassword": "Confirm Password",
     "confirmPlaceholder": "Re-enter your password",
     "passwordMismatch": "Passwords do not match",
-    "socialProof": "Trusted by 1,000+ users",
     "showPassword": "Show password",
     "hidePassword": "Hide password"
   },
@@ -95,14 +92,12 @@
     "statsLastUpdated": "Last Updated",
     "noPlaylists": "No playlists yet",
     "createFirstHint": "Create your first playlist and import channels with Xtream Codes.",
-    "createFirst": "Create Your First Playlist",
     "onboardStep1Title": "Import",
     "onboardStep1Desc": "Import channels via Xtream Codes or M3U",
     "onboardStep2Title": "Edit",
     "onboardStep2Desc": "Edit and categorize your channels",
     "onboardStep3Title": "Share",
     "onboardStep3Desc": "Download M3U or create a share link",
-    "lastEdited": "Last edited: {time}",
     "justNow": "just now",
     "minutesAgo": "{n}m ago",
     "hoursAgo": "{n}h ago",
@@ -116,16 +111,10 @@
     "namePlaceholder": "e.g. Main List, Sports Channels...",
     "nameLabel": "Playlist Name",
     "deleteConfirm": "Are you sure you want to permanently delete this playlist and all its channels?",
-    "deleting": "Deleting...",
-    "channelCount": "{count} channels"
+    "deleting": "Deleting..."
   },
   "xtream": {
     "importTitle": "Xtream Codes Import",
-    "autoFillLabel": "Auto Fill from M3U URL",
-    "autoFillPlaceholder": "http://example.com:8080/get.php?username=xxx&password=yyy&type=m3u_plus",
-    "autoFilled": "Fields auto-filled from URL",
-    "autoFillFailed": "Could not extract info from URL. Enter manually.",
-    "manualEntry": "or enter manually",
     "serverUrl": "Server URL",
     "serverPlaceholder": "http://example.com:8080",
     "username": "Username",
@@ -137,16 +126,10 @@
     "updateChannels": "Update Channels",
     "updating": "Updating...",
     "changeAccount": "Import with different account",
-    "streamTypes": "Content Types",
     "typeLive": "Live TV",
     "typeVod": "Movies (VOD)",
     "typeSeries": "Series",
     "stageConnecting": "Connecting to server...",
-    "stageAuth": "Authenticating...",
-    "stageCategories": "Downloading categories...",
-    "stageChannels": "Downloading channels...",
-    "stageVod": "Downloading movies...",
-    "stageSeries": "Downloading series...",
     "stageProcessing": "Processing data...",
     "stageSaving": "Saving to database...",
     "stageFinalizing": "Finalizing...",
@@ -202,16 +185,15 @@
     "searchMovies": "Search movies...",
     "searchSeries": "Search series...",
     "newCategory": "New Category",
-    "channelCount": "{count} channels",
     "noChannelsInCat": "No channels in this category",
     "noChannels": "No channels yet. Import with Xtream.",
     "selectChannelToEdit": "Select a channel to edit",
-    "channelsAvailable": "{count} channels available",
     "showCategory": "Show",
     "hideCategory": "Hide",
     "hiddenCategoryBadge": "Hidden",
     "hiddenCategoryHint": "This category is hidden from M3U, share-link, Xtream and XMLTV outputs.",
-    "rename": "Rename"
+    "rename": "Rename",
+    "untitledPlaylist": "Playlist"
   },
   "editPanel": {
     "title": "Edit Channel",
@@ -257,7 +239,11 @@
     "live": "LIVE",
     "next": "NEXT",
     "noDescription": "No description available",
-    "durationSuffix": "min"
+    "durationSuffix": "min",
+    "previousDay": "Previous day",
+    "nextDay": "Next day",
+    "loadEarlier": "Load earlier",
+    "windowRange": "Showing channels {from}–{to} of {total}"
   },
   "epgProfiles": {
     "tab": "Profiles",
@@ -461,7 +447,6 @@
     "updated": "Updated",
     "deleted": "Deleted",
     "deleteFailed": "Could not delete",
-    "connectionError": "Connection error. Check server URL, username and password.",
     "importSuccess": "{channels} channels, {categories} categories imported ({duration}s)",
     "channelUpdated": "Channel updated",
     "channelsLoadError": "Could not load channels",
@@ -495,15 +480,12 @@
     "deleteChannelConfirm": "Are you sure you want to delete {count} channels?",
     "metadataFetched": "Metadata fetched",
     "metadataError": "Could not fetch metadata",
-    "metadataNotFound": "Not found on TMDB",
-    "noXtreamSource": "Xtream Codes source not found",
     "channelCreated": "Channel created"
   },
   "metadata": {
     "title": "Metadata",
     "fetch": "Fetch Info",
     "refetch": "Refetch",
-    "overview": "Overview",
     "cast": "Cast",
     "director": "Director",
     "genres": "Genres",
@@ -548,9 +530,9 @@
     "fromUrl": "Import from URL",
     "fromFile": "Import from File",
     "urlPlaceholder": "https://example.com/playlist.m3u",
-    "selectFile": "Select File",
     "playlistName": "Playlist Name",
-    "namePlaceholder": "e.g. My M3U List"
+    "namePlaceholder": "e.g. My M3U List",
+    "defaultName": "M3U Import"
   },
   "addChannel": {
     "title": "Add Channel",
@@ -625,7 +607,6 @@
     "profile": "Profile",
     "email": "Email",
     "memberSince": "Member Since",
-    "stats": "Statistics",
     "changePassword": "Change Password",
     "currentPassword": "Current Password",
     "newPassword": "New Password",
@@ -647,26 +628,13 @@
     "unknownDevice": "Unknown device"
   },
   "share2": {
-    "expiry": "Expiry",
-    "noExpiry": "No expiry",
-    "days7": "7 days",
-    "days30": "30 days",
-    "days90": "90 days",
-    "password": "Password Protection",
-    "passwordPlaceholder": "Optional password"
+    "password": "Password Protection"
   },
   "keyboard": {
-    "shortcuts": "Keyboard Shortcuts",
     "save": "Save",
     "delete": "Delete",
-    "selectAll": "Select All",
     "search": "Search",
-    "escape": "Cancel / Close",
-    "focusSearch": "Focus search (/)",
-    "goEpg": "EPG view (g e)",
-    "goSort": "Sort view (g s)",
-    "goCategory": "Category view (g k)",
-    "goUpdate": "Update view (g g)"
+    "focusSearch": "Focus search (/)"
   },
   "addTypes": {
     "title": "Add Content Type",
@@ -714,7 +682,8 @@
     "closeEditPanel": "Close edit panel",
     "selectedEpgLogo": "Logo for the selected EPG channel",
     "channelLogo": "Logo for {name}",
-    "backdropImage": "Backdrop image for {name}"
+    "backdropImage": "Backdrop image for {name}",
+    "dialog": "Dialog"
   },
   "forgotPw": {
     "title": "Forgot Password",
@@ -886,6 +855,9 @@
     "filesAttached": "Take a look at the file I attached.",
     "downloadFailed": "File could not be downloaded",
     "approvalTitle": "Waiting for approval",
+    "approvalArgs": "Call details",
+    "stop": "Stop",
+    "stopped": "Stopped.",
     "approve": "Approve",
     "reject": "Cancel",
     "approved": "Action approved.",
@@ -962,5 +934,34 @@
     "group_custom": "Custom",
     "group_misc": "Miscellaneous",
     "group_24_7": "24/7 channels"
+  },
+  "errors": {
+    "VALIDATION_ERROR": "Some of the submitted values are invalid",
+    "INVALID_CREDENTIALS": "Invalid email or password",
+    "TOKEN_EXPIRED": "Your session has expired, please sign in again",
+    "UNAUTHORIZED": "You need to sign in to do this",
+    "FORBIDDEN": "You don't have permission to access this resource",
+    "NOT_FOUND": "The requested item was not found",
+    "CONFLICT": "This conflicts with existing data",
+    "DUPLICATE_CHANNEL": "This stream URL already exists in this playlist",
+    "IMPORT_IN_PROGRESS": "An import is already running for this playlist",
+    "IMPORT_CANCELLED": "The import was cancelled",
+    "IMPORT_CAPACITY_REACHED": "The server is busy with other imports; please try again shortly",
+    "IMPORT_FAILED": "The import failed unexpectedly",
+    "XTREAM_CONNECTION_FAILED": "Could not connect to the Xtream server",
+    "XTREAM_AUTH_FAILED": "Xtream username or password was rejected",
+    "EPG_FETCH_FAILED": "Could not download the EPG source",
+    "RATE_LIMITED": "Too many requests; please wait a moment and try again",
+    "DATABASE_UNAVAILABLE": "The database is not reachable; please contact the server administrator",
+    "INTERNAL_ERROR": "An unexpected error occurred",
+    "NETWORK_ERROR": "Could not reach the server; check your connection",
+    "TIMEOUT": "The server took too long to respond"
+  },
+  "pageTitles": {
+    "editor": "Editor"
+  },
+  "desktop": {
+    "localAccount": "This computer",
+    "connecting": "Opening your local account…"
   }
 }

@@ -439,3 +439,12 @@ kbd {
   button, .btn, [role="button"], a.nav-link { min-height: 44px; }
   .btn-icon, .btn-icon-sm { width: 44px; height: 44px; }
 }
+
+/* Div role="button" yerine kullanilan gercek <button>'lar: tarayici dugme
+   stilini sifirlar, gorunumu bilesenin kendi sinifi belirler (daha ozgul). */
+.btn-plain {
+  appearance: none; -webkit-appearance: none;
+  background: none; border: 0; margin: 0; padding: 0;
+  font: inherit; color: inherit; line-height: inherit; text-align: inherit;
+  cursor: pointer;
+}

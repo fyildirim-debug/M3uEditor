@@ -4,8 +4,10 @@
 # erisilir, Traefik'e baglanmaz ve domaini yoktur. Bu yuzden limiter ve bot
 # korumasi kapali; onlerinde zaten yalnizca kendi API'miz var.
 #
-# `ultrasecretkey` degeri imajin girisi tarafindan SEARXNG_SECRET ile
-# degistirilir; depoda gercek bir sir tutulmaz.
+# Bu dosya konteynere SALT-OKUNUR baglanir (SEARXNG_SETTINGS_PATH) ve hicbir
+# zaman yeniden yazilmaz. `ultrasecretkey` yalnizca yer tutucudur: SearXNG
+# server.secret_key'i calisirken zorunlu SEARXNG_SECRET ortam degiskeninden
+# okur. Buraya gercek bir anahtar YAZMAYIN.
 use_default_settings: true
 
 server:

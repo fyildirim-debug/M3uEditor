@@ -7,9 +7,9 @@
       <div class="account-section">
         <h2 class="section-title">{{ t('account.profile') }}</h2>
         <div class="profile-card card">
-          <div class="profile-avatar">{{ user?.email?.[0]?.toUpperCase() || '?' }}</div>
+          <div class="profile-avatar">{{ (isDesktop ? t('desktop.localAccount') : user?.email)?.[0]?.toUpperCase() || '?' }}</div>
           <div class="profile-info">
-            <div class="profile-email">{{ user?.email }}</div>
+            <div class="profile-email">{{ isDesktop ? t('desktop.localAccount') : user?.email }}</div>
             <div class="profile-meta" v-if="profile">
               {{ t('account.memberSince') }}: {{ formatDate(profile.created_at) }}
             </div>
@@ -46,6 +46,8 @@
         </div>
       </div>
 
+      <!-- Masaüstünde hesap yönetimi yok: oturum ana süreç tarafından açılır. -->
+      <template v-if="!isDesktop">
       <!-- Change Password -->
       <div class="account-section">
         <h2 class="section-title">{{ t('account.changePassword') }}</h2>
@@ -124,6 +126,7 @@
           </form>
         </div>
       </div>
+      </template>
 
       <div class="back-link">
         <router-link to="/dashboard" class="btn btn-ghost">{{ t('nav.dashboard') }}</router-link>
@@ -140,7 +143,9 @@ import { useAuthStore } from '../stores/auth'
 import { useI18n } from '../langs/useI18n'
 import { useTheme } from '../composables/useTheme'
 import AiSettingsForm from '../components/AiSettingsForm.vue'
+import { isDesktop } from '../desktop'
 import api from '../api'
+import { apiErrorMessage } from '../utils/apiError'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -185,7 +190,7 @@ async function revokeSession(s) {
     toast(t('account.sessionRevoked'), 'success')
     sessions.value = sessions.value.filter(x => x.familyId !== s.familyId)
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.genericError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.genericError'), 'error')
   } finally {
     s._revoking = false
   }
@@ -214,7 +219,7 @@ async function handleChangePassword() {
     pwForm.value = { current: '', newPw: '', confirm: '' }
     router.push('/login')
   } catch (e) {
-    pwError.value = e.response?.data?.error?.message || t('toast.genericError')
+    pwError.value = apiErrorMessage(e, t, 'toast.genericError')
   } finally {
     pwLoading.value = false
   }
@@ -228,7 +233,7 @@ async function handleChangeEmail() {
     toast(t('account.emailChanged'), 'success')
     emailForm.value = { newEmail: '', password: '' }
   } catch (e) {
-    emailError.value = e.response?.data?.error?.message || t('toast.genericError')
+    emailError.value = apiErrorMessage(e, t, 'toast.genericError')
   } finally {
     emailLoading.value = false
   }
@@ -241,7 +246,7 @@ async function handleDeleteAccount() {
     toast(t('account.accountDeleted'), 'success')
     router.push('/login')
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.genericError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.genericError'), 'error')
   } finally {
     deleteLoading.value = false
   }

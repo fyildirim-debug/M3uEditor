@@ -356,6 +356,7 @@ import { useRouter } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import XtreamImportWizard from '../components/XtreamImportWizard.vue'
+import { apiErrorMessage } from '../utils/apiError'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -421,7 +422,12 @@ onMounted(() => {
   // Asistan liste olusturdugunda/sildiginde panoyu tazele.
   window.addEventListener('ai:data-changed', loadPlaylists)
 })
-onUnmounted(() => window.removeEventListener('ai:data-changed', loadPlaylists))
+let importNavigationTimer = null
+onUnmounted(() => {
+  window.removeEventListener('ai:data-changed', loadPlaylists)
+  // Ice aktarim sonrasi gecikmeli yonlendirme, kullanici sayfadan ayrildiysa calismasin.
+  clearTimeout(importNavigationTimer)
+})
 
 async function loadPlaylists() {
   loading.value = true
@@ -443,7 +449,7 @@ async function createPlaylist() {
     await nextTick()
     toast(t('toast.playlistCreated'), 'success')
     loadPlaylists()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 function startEdit(pl) { editingPl.value = pl; editName.value = pl.name }
@@ -456,7 +462,7 @@ async function updatePlaylist() {
     await nextTick()
     toast(t('toast.updated'), 'success')
     loadPlaylists()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 function confirmDelete(pl) { deletingPl.value = pl }
@@ -491,7 +497,7 @@ async function createBackup() {
     await nextTick()
     toast(t('backup.created'), 'success')
     await loadBackups()
-  } catch (e) { toast(e.response?.data?.error?.message || t('backup.createError'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'backup.createError'), 'error') }
   finally { backupCreating.value = false }
 }
 
@@ -525,7 +531,7 @@ async function doRestore(overwrite) {
     toast(t('backup.restored'), 'success')
     await loadPlaylists()
     if (!overwrite && data.playlistId) router.push('/playlist/' + data.playlistId)
-  } catch (e) { toast(e.response?.data?.error?.message || t('backup.restoreError'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'backup.restoreError'), 'error') }
   finally { restoring.value = false }
 }
 
@@ -540,7 +546,7 @@ async function doDeleteBackup() {
     await nextTick()
     toast(t('backup.deleted'), 'success')
     await loadBackups()
-  } catch (e) { toast(e.response?.data?.error?.message || t('backup.deleteError'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'backup.deleteError'), 'error') }
   finally { backupDeleting.value = false }
 }
 
@@ -572,7 +578,7 @@ async function deletePlaylist() {
     await nextTick()
     toast(t('toast.deleted'), 'success')
     loadPlaylists()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
   finally { deletingPlaylist.value = false }
 }
 
@@ -616,7 +622,7 @@ function onM3uFileSelect(e) {
 async function doM3uImport() {
   m3uImporting.value = true; m3uImportResult.value = null; m3uImportError.value = ''
   try {
-    const payload = { playlistName: m3uImportForm.value.name || 'M3U Import' }
+    const payload = { playlistName: m3uImportForm.value.name || t('m3uImport.defaultName') }
     if (m3uImportForm.value.content) {
       payload.m3uContent = m3uImportForm.value.content
     } else {
@@ -626,12 +632,13 @@ async function doM3uImport() {
     m3uImportResult.value = data
     toast(t('toast.importSuccess', { channels: data.totalChannels, categories: data.totalCategories, duration: (data.duration / 1000).toFixed(1) }), 'success')
     await loadPlaylists()
-    setTimeout(() => {
+    clearTimeout(importNavigationTimer)
+    importNavigationTimer = setTimeout(() => {
       showM3uImport.value = false
       if (data.playlistId) router.push('/playlist/' + data.playlistId)
     }, 2000)
   } catch (e) {
-    m3uImportError.value = e.response?.data?.error?.message || t('toast.genericError')
+    m3uImportError.value = apiErrorMessage(e, t, 'toast.genericError')
   } finally { m3uImporting.value = false }
 }
 </script>
