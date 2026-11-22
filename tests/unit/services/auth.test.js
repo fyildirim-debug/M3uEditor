@@ -308,6 +308,27 @@ describe('AuthService', () => {
       expect(events).toEqual(['commit', 'remove:1000', 'remove:1']);
     });
 
+    it('removes every playlist backup directory after the delete commits', async () => {
+      const events = [];
+      const trx = mockAccountDeletion([], events);
+      const playlistsQuery = trx('playlists');
+      playlistsQuery.forUpdate.mockResolvedValue([{ id: 'playlist-a' }, { id: 'playlist-b' }]);
+      trx.mockImplementation(((original) => (table) => (table === 'playlists' ? playlistsQuery : original(table)))(trx.getMockImplementation()));
+      const backupService = require('../../../src/services/BackupService');
+      const removeDir = jest.spyOn(backupService, 'removePlaylistBackupDir').mockImplementation(async (id) => { events.push(`backups:${id}`); });
+
+      await expect(authService.deleteAccount('user-1', 'correct-password')).resolves.toEqual({ success: true });
+
+      expect(events).toEqual(['commit', 'backups:playlist-a', 'backups:playlist-b']);
+      removeDir.mockRestore();
+    });
+
+    it('rejects a non-string password before reaching bcrypt', async () => {
+      await expect(authService.deleteAccount('user-1', { $ne: 'x' })).rejects.toMatchObject({ code: 'VALIDATION_ERROR', statusCode: 400 });
+      await expect(authService.changeEmail('user-1', 12345, 'new@example.com')).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+      expect(mockKnex).not.toHaveBeenCalled();
+    });
+
     it('keeps account logos when the delete transaction rolls back', async () => {
       mockAccountDeletion([]);
       mockKnex.transaction.mockRejectedValueOnce(new Error('rollback'));

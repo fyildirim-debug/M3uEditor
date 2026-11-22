@@ -119,7 +119,7 @@ async function changePassword(req, res, next) {
 async function changeEmail(req, res, next) {
   try {
     const { password, newEmail } = req.body;
-    if (!password || !newEmail || typeof newEmail !== 'string' || !EMAIL_REGEX.test(newEmail)) {
+    if (!password || typeof password !== 'string' || !newEmail || typeof newEmail !== 'string' || !EMAIL_REGEX.test(newEmail)) {
       throw createAppError('VALIDATION_ERROR', 'Geçerli e-posta ve şifre gerekli');
     }
     res.json(await authService.changeEmail(req.userId, password, newEmail));
@@ -128,7 +128,7 @@ async function changeEmail(req, res, next) {
 
 async function deleteAccount(req, res, next) {
   try {
-    if (!req.body?.password) throw createAppError('VALIDATION_ERROR', 'Şifre gerekli');
+    if (!req.body?.password || typeof req.body.password !== 'string') throw createAppError('VALIDATION_ERROR', 'Şifre gerekli');
     await authService.deleteAccount(req.userId, req.body.password);
     clearRefreshCookie(res);
     res.json({ success: true });

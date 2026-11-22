@@ -84,6 +84,45 @@ describe('channelController createChannel', () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
+  test.each([
+    ['a newline in the name', { name: 'Kanal\n#EXTINF:-1,Sahte' }],
+    ['a control character in the stream url', { streamUrl: 'http://example.com/a\r\nb' }],
+    ['an oversized name', { name: 'x'.repeat(501) }],
+    ['a non-string category id', { categoryId: 42 }],
+  ])('rejects %s with the same validation as updates', async (_label, body) => {
+    const channels = createChannelsTable();
+    setupDb(channels);
+    const res = { status: jest.fn(() => res), json: jest.fn() };
+    const next = jest.fn();
+
+    await channelController.createChannel(buildRequest(body), res, next);
+
+    expect(channels.insertCalls).toBe(0);
+    expect(next.mock.calls[0][0]).toMatchObject({ code: 'VALIDATION_ERROR', statusCode: 400 });
+  });
+
+  test('locks an EPG id given at creation against auto-match', async () => {
+    const channels = createChannelsTable();
+    mockDb.mockImplementation((table) => {
+      if (table === 'playlists') return { where: () => ({ first: async () => ({ id: PLAYLIST_ID, user_id: USER_ID }) }) };
+      if (table === 'channels') return channels.table();
+      if (table === 'epg_channels') {
+        const q = {};
+        for (const method of ['join', 'where', 'select']) q[method] = jest.fn(() => q);
+        q.first = jest.fn().mockResolvedValue({ source_id: 'source-1' });
+        return q;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    const res = { status: jest.fn(() => res), json: jest.fn() };
+    const next = jest.fn();
+
+    await channelController.createChannel(buildRequest({ epgChannelId: 'bbc.news' }), res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(channels.inserted).toMatchObject({ epg_channel_id: 'bbc.news', epg_source_id: 'source-1', epg_locked: true });
+  });
+
   test('rejects a stream url that already exists in the playlist with a named 409', async () => {
     const channels = createChannelsTable({ duplicate: { id: 'existing-1', name: 'Var Olan Kanal' } });
     setupDb(channels);

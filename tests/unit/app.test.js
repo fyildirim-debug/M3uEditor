@@ -110,3 +110,27 @@ describe('Express App', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('TRUST_PROXY parsing', () => {
+  const { parseTrustProxy } = require('../../src/app');
+
+  test.each([
+    [undefined, 1],
+    ['1', 1],
+    ['2', 2],
+    ['true', true],
+    ['TRUE', true],
+    ['false', false],
+    ['loopback', 'loopback'],
+    ['10.0.0.0/8, 127.0.0.1', '10.0.0.0/8, 127.0.0.1'],
+  ])('maps %p to %p', (input, expected) => {
+    expect(parseTrustProxy(input)).toEqual(expected);
+  });
+
+  test('produces values Express accepts', () => {
+    const express = require('express');
+    for (const value of ['true', 'false', '1', 'loopback']) {
+      expect(() => express().set('trust proxy', parseTrustProxy(value))).not.toThrow();
+    }
+  });
+});

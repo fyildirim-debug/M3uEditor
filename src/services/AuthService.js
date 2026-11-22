@@ -178,7 +178,15 @@ class AuthService {
     return { success: true, email: user.email };
   }
 
+  _assertPasswordString(password) {
+    // bcrypt.compare metin disi degerde istisna firlatip 500 donduruyordu.
+    if (typeof password !== 'string' || !password) {
+      throw createAppError('VALIDATION_ERROR', 'Şifre gerekli');
+    }
+  }
+
   async changeEmail(userId, password, newEmail) {
+    this._assertPasswordString(password);
     const normalizedEmail = newEmail.trim().toLowerCase();
     const user = await db('users').where({ id: userId }).first();
     if (!user) throw createAppError('NOT_FOUND');
@@ -192,19 +200,32 @@ class AuthService {
   }
 
   async deleteAccount(userId, password) {
+    this._assertPasswordString(password);
     const user = await db('users').where({ id: userId }).first();
     if (!user) throw createAppError('NOT_FOUND');
     if (!(await bcrypt.compare(password, user.password_hash))) {
       throw createAppError('INVALID_CREDENTIALS', 'Şifre yanlış');
     }
+    return this.purgeUser(userId);
+  }
+
+  /**
+   * Kullaniciyi ve tum verisini siler; commit SONRASI diskteki kanal logolarini
+   * ve playlist yedek dizinlerini (duz metin Xtream kimligi icerir) temizler.
+   * Hem kullanicinin kendi hesap silmesi hem yonetici silmesi bunu kullanir.
+   * @param {string} userId
+   */
+  async purgeUser(userId) {
     const queuePath = path.join(os.tmpdir(), `m3u-logo-cleanup-${crypto.randomUUID()}.txt`);
     let queueHandle;
+    let playlistIds = [];
     try {
       queueHandle = await fs.promises.open(queuePath, 'wx', 0o600);
       await db.transaction(async (trx) => {
         const lockedUser = await trx('users').where({ id: userId }).forUpdate().first();
         if (!lockedUser) throw createAppError('NOT_FOUND');
-        await trx('playlists').where({ user_id: userId }).select('id').forUpdate();
+        const playlists = await trx('playlists').where({ user_id: userId }).select('id').forUpdate();
+        playlistIds = (playlists || []).map((playlist) => playlist.id);
 
         let lastChannelId = null;
         while (true) {
@@ -243,6 +264,13 @@ class AuthService {
         if (batch.length > 0) await removeChannelLogos(batch);
       } catch (error) {
         logger.warn({ err: error, userId }, 'Committed account logo cleanup could not be completed');
+      }
+      // Yedek dosyalari FK ile silinmez; diskte kalirsa silinmis hesabin
+      // kimlik bilgileri de kalir.
+      // eslint-disable-next-line global-require
+      const backupService = require('./BackupService');
+      for (const playlistId of playlistIds) {
+        await backupService.removePlaylistBackupDir(playlistId);
       }
       return { success: true };
     } finally {

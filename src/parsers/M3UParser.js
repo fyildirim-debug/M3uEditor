@@ -1,4 +1,5 @@
 const { Readable } = require('stream');
+const { createAppError } = require('../utils/AppError');
 
 /**
  * M3U playlist parser.
@@ -12,14 +13,14 @@ class M3UParser {
    */
   parse(content) {
     if (!content || typeof content !== 'string' || content.trim() === '') {
-      throw new Error('M3U içeriği boş veya geçersiz');
+      throw createAppError('VALIDATION_ERROR', 'M3U içeriği boş veya geçersiz');
     }
 
     const lines = content.split(/\r?\n/);
     const firstNonEmptyLine = lines.find(line => line.trim() !== '');
 
     if (!firstNonEmptyLine || !firstNonEmptyLine.trim().startsWith('#EXTM3U')) {
-      throw new Error('Geçersiz M3U dosyası: #EXTM3U başlığı eksik');
+      throw createAppError('VALIDATION_ERROR', 'Geçersiz M3U dosyası: #EXTM3U başlığı eksik');
     }
 
     const channels = [];
@@ -109,7 +110,7 @@ class M3UParser {
         if (!headerChecked) {
           if (line === '') continue;
           if (!line.startsWith('#EXTM3U')) {
-            throw new Error('Geçersiz M3U dosyası: #EXTM3U başlığı eksik');
+            throw createAppError('VALIDATION_ERROR', 'Geçersiz M3U dosyası: #EXTM3U başlığı eksik');
           }
           headerChecked = true;
           continue;
@@ -140,7 +141,7 @@ class M3UParser {
     if (buffer.trim()) {
       const line = buffer.trim();
       if (!headerChecked && !line.startsWith('#EXTM3U')) {
-        throw new Error('Geçersiz M3U dosyası: #EXTM3U başlığı eksik');
+        throw createAppError('VALIDATION_ERROR', 'Geçersiz M3U dosyası: #EXTM3U başlığı eksik');
       }
       if (currentExtInf !== null && !line.startsWith('#')) {
         yield { ...currentExtInf, url: line };

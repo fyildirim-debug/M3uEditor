@@ -47,13 +47,21 @@ function absoluteAppUrl(path) {
 const REDACTED_QUERY_KEYS = new Set(['password', 'share_password', 'secret', 'token', 'username']);
 
 /**
+ * Kimligi yolun icinde tasiyan adresler: paylasim baglantisi `/api/shared/<token>`
+ * (ve `/api/shared/<token>/xmltv`). Token tek basina listeye erisim verdigi icin
+ * istek gunlugune girmemeli.
+ */
+const TOKEN_PATH_PATTERN = /(\/shared\/)[^/?#]+/gi;
+
+/**
  * @param {string} originalUrl
- * @returns {string} Hassas sorgu parametreleri maskelenmiş adres
+ * @returns {string} Hassas yol parcalari ve sorgu parametreleri maskelenmis adres
  */
 function redactUrl(originalUrl) {
   const url = String(originalUrl ?? '');
   const separator = url.indexOf('?');
-  if (separator === -1) return url;
+  const pathPart = (separator === -1 ? url : url.slice(0, separator)).replace(TOKEN_PATH_PATTERN, '$1REDACTED');
+  if (separator === -1) return pathPart;
 
   const params = new URLSearchParams(url.slice(separator + 1));
   let changed = false;
@@ -63,7 +71,7 @@ function redactUrl(originalUrl) {
       changed = true;
     }
   }
-  return changed ? `${url.slice(0, separator)}?${params.toString()}` : url;
+  return changed ? `${pathPart}?${params.toString()}` : `${pathPart}${url.slice(separator)}`;
 }
 
 module.exports = { toAbsoluteMediaUrl, absoluteAppUrl, redactUrl };

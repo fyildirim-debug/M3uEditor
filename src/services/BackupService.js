@@ -10,17 +10,19 @@ const config = require('../config');
 const db = require('../config/database');
 const logger = require('../config/logger');
 const { createAppError } = require('../utils/AppError');
+const importJobs = require('./ImportJobs');
 
-/** Ayni playlist'te tutulacak maksimum yedek sayisi */
+/** Ayni playlist'te yedek turu (reason) basina tutulacak maksimum yedek sayisi */
 const RETENTION_LIMIT = 10;
 /** Toplu kanal insert'inde chunk boyutu */
 const INSERT_CHUNK = 500;
 /** Gecerli yedek nedenleri */
 const VALID_REASONS = new Set(['manual', 'pre-sync', 'scheduled', 'ai-task']);
-// Gece calisan asistan gorevleri her turda yedek alir. Ortak bir kotada
-// tutulsalardi birkac gunde kullanicinin elle aldigi yedekleri disari iterlerdi;
-// bu yuzden gorev yedekleri kendi kotasinda sayilir.
-const AI_TASK_REASON = 'ai-task';
+// Her yedek turu kendi kotasinda sayilir. Ortak kotada otomatik yedekler
+// (zamanlanmis sync oncesi, asistan gorevleri) birkac gunde kullanicinin elle
+// aldigi yedekleri disari iterlerdi. Eski satirlarda taninmayan bir reason
+// varsa elle alinmis yedek sayilir.
+const MANUAL_REASON = 'manual';
 const SETTINGS_FIELDS = ['xtream_server_url', 'xtream_username', 'xtream_password_enc', 'xtream_stream_types', 'sync_interval_minutes', 'backup_before_sync', 'last_synced_at'];
 const RELATED_TABLES = ['playlist_sources', 'filter_rules', 'playlist_views', 'epg_match_profiles'];
 
@@ -36,6 +38,7 @@ const CHANNEL_FIELDS = [
   'epg_channel_id',
   'epg_source_id',
   'category_id',
+  'original_category_id',
   'sort_order',
   'stream_type',
   'source_id',
@@ -88,7 +91,7 @@ class BackupService {
    *
    * @param {string} userId
    * @param {string} playlistId
-   * @param {'manual'|'pre-sync'|'scheduled'} reason
+   * @param {'manual'|'pre-sync'|'scheduled'|'ai-task'} reason
    * @returns {Promise<object>} olusturulan backups satiri
    */
   async createBackup(userId, playlistId, reason = 'manual') {
@@ -152,20 +155,20 @@ class BackupService {
   }
 
   /**
-   * Playlist basina son RETENTION_LIMIT yedegi tutar; daha eski yedeklerin
-   * dosyasini ve veritabani satirini siler.
+   * Playlist basina, her yedek turu icin son RETENTION_LIMIT yedegi tutar;
+   * daha eski yedeklerin dosyasini ve veritabani satirini siler.
+   * Kovalar: manual, pre-sync, scheduled, ai-task (her biri ayri).
    * @param {string} playlistId
    */
   async enforceRetention(playlistId) {
-    // Iki ayri kova: kullanicinin yedekleri ve asistan gorevlerinin yedekleri.
-    // Her biri kendi icinde son RETENTION_LIMIT kaydi tutar.
     const stale = [];
-    for (const aiTask of [false, true]) {
+    for (const reason of VALID_REASONS) {
       const rows = await db('backups')
         .where({ playlist_id: playlistId })
-        .andWhere((query) => (aiTask
-          ? query.where('reason', AI_TASK_REASON)
-          : query.whereNot('reason', AI_TASK_REASON)))
+        .andWhere((query) => (reason === MANUAL_REASON
+          // Bilinmeyen/eski reason degerleri elle alinmis yedek kovasinda sayilir.
+          ? query.where('reason', MANUAL_REASON).orWhereNotIn('reason', [...VALID_REASONS]).orWhereNull('reason')
+          : query.where('reason', reason)))
         .orderBy('created_at', 'desc')
         .offset(RETENTION_LIMIT)
         .select('id', 'filename');
@@ -236,6 +239,19 @@ class BackupService {
    * @returns {Promise<{ playlistId: string, name: string, channelCount: number, categoryCount: number, overwritten: boolean }>}
    */
   async restoreBackup(userId, backupId, targetPlaylistId = null, connection = db) {
+    // Var olan bir listenin uzerine yazmak, ayni anda calisan bir ice
+    // aktarim/sync ile yarisirdi (biri kanallari silerken digeri upsert eder).
+    // HTTP ice aktarimiyla ayni kilit alinir; mesgulse 409 IMPORT_IN_PROGRESS.
+    if (!targetPlaylistId) return this._restoreBackup(userId, backupId, null, connection);
+    return importJobs.runExclusive(
+      userId,
+      targetPlaylistId,
+      () => this._restoreBackup(userId, backupId, targetPlaylistId, connection),
+      { kind: 'restore' }
+    );
+  }
+
+  async _restoreBackup(userId, backupId, targetPlaylistId, connection) {
     const backup = await this.assertBackupOwnership(userId, backupId);
 
     const filePath = await this.migrateLegacyFile(backup.filename);
@@ -306,6 +322,9 @@ class BackupService {
           ...(targetPlaylistId === payload.playlist?.id && ch.xtream_id ? { xtream_id: ch.xtream_id } : {}),
           playlist_id: playlist.id,
           category_id: ch.category_id && categoryIdMap.has(ch.category_id) ? categoryIdMap.get(ch.category_id) : null,
+          original_category_id: ch.original_category_id && categoryIdMap.has(ch.original_category_id)
+            ? categoryIdMap.get(ch.original_category_id)
+            : null,
           name: String(ch.name || 'Kanal'),
           original_name: ch.original_name != null ? String(ch.original_name) : null,
           logo_url: ch.logo_url != null ? String(ch.logo_url) : null,

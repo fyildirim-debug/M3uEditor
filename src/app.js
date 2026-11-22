@@ -13,9 +13,24 @@ const { redactUrl } = require('./utils/urls');
 
 const app = express();
 
+/**
+ * TRUST_PROXY ortam degiskenini Express'in bekledigi tipe cevirir. Ortam
+ * degiskenleri hep metindir: 'true'/'false' dizesi Express'e oldugu gibi
+ * verilince adres listesi sanilir ve sunucu "invalid IP address: true"
+ * hatasiyla acilmiyordu.
+ * @param {string|undefined} value
+ * @returns {boolean|number|string}
+ */
+function parseTrustProxy(value) {
+  const raw = String(value ?? '1').trim();
+  if (/^true$/i.test(raw)) return true;
+  if (/^false$/i.test(raw) || raw === '') return false;
+  if (/^\d+$/.test(raw)) return Number(raw);
+  return raw;
+}
+
 // Security headers
-const proxySetting = process.env.TRUST_PROXY ?? '1';
-app.set('trust proxy', /^\d+$/.test(proxySetting) ? Number(proxySetting) : proxySetting);
+app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY));
 app.disable('x-powered-by');
 
 app.use(helmet({
@@ -247,3 +262,4 @@ app.use(notFound);
 app.use(errorHandler);
 
 module.exports = app;
+module.exports.parseTrustProxy = parseTrustProxy;

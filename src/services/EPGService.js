@@ -11,6 +11,22 @@ const { createAppError } = require('../utils/AppError');
 const BATCH_SIZE = 500;
 const activeJobs = new Map();
 
+// Otomatik eslestirmede token birlestirmesine giren ama ayirt edici olmayan
+// sozcukler (kalite/codec etiketleri, iki harfli ulke on ekleri). Bunlarla
+// birlestirme "hd"/"tv" gibi neredeyse her kanalda gecen tokenlarda yuz
+// milyonlarca satira patliyordu.
+const MATCH_STOP_WORDS = Object.freeze([
+  'hd', 'fhd', 'uhd', 'sd', 'hq', '4k', '8k', 'tv', 'hevc', 'h265', 'h264', 'raw', 'backup', 'vip',
+  'tr', 'uk', 'us', 'de', 'fr', 'it', 'es', 'nl', 'ar', 'ru', 'pl', 'pt', 'gr', 'ro', 'al', 'bg',
+  'ca', 'au', 'in', 'at', 'ch', 'be', 'se', 'no', 'dk', 'fi', 'az', 'ku',
+]);
+// Bundan fazla EPG kanalinda gecen token ayirt edici sayilmaz (IDF siniri);
+// birlestirme boyutu kanal token sayisi x bu degerle sinirli kalir.
+const MATCH_MAX_TOKEN_FREQUENCY = 50;
+// Kullanici tetiklemeden calisan (ice aktarim sonrasi) eslestirme icin alt sinir.
+const AUTOMATIC_MIN_CONFIDENCE = 0.7;
+const MANUAL_MIN_CONFIDENCE = 0.5;
+
 class EPGService {
   async addSource(userId, url) {
     if (typeof url !== 'string' || !url.trim() || url.length > 5000) {
@@ -57,7 +73,8 @@ class EPGService {
     if (activeJobs.has(key)) return activeJobs.get(key);
     const job = this.parseAndStore(source.id, options)
       .then(async (result) => {
-        if (playlistId) await this.autoMatch(userId, playlistId);
+        // Ice aktarim sonrasi otomatik calisma: yalnizca bos eslesmeler, yuksek guven.
+        if (playlistId) await this.autoMatch(userId, playlistId, null, { automatic: true });
         return result;
       })
       .finally(() => activeJobs.delete(key));
@@ -248,6 +265,8 @@ class EPGService {
         `, [sourceId, sourceId]);
         await trx('epg_sources').where({ id: sourceId }).update({
           status: 'active', last_fetched_at: trx.fn.now(), processing_started_at: null, last_error: null,
+          // Basarili yenileme zamanlayicinin geri cekilme sayacini sifirlar.
+          failure_count: 0, next_attempt_at: null,
         });
         return { channelCount: Number(counts.new_channel_count), programCount: Number(counts.new_program_count) };
       });
@@ -335,16 +354,35 @@ class EPGService {
     return { expression, cleaned };
   }
 
-  async autoMatch(userId, playlistId, settings = null) {
+  /**
+   * Playlist kanallarini kullanicinin EPG kanallariyla ad uzerinden eslestirir.
+   *
+   * Elle verilmis eslesmeler (`epg_locked`) hicbir kosulda degistirilmez.
+   * Varsayilan olarak yalnizca EPG kimligi bos kanallar doldurulur; dolu
+   * (saglayicidan gelmis ya da daha once otomatik atanmis) eslesmelerin
+   * yeniden hesaplanmasi icin kullanici `overwrite: true` gondermelidir.
+   *
+   * @param {object|null} [settings] - eslestirme profili ayarlari
+   * @param {{ overwrite?: boolean, automatic?: boolean }} [options]
+   *   automatic: kullanici tetiklemeden (ice aktarim sonrasi) calisma; guven >= 0.7 istenir.
+   */
+  async autoMatch(userId, playlistId, settings = null, options = {}) {
+    const overwrite = options.overwrite === true && options.automatic !== true;
+    const minConfidence = options.automatic === true ? AUTOMATIC_MIN_CONFIDENCE : MANUAL_MIN_CONFIDENCE;
     const preprocessParams = [];
     const { expression: channelNameExpr } = this._buildPreprocessClause(settings, preprocessParams);
+    const stopWords = [...MATCH_STOP_WORDS];
     const result = await db.raw(`
       WITH playlist_channels AS MATERIALIZED (
         SELECT c.id,
-          btrim(regexp_replace(lower(translate(COALESCE(${channelNameExpr}, ''), 'IİĞÜŞÖÇ', 'ıiğüşöç')), '[^[:alnum:]]+', ' ', 'g')) AS normalized
+          btrim(regexp_replace(lower(translate(COALESCE(${channelNameExpr}, ''), 'IİĞÜŞÖÇ', 'ıiğüşöç')), '[^[:alnum:]]+', ' ', 'g')) AS normalized,
+          (NOT c.epg_locked AND (?::boolean OR c.epg_channel_id IS NULL OR c.epg_channel_id = '')) AS eligible
         FROM channels AS c
         JOIN playlists AS p ON p.id = c.playlist_id
         WHERE p.id = ? AND p.user_id = ?
+      ),
+      target_channels AS MATERIALIZED (
+        SELECT id, normalized FROM playlist_channels WHERE eligible AND normalized <> ''
       ),
       user_epg AS MATERIALIZED (
         SELECT e.channel_id, e.source_id,
@@ -355,33 +393,41 @@ class EPGService {
       ),
       channel_tokens AS (
         SELECT DISTINCT c.id, token
-        FROM playlist_channels AS c
+        FROM target_channels AS c
         CROSS JOIN LATERAL regexp_split_to_table(c.normalized, '\\s+') AS token
-        WHERE length(token) > 1
+        WHERE length(token) > 1 AND token <> ALL(?::text[])
       ),
-      epg_tokens AS (
+      epg_tokens_all AS MATERIALIZED (
         SELECT DISTINCT e.channel_id, e.source_id, token
         FROM user_epg AS e
         CROSS JOIN LATERAL regexp_split_to_table(e.normalized, '\\s+') AS token
-        WHERE length(token) > 1
+        WHERE length(token) > 1 AND token <> ALL(?::text[])
+      ),
+      epg_token_frequency AS (
+        SELECT token, COUNT(*) AS frequency FROM epg_tokens_all GROUP BY token
+      ),
+      epg_tokens AS (
+        SELECT et.channel_id, et.source_id, et.token
+        FROM epg_tokens_all AS et
+        JOIN epg_token_frequency AS f ON f.token = et.token
+        WHERE f.frequency <= ?
       ),
       candidates AS (
         SELECT c.id AS playlist_channel_id, c.normalized AS channel_name,
           e.channel_id AS epg_channel_id, e.source_id AS epg_source_id, e.normalized AS epg_name
-        FROM playlist_channels AS c
+        FROM target_channels AS c
         JOIN user_epg AS e ON e.normalized = c.normalized
-        WHERE c.normalized <> ''
         UNION
         SELECT c.id, c.normalized, e.channel_id, e.source_id, e.normalized
         FROM channel_tokens AS ct
         JOIN epg_tokens AS et ON et.token = ct.token
-        JOIN playlist_channels AS c ON c.id = ct.id
+        JOIN target_channels AS c ON c.id = ct.id
         JOIN user_epg AS e ON e.channel_id = et.channel_id AND e.source_id = et.source_id
       ),
       scored AS (
         SELECT *, CASE
           WHEN channel_name = epg_name THEN 1.0
-          WHEN position(epg_name IN channel_name) > 0 OR position(channel_name IN epg_name) > 0 THEN 0.7
+          WHEN epg_name <> '' AND (position(epg_name IN channel_name) > 0 OR position(channel_name IN epg_name) > 0) THEN 0.7
           ELSE 0.5
         END AS confidence
         FROM candidates
@@ -394,7 +440,7 @@ class EPGService {
         FROM scored
       ),
       best AS (
-        SELECT * FROM ranked WHERE match_rank = 1 AND confidence >= 0.5
+        SELECT * FROM ranked WHERE match_rank = 1 AND confidence >= ?
       ),
       updated AS (
         UPDATE channels AS c
@@ -403,6 +449,7 @@ class EPGService {
           updated_at = NOW()
         FROM best
         WHERE c.id = best.playlist_channel_id
+          AND NOT c.epg_locked
         RETURNING c.id AS channel_id, best.epg_channel_id, best.epg_source_id, best.confidence
       )
       SELECT (SELECT COUNT(*)::integer FROM playlist_channels) AS total,
@@ -412,7 +459,7 @@ class EPGService {
           'epgSourceId', epg_source_id,
           'confidence', confidence
         ) ORDER BY confidence DESC) FROM updated), '[]'::json) AS matches
-    `, [...preprocessParams, playlistId, userId, userId]);
+    `, [...preprocessParams, overwrite, playlistId, userId, userId, stopWords, stopWords, MATCH_MAX_TOKEN_FREQUENCY, minConfidence]);
     const row = result.rows[0];
     const matches = typeof row.matches === 'string' ? JSON.parse(row.matches) : row.matches;
     return { matched: matches.length, total: Number(row.total), matches };
@@ -467,10 +514,10 @@ class EPGService {
     logger.info(`[EPG] Eşleştirme profili silindi: ${profile.name} (${profile.id})`);
   }
 
-  async runProfile(userId, profileId) {
+  async runProfile(userId, profileId, options = {}) {
     const profile = await this._getOwnedProfile(userId, profileId);
     const settings = this._sanitizeSettings(typeof profile.settings === 'string' ? JSON.parse(profile.settings) : profile.settings);
-    const result = await this.autoMatch(userId, profile.playlist_id, settings);
+    const result = await this.autoMatch(userId, profile.playlist_id, settings, { overwrite: options.overwrite === true });
     const [updated] = await db('epg_match_profiles')
       .where({ id: profile.id })
       .update({ mapped_count: result.matched, last_run_at: db.fn.now(), updated_at: db.fn.now() })
@@ -516,7 +563,16 @@ class EPGService {
   async updateRefreshSettings(userId, sourceId, refreshIntervalMinutes) {
     const source = await db('epg_sources').where({ id: sourceId, user_id: userId }).first();
     if (!source) throw createAppError('NOT_FOUND', 'EPG kaynağı bulunamadı');
-    await db('epg_sources').where({ id: sourceId }).update({ refresh_interval_minutes: refreshIntervalMinutes });
+    const minimum = config.scheduler.minSyncIntervalMinutes;
+    if (refreshIntervalMinutes !== null && refreshIntervalMinutes !== undefined
+      && (!Number.isInteger(refreshIntervalMinutes) || refreshIntervalMinutes < minimum)) {
+      throw createAppError('VALIDATION_ERROR', `EPG yenileme aralığı en az ${minimum} dakika olmalı`);
+    }
+    await db('epg_sources').where({ id: sourceId }).update({
+      refresh_interval_minutes: refreshIntervalMinutes,
+      failure_count: 0,
+      next_attempt_at: null,
+    });
     const updated = await db('epg_sources').where({ id: sourceId }).first();
     return this._publicSource(updated);
   }

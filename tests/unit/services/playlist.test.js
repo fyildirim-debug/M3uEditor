@@ -22,6 +22,20 @@ function builder({ rows = [], first, returning = [], updated = 1 } = {}) {
 describe('PlaylistService', () => {
   beforeEach(() => jest.clearAllMocks());
 
+  test('enforces the minimum sync interval for every caller and resets the backoff on change', async () => {
+    const owned = builder({ first: { id: 'p1', user_id: 'user-1' } });
+    mockDb.mockReturnValue(owned);
+
+    await expect(playlistService.updateSyncSettings('user-1', 'p1', { syncIntervalMinutes: 1 }))
+      .rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    expect(owned.update).not.toHaveBeenCalled();
+
+    await playlistService.updateSyncSettings('user-1', 'p1', { syncIntervalMinutes: 360 });
+    expect(owned.update).toHaveBeenCalledWith(expect.objectContaining({
+      sync_interval_minutes: 360, sync_failure_count: 0, sync_next_attempt_at: null,
+    }));
+  });
+
   test('lists tenant playlists using a projection that excludes credentials and share secrets', async () => {
     const channelCounts = builder();
     const playlists = builder({ rows: [{ id: 'p1', name: 'News', channel_count: 2, has_xtream_source: true }] });

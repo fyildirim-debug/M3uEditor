@@ -1,10 +1,22 @@
 const db = require('../config/database');
+const config = require('../config');
 const { createAppError } = require('../utils/AppError');
 const { requestBuffer, requestStream } = require('../utils/safeFetch');
 
 const TIMEOUT_MS = 8_000;
+// Tarama basina toplam paralel istek. Ayni saglayici sunucusuna giden istekler
+// ayrica config.healthScan.perHostConcurrency ile sinirlanir (Xtream panelleri
+// max_connections asiminda hesabi kilitler).
 const CONCURRENCY = 10;
 const BATCH_SIZE = 100;
+
+function hostOf(url) {
+  try {
+    return new URL(url).host.toLowerCase();
+  } catch {
+    return '';
+  }
+}
 
 class StreamHealthService {
   constructor() {
@@ -92,20 +104,19 @@ class StreamHealthService {
     const userKey = String(userId);
     const existing = this.jobsByUser.get(userKey);
     if (existing?.running) return existing;
+    if (this._runningJobCount() >= config.healthScan.maxJobs) {
+      throw createAppError('HEALTH_SCAN_CAPACITY_REACHED');
+    }
 
-    const channelQuery = db('channels')
-      .where({ playlist_id: playlistId })
-      .select('id', 'stream_url')
-      .orderBy('sort_order', 'asc');
-    if (streamType) channelQuery.andWhere('stream_type', streamType);
-    const channels = await channelQuery;
-
+    // Is, "zaten calisiyor" kontrolu ile ilk await ARASINDA senkron olarak
+    // kaydedilir; aksi halde ayni anda gelen iki istek ikisi de kontrolu gecip
+    // iki tarama baslatiyordu.
     const job = {
       userId: userKey,
       playlistId,
       running: true,
       checked: 0,
-      total: channels.length,
+      total: 0,
       dead: 0,
       startedAt: new Date().toISOString(),
       finishedAt: null,
@@ -113,13 +124,34 @@ class StreamHealthService {
     };
     this.jobsByUser.set(userKey, job);
 
+    let channels;
+    try {
+      const channelQuery = db('channels')
+        .where({ playlist_id: playlistId })
+        .select('id', 'stream_url')
+        .orderBy('sort_order', 'asc');
+      if (streamType) channelQuery.andWhere('stream_type', streamType);
+      channels = await channelQuery;
+    } catch (error) {
+      job.running = false;
+      job.error = error.message;
+      job.finishedAt = new Date().toISOString();
+      throw error;
+    }
+    job.total = channels.length;
+
     // Arka planda calistir; POST hemen 202 doner, ilerleme GET ile izlenir.
     this._runScan(job, channels).catch(() => {});
     return job;
   }
 
+  _runningJobCount() {
+    let count = 0;
+    for (const job of this.jobsByUser.values()) if (job.running) count += 1;
+    return count;
+  }
+
   async _runScan(job, channels) {
-    let cursor = 0;
     let pending = [];
     const checkedAt = new Date().toISOString();
 
@@ -130,19 +162,63 @@ class StreamHealthService {
       await this._flushBatch(batch);
     };
 
-    const worker = async () => {
-      while (cursor < channels.length) {
-        const channel = channels[cursor++];
+    // Saglayici sunucusu basina kuyruk: bir host'a ayni anda en fazla
+    // perHostConcurrency istek gider, toplam paralellik CONCURRENCY'yi asmaz.
+    const perHost = Math.max(1, config.healthScan.perHostConcurrency);
+    const queues = new Map();
+    for (const channel of channels) {
+      const host = hostOf(channel.stream_url);
+      if (!queues.has(host)) queues.set(host, []);
+      queues.get(host).push(channel);
+    }
+    const inflightByHost = new Map();
+    const takeNext = () => {
+      for (const [host, queue] of queues) {
+        if ((inflightByHost.get(host) || 0) >= perHost) continue;
+        const channel = queue.shift();
+        if (!queue.length) queues.delete(host);
+        return { host, channel };
+      }
+      return null;
+    };
+
+    const check = async ({ host, channel }) => {
+      inflightByHost.set(host, (inflightByHost.get(host) || 0) + 1);
+      try {
         const result = await this._checkChannel(channel.stream_url);
         pending.push({ id: channel.id, checkedAt, ok: result.ok, status: result.status });
         job.checked += 1;
         if (!result.ok) job.dead += 1;
         if (pending.length >= BATCH_SIZE) await flush();
+      } finally {
+        inflightByHost.set(host, inflightByHost.get(host) - 1);
       }
     };
 
+    const runAll = () => new Promise((resolve, reject) => {
+      let active = 0;
+      let failed = false;
+      const pump = () => {
+        if (failed) return;
+        while (active < CONCURRENCY) {
+          const next = takeNext();
+          if (!next) break;
+          active += 1;
+          check(next).then(() => {
+            active -= 1;
+            pump();
+          }, (error) => {
+            failed = true;
+            reject(error);
+          });
+        }
+        if (active === 0 && !queues.size) resolve();
+      };
+      pump();
+    });
+
     try {
-      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, channels.length || 1) }, worker));
+      await runAll();
       await flush();
     } catch (error) {
       job.error = error.message;

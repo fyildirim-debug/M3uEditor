@@ -1,12 +1,16 @@
 const playlistService = require('../services/PlaylistService');
+const config = require('../config');
 const { createAppError } = require('../utils/AppError');
 
 const MAX_SYNC_INTERVAL_MINUTES = 525600; // 1 yil
 
+// Dakikada bir sync saglayiciyi dover ve hesabin engellenmesine yol acar;
+// en kisa aralik MIN_SYNC_INTERVAL_MINUTES (varsayilan 15).
 function validateSyncInterval(value) {
   if (value === null) return;
-  if (!Number.isInteger(value) || value < 1 || value > MAX_SYNC_INTERVAL_MINUTES) {
-    throw createAppError('VALIDATION_ERROR', 'syncIntervalMinutes null veya 1-525600 arasi bir tam sayi olmali');
+  const minimum = config.scheduler.minSyncIntervalMinutes;
+  if (!Number.isInteger(value) || value < minimum || value > MAX_SYNC_INTERVAL_MINUTES) {
+    throw createAppError('VALIDATION_ERROR', `syncIntervalMinutes null veya ${minimum}-${MAX_SYNC_INTERVAL_MINUTES} arası bir tam sayı olmalı (en kısa aralık ${minimum} dakika)`);
   }
 }
 
