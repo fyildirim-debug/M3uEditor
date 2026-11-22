@@ -33,6 +33,47 @@ const MAX_PARALLEL_TOOL_CALLS = 6;
 // Bir model turunda calistirilacak en fazla arac cagrisi.
 const MAX_TOOL_CALLS_PER_STEP = 16;
 
+/**
+ * Yerel bir yapay zeka sunucusu (Ollama, LM Studio, vLLM) icin istisna.
+ *
+ * Saglayici adresi kullanici verisidir ve SSRF korumasi ozel ag adreslerini
+ * reddeder. Onceden yerel model kullanmanin tek yolu ALLOW_PRIVATE_NETWORK_URLS
+ * idi; o da M3U, EPG ve web istekleri dahil butun uzak istekleri ic aga
+ * aciyordu. AI_PROVIDER_PRIVATE_HOSTS yalnizca adi gecen saglayici
+ * makinelerini acar (virgulle ayrilmis host ya da host:port).
+ */
+function privateProviderAllowed(target) {
+  const list = String(process.env.AI_PROVIDER_PRIVATE_HOSTS || '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  if (!list.length) return false;
+  try {
+    const url = new URL(target);
+    const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    const withPort = `${host}:${url.port || (url.protocol === 'https:' ? '443' : '80')}`;
+    return list.includes(host) || list.includes(withPort);
+  } catch {
+    return false;
+  }
+}
+
+// Saglayici gecici olarak reddettiginde (hiz siniri, asiri yuk) bekleyip
+// yeniden denenir. Retry-After saygi gorur ama bir istegi dakikalarca tutmamak
+// icin ust sinir vardir.
+const RETRYABLE_STATUSES = new Set([429, 502, 503, 504]);
+const MAX_PROVIDER_RETRIES = 2;
+const MAX_RETRY_DELAY_MS = 20_000;
+
+function retryDelayMs(error, attempt) {
+  const header = error?.retryAfter ?? error?.headers?.['retry-after'];
+  const seconds = Number(header);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.min(seconds * 1000, MAX_RETRY_DELAY_MS);
+  return Math.min(1000 * 2 ** attempt, MAX_RETRY_DELAY_MS);
+}
+
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
 /** Ucuncu taraf adlarini sistem baglamina guvenli, tek satirlik dize olarak koyar. */
 function quoteName(value) {
   return JSON.stringify(String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, 120));
@@ -110,6 +151,7 @@ function providerError(error) {
   }
 
   appError.remoteStatus = status;
+  if (error?.retryAfter !== undefined) appError.retryAfter = error.retryAfter;
   appError.providerReason = reason;
   return appError;
 }
@@ -232,6 +274,7 @@ class AIService {
         timeoutMs: REQUEST_TIMEOUT_MS,
         maxBytes: MAX_RESPONSE_BYTES,
         captureErrorBody: true,
+        allowPrivateHost: privateProviderAllowed(baseUrl),
       });
       try {
         return JSON.parse(response.text);
@@ -249,6 +292,20 @@ class AIService {
     }
   }
 
+  /** Gecici saglayici hatalarinda (429/5xx) artan beklemeyle yeniden dener. */
+  async _requestWithRetry(userId, path, body) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this._request(userId, path, body);
+      } catch (error) {
+        if (!RETRYABLE_STATUSES.has(error?.remoteStatus) || attempt >= MAX_PROVIDER_RETRIES) throw error;
+        const delay = retryDelayMs(error, attempt);
+        logger.info({ userId, status: error.remoteStatus, attempt: attempt + 1, delay }, 'AI provider busy, retrying');
+        await sleep(delay);
+      }
+    }
+  }
+
   /**
    * Sohbet tamamlama istegi. Bazi modeller (akil yurutme modelleri, bazi
    * gecitler) belirli parametreleri 400 ile reddeder; bu durumda istek
@@ -256,7 +313,7 @@ class AIService {
    */
   async _chatCompletion(userId, body) {
     try {
-      return await this._request(userId, '/chat/completions', body);
+      return await this._requestWithRetry(userId, '/chat/completions', body);
     } catch (error) {
       if (error?.remoteStatus !== 400 && error?.remoteStatus !== 422) throw error;
       const reason = String(error.providerReason || '').toLowerCase();
@@ -303,6 +360,7 @@ class AIService {
         timeoutMs: REQUEST_TIMEOUT_MS,
         maxBytes: MAX_RESPONSE_BYTES,
         captureErrorBody: true,
+        allowPrivateHost: privateProviderAllowed(baseUrl),
       });
     } catch (error) {
       logger.info({ userId, status: error?.remoteStatus }, 'AI streaming request failed, falling back to non-streaming');

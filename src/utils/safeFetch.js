@@ -295,6 +295,8 @@ async function requestRemote(input, options, redirectCount, budget, mode) {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         const httpError = createAppError('XTREAM_CONNECTION_FAILED', `Uzak sunucu HTTP ${response.statusCode} döndürdü`);
         httpError.remoteStatus = response.statusCode;
+        // Hiz siniri yanitlarinda istemcinin ne kadar beklemesi gerektigi.
+        if (response.headers['retry-after']) httpError.retryAfter = response.headers['retry-after'];
         if (!options.captureErrorBody) {
           response.destroy();
           fail(httpError);

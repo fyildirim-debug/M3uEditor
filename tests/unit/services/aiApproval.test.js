@@ -365,3 +365,41 @@ describe('AI message length', () => {
     await expect(aiService.chat('user-1', { message: '   ' })).rejects.toThrow(/boş olamaz/i);
   });
 });
+
+describe('AI provider resilience', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('a rate-limited request is retried after the advertised delay', async () => {
+    mockTables({ ai_settings: () => builder({ first: { ...SETTINGS, require_approval: false } }) });
+    const busy = Object.assign(new Error('busy'), { remoteStatus: 429, retryAfter: '0' });
+    mockSafeFetchText
+      .mockRejectedValueOnce(busy)
+      .mockResolvedValueOnce({ text: JSON.stringify({ choices: [{ message: { content: 'Tamam.' } }] }) });
+
+    const result = await aiService.chat('user-1', { message: 'merhaba' });
+
+    expect(result.reply).toBe('Tamam.');
+    expect(mockSafeFetchText).toHaveBeenCalledTimes(2);
+  });
+
+  test('a local model host can be allowed without opening the whole private network', async () => {
+    process.env.AI_PROVIDER_PRIVATE_HOSTS = 'ollama:11434';
+    try {
+      mockTables({
+        ai_settings: () => builder({ first: { ...SETTINGS, base_url: 'http://ollama:11434/v1', require_approval: false } }),
+      });
+      providerReplies({ choices: [{ message: { content: 'Yerel model.' } }] });
+      await aiService.chat('user-1', { message: 'merhaba' });
+      expect(mockSafeFetchText.mock.calls[0][1].allowPrivateHost).toBe(true);
+    } finally {
+      delete process.env.AI_PROVIDER_PRIVATE_HOSTS;
+    }
+  });
+
+  test('provider requests stay behind the SSRF guard by default', async () => {
+    mockTables({ ai_settings: () => builder({ first: { ...SETTINGS, require_approval: false } }) });
+    providerReplies({ choices: [{ message: { content: 'ok' } }] });
+    await aiService.chat('user-1', { message: 'merhaba' });
+    expect(mockSafeFetchText.mock.calls[0][1].allowPrivateHost).toBe(false);
+  });
+});
