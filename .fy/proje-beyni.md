@@ -1,5 +1,5 @@
 # M3U Playlist Editor
-**Tarih:** 2026-08-11 (v1.10.0.0 yapay zeka surumu sonrasi tam inceleme)
+**Tarih:** 2026-11-22 (tam denetim + duzeltme turu sonrasi; ayrinti `.fy/denetim-2026-11-22.md`)
 
 ## Ozet
 IPTV playlist yonetimi icin full-stack, self-hosted, %100 ucretsiz (MIT) uygulama.
@@ -36,7 +36,8 @@ transcoding YOKTUR (Threadfin/xTeVe/Dispatcharr bu isi yapar).
 - Frontend (`frontend/src/`): 11 view + 13 component (AiAssistant, AiSettingsForm,
   MarkdownText, XtreamImportWizard, XtreamOutputModal, ViewProfilesModal ...),
   tek Pinia store (auth), hash router, custom zero-dep i18n (TR/EN 774-774)
-- Testler: `tests/unit/` — **39 suite / 482 test**, hepsi gecer
+- Testler: `tests/unit/` + `tests/integration/` — **55 suite / 736 test**
+  (728 gecer, 8 yalnizca `RUN_DB_TESTS=1` ile calisan DB testi)
 
 ## Teknoloji
 **Backend:** Node.js 22+ / Express 4.21 / PostgreSQL 16 / Knex 3.1 / Pino /
@@ -68,6 +69,29 @@ salt-okunur konteynerler, GitHub Actions CI
 - **AI kimligi yalnizca oturumdan gelir.** `sanitizeArgs` model argumanlarindaki
   `userId`/`is_admin` gibi anahtarlari ayiklar; katalogda yonetici araci yoktur.
   Bu sozlesmeyi bozma — IDOR savunmasinin tamami buna dayaniyor.
+- **Tek izin kapisi `tools.execute()`.** `invoke_capability` de oradan gecer.
+  Onay/yikici/adim kaydi kararlari `resolveCall()` ile sarmalanan GERCEK araca
+  bakar. Yeni arac eklerken: veri kaybettiriyorsa `destructive: true`, kalici
+  ve disa donukse `requiresApproval: true` (ya da args alan fonksiyon), gorev
+  icinde calismamaliysa `taskRunAllowed: false`.
+- **Gorev calistirmasi sinirlidir:** bagli listeden baskasina dokunamaz
+  (`ctx.taskPlaylistId`), gorev kuramaz/degistiremez, yikici izni kullanici
+  ayarini asamaz; yikici gorev listeye bagli olmak zorunda.
+- **Kayitli gizli deger yalnizca kaydedildigi kokene gider**
+  (`utils/origin.js#sameOrigin`): AI API anahtari ve Xtream parolasi.
+- **Elle verilen EPG eslesmesi `channels.epg_locked=true`.** Otomatik eslestirme
+  kilitli kanala hic dokunmaz, varsayilan olarak yalnizca bos olanlari doldurur.
+  EPG yazan her yeni yol kilidi ayarlamali.
+- **Sync kullanici siralamasini ve kategori tasimalarini korur**
+  (`original_category_id`); yeni kanallar mevcut max sort_order'in sonuna eklenir.
+- **Toptan silme esigi oransal:** >=20 kanalli bir turde %30'dan fazlasi
+  kaybolacaksa o tur icin silme atlanir (`skippedRemovalTypes`).
+- **Zamanlayici geri cekilmesi:** basarisiz sync/EPG `*_next_attempt_at` ile
+  ustel bekler (5 dk - 24 sa); basarisizken sync oncesi yedek alinmaz.
+  En kisa aralik `MIN_SYNC_INTERVAL_MINUTES` (15).
+- **Yedek retention tur basina 10:** manual, pre-sync, scheduled, ai-task ayri.
+- **Import kilidi `services/ImportJobs.js`'te ortak:** HTTP import, zamanlanmis
+  sync ve geri yukleme ayni kilidi kullanir (geri yukleme mesgulse 409).
 
 ## Veritabani (16+ tablo)
 users, sessions (family_id / replaced_by_id / revoke_reason), playlists,
@@ -86,12 +110,13 @@ ai_conversations, ai_messages
 - API anahtari AES-256-GCM ile sifreli; istemciye yalnizca `hasApiKey` doner.
 - Cikti `MarkdownText.vue` ile once kacislanip sonra etiketlenir — XSS yok.
 
-## Denetimde dogrulanan guvenlik durumu (2026-08-11)
+## Denetimde dogrulanan guvenlik durumu (2026-11-22 itibariyla)
 Temiz: SQLi, XSS, IDOR, RCE, XXE, path traversal, JWT alg confusion,
 DNS rebinding, decimal/oktal IP bypass.
-Acik ve kanitli: `TRUST_PROXY` string hatasi (tum rate limitler tek kovada),
-`/logos/backups` kimlik dogrulamasiz servis, AI prompt injection savunmasi yok.
-Ayrinti: `.reports/2026-08-11-tam-denetim.md`
+2026-11-22 turunda kapatilanlar: invoke_capability izin atlatmasi, gorevlerin
+onay/yikici atlatmasi, Xtream parolasi ve AI anahtarinin baska kokene sizmasi,
+cift onay, bozuk sohbet gecmisi, paylasim token'inin loglara dusmesi,
+`TRUST_PROXY=true` cokmesi, npm audit (0 acik). Ayrinti: `.fy/denetim-2026-11-22.md`.
 
 ## Bilinen sinirlar (bilincli)
 1. **Series ogeleri episode degildir.** `get_series` ust kayitlari kanal gibi
@@ -110,19 +135,25 @@ Ayrinti: `.reports/2026-08-11-tam-denetim.md`
 
 ## Dogrulama komutlari
 ```
-npm run check && npm run test:ci        # 39 suite / 482 test
-npm audit --audit-level=high            # 2 high (brace-expansion, js-yaml)
-cd frontend && npm run lint && npm run build
-cd frontend && npm audit --audit-level=high   # 2 high (brace-expansion, nanoid)
-node frontend/src/langs/check-parity.js # TR/EN 774-774
+npm run check && npm run test:ci        # 55 suite / 736 test
+RUN_DB_TESTS=1 npm run test:ci -- --testPathPatterns=integration
+npm audit --audit-level=high            # 0 acik
+cd frontend && npm run check            # lint + build
+cd frontend && npm audit --audit-level=high   # 0 acik
+node frontend/src/langs/check-parity.js # TR/EN 848-848
 npm run make-admin -- <email>
 node scripts/cleanup-logos.js           # --delete ile siler
 ```
-Not: `npm run test:property` calismiyor — depoda hic `*.property.js` yok,
-`fast-check` olu bagimlilik.
+Not: `npm run test:property` `--passWithNoTests` ile calisir; depoda hic
+`*.property.js` yok, `fast-check` kullanilmiyor.
+Ajan worktree'leri `.claude/worktrees/` altindaysa jest'e
+`--testPathIgnorePatterns /\.claude/` verin; yoksa onlarin testleri de kosar.
 
 ## Surum durumu
-`.fy/version.json` + CHANGELOG = **1.10.0.0** (dogru kaynak, dort haneli).
-`package.json` ve `frontend/package.json` = **1.10.0** (ayni surumun semver bicimi;
-surum yukseltilirken ikisi de guncellenir). Kodda surumu okuyan yer yok.
-README "55 server-side tools" diyor (gercek 162) ve v1.9.0.0'i atliyor.
+`package.json` x2 = **1.10.0**, `.fy/version.json` = 1.10.0.0; CHANGELOG'da
+buyuk bir `[Unreleased]` bolumu var (surum numarasi verilmedi).
+
+## Dagitim notu
+`SEARXNG_SECRET` artik ZORUNLU (`openssl rand -hex 32`); Dokploy ortaminda
+tanimli degilse compose baslamaz. SearXNG imaji tarih etiketiyle sabit.
+Migration 34 (zamanlayici/EPG kilidi) ve 40 (AI varsayilanlari) var; 35-39 bos.

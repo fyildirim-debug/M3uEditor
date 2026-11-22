@@ -66,175 +66,6 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
   plain HTTP). Nginx is now the only source of CSP/HSTS/nosniff/Referrer-Policy:
   the API's helmet copies are hidden on proxied paths instead of arriving twice.
 
-### Changed
-
-- Package versions follow the release line: both `package.json` files say
-  `1.10.0` (they were still `1.7.0`).
-- Base images pinned to minor versions: `node:22.23-alpine3.24` and
-  `nginx:1.30-alpine3.24` (the 1.29 line no longer receives updates).
-- Healthchecks for `frontend` (`/nginx-health`, answered by Nginx itself) and
-  `searxng` (`/healthz`), in both compose files. SearXNG binds `0.0.0.0` so it
-  also starts on hosts with IPv6 disabled.
-- `start.sh`/`start.bat` start the database with `docker-compose.dev-ports.yml`,
-  like `dev.sh`, so the host-side migration can reach it; `.env` is created
-  before the first compose call.
-- `npm run test:property` uses Jest 30's `--testPathPatterns` and passes when no
-  property tests exist.
-- CI builds both images, runs `nginx -t` on the frontend image, validates
-  `docker-compose.dokploy.yml` alongside `docker-compose.yml`, checks TR/EN
-  translation parity, and pins `actions/checkout` and `actions/setup-node` to
-  commit SHAs.
-- README: tool counts corrected (179 domain tools + 3 meta-tools, 184 with
-  SearXNG), v1.9.0.0 and the unreleased highlights added to *Latest updates*,
-  `SEARXNG_SECRET` documented.
-
-### Removed
-
-- Tracked local output (`build-check.txt`, `test-output.txt`,
-  `test-result.txt`) and `pw-test.cjs`, a Playwright script that registered real
-  accounts against the production site. `.gitignore` covers them.
-### Fixed
-
-- **A conversation stopped working for good if the user typed instead of
-  approving.** The paused `tool_calls` stayed in history without results and the
-  provider rejected every later request with a 400. A new message now closes the
-  pending action with a "not executed" result, and unmatched tool calls are
-  dropped from the history sent to the provider.
-- Task runs left `running` by a server restart are closed on the next scheduler
-  tick; each task keeps only its last 10 run conversations.
-
-- **Toast notifications never appeared.** The toast loop variable in `App.vue`
-  shadowed the i18n `t()` function, so every toast failed to render. Success and
-  info toasts are now `role="status"` (polite), errors `role="alert"`.
-- **Sessions no longer knock each other out.** Concurrent 401s, page reloads and
-  multiple tabs each rotated the refresh session and revoked the token the others
-  were using. A request that failed with a token that has since been replaced is
-  retried with the current one; refreshes share one promise; a still-valid token
-  skips the refresh on page load; a new tab asks open tabs for their token first;
-  refreshed tokens are broadcast to other tabs (BroadcastChannel, `storage` event
-  fallback); and plain-HTTP LAN installs, where `navigator.locks` is missing, get
-  a localStorage mutex with a timeout. A failed refresh now returns to
-  `#/login?redirect=<page>`.
-- **English UI showed raw Turkish server errors.** A new `apiErrorMessage()`
-  helper maps error codes to `errors.*` translations (including the new
-  `DATABASE_UNAVAILABLE`); the Turkish UI keeps the server's specific message.
-- **Markdown links containing `_` or `*` were mangled** by the emphasis rules;
-  links and code spans are now set aside before emphasis is applied, and
-  underscores inside words are no longer italicised.
-- Hard-coded Turkish/English strings (dialog label, default playlist and import
-  names) and page titles built from raw URL segments are now translated.
-- The admin user list no longer shows a stale page when an older search response
-  arrives late; editor and dashboard timers are cleared on unmount; a malformed
-  `xtream_stream_types` value no longer breaks the editor.
-- Editor navigation items are real `<button>` elements (previously
-  `div role="button"`), language buttons expose `aria-label`/`aria-pressed`, and
-  the EPG day arrows have accessible names.
-
-### Changed
-
-- **New endpoint `GET /api/playlists/:id`** (owner-scoped, same safe projection as
-  the list; malformed ids return 404 instead of 500). The editor uses it instead
-  of downloading every playlist.
-- The editor opens with fewer requests: the duplicate channel COUNT is gone, and
-  filter rules and extra sources load when the Update view is opened.
-- The EPG guide keeps at most 300 channels in memory, dropping pages from the top
-  as you scroll down and reloading them on the way back ("Load earlier"); program
-  data is no longer deeply reactive.
-- Editor dialogs are loaded on demand, and the EPG guide, filter rules and extra
-  sources sections moved into `frontend/src/components/editor/`.
-- 38 unused translation keys were removed.
-### Fixed
-
-- **A failing scheduled sync or EPG refresh no longer reruns every minute.** A
-  failed (or partial) run never advanced its timestamp, so the scheduler picked it
-  up again on every 60-second tick — hammering the provider and, with
-  `backup_before_sync`, taking a backup each time until the user's own backups
-  were evicted. Failures are now counted (`playlists.sync_failure_count` /
-  `sync_next_attempt_at`, `epg_sources.failure_count` / `next_attempt_at`) and the
-  next attempt backs off exponentially (one interval, then doubling, 5 minutes to
-  24 hours); a success resets the counter. The pre-sync backup is skipped while
-  the previous scheduled run is failing, and due EPG sources are refreshed two at
-  a time so one slow guide no longer holds up the rest.
-- **Scheduled sync and backup restore respect the import lock.** Only the HTTP
-  import path took the per-user / per-playlist job lock; the scheduler called the
-  sync directly and a restore could overwrite a playlist mid-import. The lock now
-  lives in `ImportJobs` and is shared: a scheduled sync is skipped while the lock
-  is held, and overwriting restores answer `409 IMPORT_IN_PROGRESS`.
-- **Sync keeps the user's channel order and category moves.** Existing channels
-  keep their `sort_order`; new channels are appended after the playlist's current
-  maximum in provider order, so multi-source syncs no longer interleave colliding
-  positions. Categories follow the same rule as names and logos: a channel still
-  in its provider category (`channels.original_category_id`) follows provider
-  moves, a channel the user moved stays where it is.
-- **Two streams with the same URL no longer break sync permanently.** Records
-  whose `stream_url` repeats within the batch or belongs to another existing row
-  are skipped and reported as `skippedDuplicates` instead of failing the whole
-  upsert on the `(playlist_id, stream_url)` unique index.
-- **Auto-match no longer overwrites manual EPG assignments.** Assigning (or
-  clearing) an EPG id by hand, or giving one when creating a channel, sets
-  `channels.epg_locked`; auto-match never touches locked channels and by default
-  only fills channels without an EPG id (`{ "overwrite": true }` on the
-  auto-match and profile-run endpoints recomputes the unlocked ones). The token
-  join ignores quality/codec words and two-letter country prefixes and tokens
-  shared by more than 50 guide channels, which used to explode into hundreds of
-  millions of rows; the post-import run requires confidence ≥ 0.7.
-- **An import with no categories crashed** — `_upsertCategories` returned a bare
-  object instead of `{ map, addedNames }`.
-- **Deleting an account left its backups on disk**, credentials included; the
-  admin delete left logos as well. Both paths now remove logos and every
-  playlist's backup directory after the commit.
-- **Health scans could start twice and were unbounded.** The job is registered
-  before the first `await`; at most `HEALTH_SCAN_MAX_JOBS` (2) scans run on the
-  server (`503 HEALTH_SCAN_CAPACITY_REACHED` beyond that) and at most
-  `HEALTH_SCAN_PER_HOST_CONCURRENCY` (2) requests go to one provider host.
-- **Database outages produced an "unexpected error".** Connection failures
-  (refused, unknown host, admin shutdown, pool timeout, missing database, bad
-  credentials) now answer `503 DATABASE_UNAVAILABLE` with a clear message, and
-  startup logs a plain-language explanation when the database is unreachable or
-  migrations are pending (#2).
-- Raw PostgreSQL errors are mapped: an invalid UUID is `404` in a route parameter
-  and `400 VALIDATION_ERROR` elsewhere, unique violations are `409 CONFLICT`,
-  foreign key violations `400`/`409`. Invalid M3U content is a `400`, a non-string
-  password in account deletion or e-mail change is a `400`, and
-  `excludeCategories` accepts repeated query parameters as well as a comma list.
-- `createChannel` now applies the same validation as channel updates (byte
-  limits, no control characters in name or URL).
-- The share token in `/api/shared/<token>` is masked in request and error logs.
-- `TRUST_PROXY=true` / `false` crashed startup (Express read the string as an IP
-  list); both are now mapped to booleans.
-
-### Changed
-
-- **Removal safety threshold is proportional.** A sync skips removals for a
-  content type (reported in `skippedRemovalTypes`) when more than 30% of a type
-  with at least 20 channels would disappear at once, not only when all of it
-  would.
-- **Backup retention is per kind.** Manual, pre-sync, scheduled and assistant
-  task backups each keep their own last 10.
-- **Minimum sync / EPG refresh interval is 15 minutes**
-  (`MIN_SYNC_INTERVAL_MINUTES`). Shorter values are rejected with `400`; older
-  rows below the floor are treated as the floor when scheduling.
-- Deleting a category recompacts the remaining order with one set-based update.
-
-### Removed
-
-- **The `proxy` stream mode is gone, and with it every path that made this
-  server a stream address.** In that mode `get.php` published a local
-  `/live|/movie|/series` URL and each channel change arrived here first to be
-  answered with a `302` to the provider — latency and a single point of failure
-  on the playback path of an application that is a catalogue editor. There is now
-  one behaviour and no switch: `get.php` hands out the provider's own URLs and
-  `player_api.php` always fills `direct_source` with them. Removed: the three
-  playback routes and their handlers, `getPlaybackTarget`, `setStreamMode`,
-  `PUT /api/playlists/:id/xtream-output/stream-mode`, the mode selector in the
-  Xtream output dialog, the `playlists.output_stream_mode` column, and the
-  `/live|/movie|/series` entries in the nginx and Vite proxies. Tests now assert
-  the opposite of what they used to: passing the old `output_stream_mode: 'proxy'`
-  value produces provider addresses anyway, so the behaviour cannot leak back.
-  **Note:** a player that ignores `direct_source` and builds stream URLs from the
-  server address will no longer play; clients that honour `direct_source`
-  (TiviMate, IPTV Smarters and the common mobile players) are unaffected.
-
 ### Added
 
 - **Stop button in the assistant.** While a reply streams the send button turns
@@ -357,8 +188,6 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
   cannot create or trigger another task, which rules out runaway loops.
 - 13 new tools: the catalogue is now **175**.
 
-### Added
-
 - **A short M3U address for the Xtream output.** The standard one carries the
   credentials in the query string and runs to 130 characters
   (`/get.php?username=<16>&password=<32>&type=m3u_plus&output=ts`) — not something
@@ -374,7 +203,225 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
   endpoint get one on their next configuration read, with no rotation. The dialog
   now shows this address as the M3U link — the long form keeps working unchanged.
 
+### Changed
+
+- Package versions follow the release line: both `package.json` files say
+  `1.10.0` (they were still `1.7.0`).
+- Base images pinned to minor versions: `node:22.23-alpine3.24` and
+  `nginx:1.30-alpine3.24` (the 1.29 line no longer receives updates).
+- Healthchecks for `frontend` (`/nginx-health`, answered by Nginx itself) and
+  `searxng` (`/healthz`), in both compose files. SearXNG binds `0.0.0.0` so it
+  also starts on hosts with IPv6 disabled.
+- `start.sh`/`start.bat` start the database with `docker-compose.dev-ports.yml`,
+  like `dev.sh`, so the host-side migration can reach it; `.env` is created
+  before the first compose call.
+- `npm run test:property` uses Jest 30's `--testPathPatterns` and passes when no
+  property tests exist.
+- CI builds both images, runs `nginx -t` on the frontend image, validates
+  `docker-compose.dokploy.yml` alongside `docker-compose.yml`, checks TR/EN
+  translation parity, and pins `actions/checkout` and `actions/setup-node` to
+  commit SHAs.
+- README: tool counts corrected (179 domain tools + 3 meta-tools, 184 with
+  SearXNG), v1.9.0.0 and the unreleased highlights added to *Latest updates*,
+  `SEARXNG_SECRET` documented.
+
+- **New endpoint `GET /api/playlists/:id`** (owner-scoped, same safe projection as
+  the list; malformed ids return 404 instead of 500). The editor uses it instead
+  of downloading every playlist.
+- The editor opens with fewer requests: the duplicate channel COUNT is gone, and
+  filter rules and extra sources load when the Update view is opened.
+- The EPG guide keeps at most 300 channels in memory, dropping pages from the top
+  as you scroll down and reloading them on the way back ("Load earlier"); program
+  data is no longer deeply reactive.
+- Editor dialogs are loaded on demand, and the EPG guide, filter rules and extra
+  sources sections moved into `frontend/src/components/editor/`.
+- 38 unused translation keys were removed.
+
+- **Removal safety threshold is proportional.** A sync skips removals for a
+  content type (reported in `skippedRemovalTypes`) when more than 30% of a type
+  with at least 20 channels would disappear at once, not only when all of it
+  would.
+- **Backup retention is per kind.** Manual, pre-sync, scheduled and assistant
+  task backups each keep their own last 10.
+- **Minimum sync / EPG refresh interval is 15 minutes**
+  (`MIN_SYNC_INTERVAL_MINUTES`). Shorter values are rejected with `400`; older
+  rows below the floor are treated as the floor when scheduling.
+- Deleting a category recompacts the remaining order with one set-based update.
+
+- **The 8.000-character message limit is gone.** Pasting a playlist into the box
+  used to fail with a validation error. Text beyond `AI_INLINE_MESSAGE_CHARS`
+  (12.000) is now stored as an attachment automatically and the model receives a
+  preview plus the id, so long input behaves exactly like an attached file. The
+  remaining ceiling is `AI_MAX_MESSAGE_CHARS` (1.000.000), configurable.
+- Deleting a conversation now removes its attachment files from disk as well as
+  its rows.
+- An attachment whose content is only whitespace is rejected by the store, not
+  just by the upload endpoint.
+
+- **Xtream output hands out the provider's own address.** (The `proxy` mode
+  mentioned below was removed before release — see *Removed* above.) Channel
+  URLs used to point at this server and every playback request was answered with
+  a 302 to the provider, so the editor sat in the playback path of every channel
+  change: extra latency, an extra point of failure and needless load. The new
+  `direct` mode (default) publishes the provider address in `get.php` and fills
+  `direct_source` in `player_api.php`, so the player pulls the stream straight
+  from the source. The previous behaviour is still available as `proxy` mode,
+  which keeps the provider credentials out of the playlist at the cost of routing
+  every channel change through this server. The mode is per playlist
+  (`playlists.output_stream_mode`), switchable from the Xtream output dialog and
+  over `PUT /api/playlists/:id/xtream-output/stream-mode`.
+- **Concurrent player requests are no longer mistaken for brute force.**
+  `xtreamFailureLimiter` uses `skipSuccessfulRequests`, which increments the
+  counter first and rolls it back when the request finishes. Players open dozens
+  of requests at once while loading a list, so the counter briefly grew by the
+  number of in-flight requests and the 15-request ceiling rejected legitimate
+  clients — measured: 15 of 30 concurrent requests returned `429`, 45 of 60. The
+  ceiling is now `XTREAM_FAILURE_RATE_LIMIT` (default 200), which absorbs the
+  burst; with a 96-bit random username this is still meaningless for brute force.
+
+- **AI assistant: relevance-ranked tool selection.** The catalogue holds 159
+  domain tools but a provider request can only carry ~117 of them. They used to
+  be sent in a fixed module order, so every tool in the last three modules
+  (`imports`, `exports`, `account` — 42 in total) was never offered directly;
+  the model could only reach them by spending an extra turn on
+  `search_capabilities`. Tools are now scored against the user's message and the
+  tools already run this conversation, so `share_playlist`, `enable_xtream_output`
+  and `create_backup` show up when they are actually asked for. Scoring is
+  stem-based, so Turkish suffixes ("yedeklerimi" → "yedek") match. Without hints
+  the order is unchanged, so the behaviour stays deterministic.
+- **AI assistant: the conversation starts with real state.** The system prompt
+  now carries the user's playlists with channel counts, and for the active
+  playlist the stream-type breakdown, categories (with hidden flags) and EPG
+  source count. This removes the two or three discovery turns every conversation
+  used to begin with. A failure while building the summary degrades to the old
+  behaviour instead of breaking the chat.
+- **AI assistant: independent reads run in parallel.** Consecutive read-only tool
+  calls in one turn (`list_*`, `get_*`, `search_*`, `find_*`, `describe_*`,
+  `count_*`, `preview_*`) are executed concurrently, up to six at a time; a
+  writing or destructive call closes the batch and runs alone. Recorded order
+  always matches the model's call order. `parallel_tool_calls` is now sent to the
+  provider.
+- **AI assistant: arguments are validated against the tool schema.** Missing
+  required fields, wrong types and out-of-enum values are rejected before the
+  tool runs and reported back with the schema attached, so the model corrects
+  itself instead of burning a turn on an ad-hoc error.
+- **AI assistant: the destructive permission is enforced centrally.** `execute`
+  now applies it for every tool flagged destructive; previously each of the 27
+  call sites had to remember `assertDestructive` on its own.
+- **AI assistant: prompt-injection rule.** The system prompt states explicitly
+  that text inside tool output (channel names, EPG titles, file names) is
+  third-party data and never an instruction.
+- **Xtream output is usable by real IPTV players again.** Players request one
+  `get_short_epg` per channel while loading a playlist, so a single launch of a
+  5.848-channel list produces roughly 6.000 requests. Two limits collided: the
+  dedicated player limiter allowed 300 per 15 minutes, and `generalLimiter`
+  (200 per **minute**) also covered the Xtream paths, so the narrower one always
+  won and clients got `HTTP 429` during login. Xtream paths are now exempt from
+  the general limiter and the player limit is configurable through
+  `XTREAM_PLAYER_RATE_LIMIT` (default 20.000 per 15 minutes). Brute-force
+  protection is unchanged: 15 failed authentications per 15 minutes.
+- **The Vite dev server proxies the Xtream paths.** `player_api.php`,
+  `xmltv.php`, `get.php`, `/live`, `/movie` and `/series` returned the SPA's
+  `index.html` in development, so the Xtream output could not be exercised
+  outside production. Production nginx already proxied them; the dev server now
+  matches.
+- `generalLimiter` returns the documented `{error:{code,message}}` body instead
+  of plain text.
+
 ### Fixed
+
+- **A conversation stopped working for good if the user typed instead of
+  approving.** The paused `tool_calls` stayed in history without results and the
+  provider rejected every later request with a 400. A new message now closes the
+  pending action with a "not executed" result, and unmatched tool calls are
+  dropped from the history sent to the provider.
+- Task runs left `running` by a server restart are closed on the next scheduler
+  tick; each task keeps only its last 10 run conversations.
+
+- **Toast notifications never appeared.** The toast loop variable in `App.vue`
+  shadowed the i18n `t()` function, so every toast failed to render. Success and
+  info toasts are now `role="status"` (polite), errors `role="alert"`.
+- **Sessions no longer knock each other out.** Concurrent 401s, page reloads and
+  multiple tabs each rotated the refresh session and revoked the token the others
+  were using. A request that failed with a token that has since been replaced is
+  retried with the current one; refreshes share one promise; a still-valid token
+  skips the refresh on page load; a new tab asks open tabs for their token first;
+  refreshed tokens are broadcast to other tabs (BroadcastChannel, `storage` event
+  fallback); and plain-HTTP LAN installs, where `navigator.locks` is missing, get
+  a localStorage mutex with a timeout. A failed refresh now returns to
+  `#/login?redirect=<page>`.
+- **English UI showed raw Turkish server errors.** A new `apiErrorMessage()`
+  helper maps error codes to `errors.*` translations (including the new
+  `DATABASE_UNAVAILABLE`); the Turkish UI keeps the server's specific message.
+- **Markdown links containing `_` or `*` were mangled** by the emphasis rules;
+  links and code spans are now set aside before emphasis is applied, and
+  underscores inside words are no longer italicised.
+- Hard-coded Turkish/English strings (dialog label, default playlist and import
+  names) and page titles built from raw URL segments are now translated.
+- The admin user list no longer shows a stale page when an older search response
+  arrives late; editor and dashboard timers are cleared on unmount; a malformed
+  `xtream_stream_types` value no longer breaks the editor.
+- Editor navigation items are real `<button>` elements (previously
+  `div role="button"`), language buttons expose `aria-label`/`aria-pressed`, and
+  the EPG day arrows have accessible names.
+
+- **A failing scheduled sync or EPG refresh no longer reruns every minute.** A
+  failed (or partial) run never advanced its timestamp, so the scheduler picked it
+  up again on every 60-second tick — hammering the provider and, with
+  `backup_before_sync`, taking a backup each time until the user's own backups
+  were evicted. Failures are now counted (`playlists.sync_failure_count` /
+  `sync_next_attempt_at`, `epg_sources.failure_count` / `next_attempt_at`) and the
+  next attempt backs off exponentially (one interval, then doubling, 5 minutes to
+  24 hours); a success resets the counter. The pre-sync backup is skipped while
+  the previous scheduled run is failing, and due EPG sources are refreshed two at
+  a time so one slow guide no longer holds up the rest.
+- **Scheduled sync and backup restore respect the import lock.** Only the HTTP
+  import path took the per-user / per-playlist job lock; the scheduler called the
+  sync directly and a restore could overwrite a playlist mid-import. The lock now
+  lives in `ImportJobs` and is shared: a scheduled sync is skipped while the lock
+  is held, and overwriting restores answer `409 IMPORT_IN_PROGRESS`.
+- **Sync keeps the user's channel order and category moves.** Existing channels
+  keep their `sort_order`; new channels are appended after the playlist's current
+  maximum in provider order, so multi-source syncs no longer interleave colliding
+  positions. Categories follow the same rule as names and logos: a channel still
+  in its provider category (`channels.original_category_id`) follows provider
+  moves, a channel the user moved stays where it is.
+- **Two streams with the same URL no longer break sync permanently.** Records
+  whose `stream_url` repeats within the batch or belongs to another existing row
+  are skipped and reported as `skippedDuplicates` instead of failing the whole
+  upsert on the `(playlist_id, stream_url)` unique index.
+- **Auto-match no longer overwrites manual EPG assignments.** Assigning (or
+  clearing) an EPG id by hand, or giving one when creating a channel, sets
+  `channels.epg_locked`; auto-match never touches locked channels and by default
+  only fills channels without an EPG id (`{ "overwrite": true }` on the
+  auto-match and profile-run endpoints recomputes the unlocked ones). The token
+  join ignores quality/codec words and two-letter country prefixes and tokens
+  shared by more than 50 guide channels, which used to explode into hundreds of
+  millions of rows; the post-import run requires confidence ≥ 0.7.
+- **An import with no categories crashed** — `_upsertCategories` returned a bare
+  object instead of `{ map, addedNames }`.
+- **Deleting an account left its backups on disk**, credentials included; the
+  admin delete left logos as well. Both paths now remove logos and every
+  playlist's backup directory after the commit.
+- **Health scans could start twice and were unbounded.** The job is registered
+  before the first `await`; at most `HEALTH_SCAN_MAX_JOBS` (2) scans run on the
+  server (`503 HEALTH_SCAN_CAPACITY_REACHED` beyond that) and at most
+  `HEALTH_SCAN_PER_HOST_CONCURRENCY` (2) requests go to one provider host.
+- **Database outages produced an "unexpected error".** Connection failures
+  (refused, unknown host, admin shutdown, pool timeout, missing database, bad
+  credentials) now answer `503 DATABASE_UNAVAILABLE` with a clear message, and
+  startup logs a plain-language explanation when the database is unreachable or
+  migrations are pending (#2).
+- Raw PostgreSQL errors are mapped: an invalid UUID is `404` in a route parameter
+  and `400 VALIDATION_ERROR` elsewhere, unique violations are `409 CONFLICT`,
+  foreign key violations `400`/`409`. Invalid M3U content is a `400`, a non-string
+  password in account deletion or e-mail change is a `400`, and
+  `excludeCategories` accepts repeated query parameters as well as a comma list.
+- `createChannel` now applies the same validation as channel updates (byte
+  limits, no control characters in name or URL).
+- The share token in `/api/shared/<token>` is masked in request and error logs.
+- `TRUST_PROXY=true` / `false` crashed startup (Express read the string as an IP
+  list); both are now mapped to booleans.
 
 - **Xtream output sent players to this server for films and series.** `get.php`
   and the stream lists already handed out the provider's own addresses, but
@@ -446,89 +493,28 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
   an "Assistant · writing…" line, show the typing dots until the first character
   arrives, and a caret while text is streaming in.
 
-### Changed
+### Removed
 
-- **The 8.000-character message limit is gone.** Pasting a playlist into the box
-  used to fail with a validation error. Text beyond `AI_INLINE_MESSAGE_CHARS`
-  (12.000) is now stored as an attachment automatically and the model receives a
-  preview plus the id, so long input behaves exactly like an attached file. The
-  remaining ceiling is `AI_MAX_MESSAGE_CHARS` (1.000.000), configurable.
-- Deleting a conversation now removes its attachment files from disk as well as
-  its rows.
-- An attachment whose content is only whitespace is rejected by the store, not
-  just by the upload endpoint.
+- Tracked local output (`build-check.txt`, `test-output.txt`,
+  `test-result.txt`) and `pw-test.cjs`, a Playwright script that registered real
+  accounts against the production site. `.gitignore` covers them.
 
-### Changed
-
-- **Xtream output hands out the provider's own address.** (The `proxy` mode
-  mentioned below was removed before release — see *Removed* above.) Channel
-  URLs used to point at this server and every playback request was answered with
-  a 302 to the provider, so the editor sat in the playback path of every channel
-  change: extra latency, an extra point of failure and needless load. The new
-  `direct` mode (default) publishes the provider address in `get.php` and fills
-  `direct_source` in `player_api.php`, so the player pulls the stream straight
-  from the source. The previous behaviour is still available as `proxy` mode,
-  which keeps the provider credentials out of the playlist at the cost of routing
-  every channel change through this server. The mode is per playlist
-  (`playlists.output_stream_mode`), switchable from the Xtream output dialog and
-  over `PUT /api/playlists/:id/xtream-output/stream-mode`.
-- **Concurrent player requests are no longer mistaken for brute force.**
-  `xtreamFailureLimiter` uses `skipSuccessfulRequests`, which increments the
-  counter first and rolls it back when the request finishes. Players open dozens
-  of requests at once while loading a list, so the counter briefly grew by the
-  number of in-flight requests and the 15-request ceiling rejected legitimate
-  clients — measured: 15 of 30 concurrent requests returned `429`, 45 of 60. The
-  ceiling is now `XTREAM_FAILURE_RATE_LIMIT` (default 200), which absorbs the
-  burst; with a 96-bit random username this is still meaningless for brute force.
-
-- **AI assistant: relevance-ranked tool selection.** The catalogue holds 159
-  domain tools but a provider request can only carry ~117 of them. They used to
-  be sent in a fixed module order, so every tool in the last three modules
-  (`imports`, `exports`, `account` — 42 in total) was never offered directly;
-  the model could only reach them by spending an extra turn on
-  `search_capabilities`. Tools are now scored against the user's message and the
-  tools already run this conversation, so `share_playlist`, `enable_xtream_output`
-  and `create_backup` show up when they are actually asked for. Scoring is
-  stem-based, so Turkish suffixes ("yedeklerimi" → "yedek") match. Without hints
-  the order is unchanged, so the behaviour stays deterministic.
-- **AI assistant: the conversation starts with real state.** The system prompt
-  now carries the user's playlists with channel counts, and for the active
-  playlist the stream-type breakdown, categories (with hidden flags) and EPG
-  source count. This removes the two or three discovery turns every conversation
-  used to begin with. A failure while building the summary degrades to the old
-  behaviour instead of breaking the chat.
-- **AI assistant: independent reads run in parallel.** Consecutive read-only tool
-  calls in one turn (`list_*`, `get_*`, `search_*`, `find_*`, `describe_*`,
-  `count_*`, `preview_*`) are executed concurrently, up to six at a time; a
-  writing or destructive call closes the batch and runs alone. Recorded order
-  always matches the model's call order. `parallel_tool_calls` is now sent to the
-  provider.
-- **AI assistant: arguments are validated against the tool schema.** Missing
-  required fields, wrong types and out-of-enum values are rejected before the
-  tool runs and reported back with the schema attached, so the model corrects
-  itself instead of burning a turn on an ad-hoc error.
-- **AI assistant: the destructive permission is enforced centrally.** `execute`
-  now applies it for every tool flagged destructive; previously each of the 27
-  call sites had to remember `assertDestructive` on its own.
-- **AI assistant: prompt-injection rule.** The system prompt states explicitly
-  that text inside tool output (channel names, EPG titles, file names) is
-  third-party data and never an instruction.
-- **Xtream output is usable by real IPTV players again.** Players request one
-  `get_short_epg` per channel while loading a playlist, so a single launch of a
-  5.848-channel list produces roughly 6.000 requests. Two limits collided: the
-  dedicated player limiter allowed 300 per 15 minutes, and `generalLimiter`
-  (200 per **minute**) also covered the Xtream paths, so the narrower one always
-  won and clients got `HTTP 429` during login. Xtream paths are now exempt from
-  the general limiter and the player limit is configurable through
-  `XTREAM_PLAYER_RATE_LIMIT` (default 20.000 per 15 minutes). Brute-force
-  protection is unchanged: 15 failed authentications per 15 minutes.
-- **The Vite dev server proxies the Xtream paths.** `player_api.php`,
-  `xmltv.php`, `get.php`, `/live`, `/movie` and `/series` returned the SPA's
-  `index.html` in development, so the Xtream output could not be exercised
-  outside production. Production nginx already proxied them; the dev server now
-  matches.
-- `generalLimiter` returns the documented `{error:{code,message}}` body instead
-  of plain text.
+- **The `proxy` stream mode is gone, and with it every path that made this
+  server a stream address.** In that mode `get.php` published a local
+  `/live|/movie|/series` URL and each channel change arrived here first to be
+  answered with a `302` to the provider — latency and a single point of failure
+  on the playback path of an application that is a catalogue editor. There is now
+  one behaviour and no switch: `get.php` hands out the provider's own URLs and
+  `player_api.php` always fills `direct_source` with them. Removed: the three
+  playback routes and their handlers, `getPlaybackTarget`, `setStreamMode`,
+  `PUT /api/playlists/:id/xtream-output/stream-mode`, the mode selector in the
+  Xtream output dialog, the `playlists.output_stream_mode` column, and the
+  `/live|/movie|/series` entries in the nginx and Vite proxies. Tests now assert
+  the opposite of what they used to: passing the old `output_stream_mode: 'proxy'`
+  value produces provider addresses anyway, so the behaviour cannot leak back.
+  **Note:** a player that ignores `direct_source` and builds stream URLs from the
+  server address will no longer play; clients that honour `direct_source`
+  (TiviMate, IPTV Smarters and the common mobile players) are unaffected.
 
 ## [1.10.0.0] — 2026-08-02
 
