@@ -5,83 +5,83 @@
       <nav class="nav-sidebar" :class="{ 'mobile-open': mobileNavOpen }" :aria-label="t('accessibility.editorSections')">
         <!-- Canli Kanallar -->
         <div class="nav-section">
-          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'live' }]" role="button" tabindex="0" :aria-expanded="activeStreamType === 'live'" @click="toggleStreamSection('live')" @keydown.enter.space.prevent="toggleStreamSection('live')">
+          <button type="button" :class="['btn-plain', 'nav-section-header', { 'nav-section-active': activeStreamType === 'live' }]" :aria-expanded="activeStreamType === 'live'" @click="toggleStreamSection('live')">
             <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg></span>
             <span class="nav-section-title">{{ t('nav.liveChannels') }}</span>
             <span v-if="streamTypeCounts.live" class="nav-section-count">{{ streamTypeCounts.live }}</span>
             <svg :class="['nav-chevron', { open: activeStreamType === 'live' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
+          </button>
           <div v-if="activeStreamType === 'live'" class="nav-items">
-            <div :class="['nav-item', { active: activeView === 'basic' }]" role="button" tabindex="0" @click="activeView = 'basic'" @keydown.enter.space.prevent="activeView = 'basic'">
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'basic' }]" :aria-current="activeView === 'basic' ? 'true' : undefined" @click="activeView = 'basic'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.channelEditor') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'sort' }]" role="button" tabindex="0" @click="activeView = 'sort'" @keydown.enter.space.prevent="activeView = 'sort'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'sort' }]" :aria-current="activeView === 'sort' ? 'true' : undefined" @click="activeView = 'sort'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'epg' }]" role="button" tabindex="0" @click="activeView = 'epg'" @keydown.enter.space.prevent="activeView = 'epg'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'epg' }]" :aria-current="activeView === 'epg' ? 'true' : undefined" @click="activeView = 'epg'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> {{ t('nav.epgEditor') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'category' }]" role="button" tabindex="0" @click="activeView = 'category'" @keydown.enter.space.prevent="activeView = 'category'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'category' }]" :aria-current="activeView === 'category' ? 'true' : undefined" @click="activeView = 'category'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'update' }]" role="button" tabindex="0" @click="activeView = 'update'" @keydown.enter.space.prevent="activeView = 'update'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'update' }]" :aria-current="activeView === 'update' ? 'true' : undefined" @click="activeView = 'update'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg> {{ t('nav.update') }}
-            </div>
+            </button>
           </div>
         </div>
         <!-- Filmler -->
         <div class="nav-section">
-          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'vod' }]" role="button" tabindex="0" :aria-expanded="activeStreamType === 'vod'" @click="toggleStreamSection('vod')" @keydown.enter.space.prevent="toggleStreamSection('vod')">
+          <button type="button" :class="['btn-plain', 'nav-section-header', { 'nav-section-active': activeStreamType === 'vod' }]" :aria-expanded="activeStreamType === 'vod'" @click="toggleStreamSection('vod')">
             <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg></span>
             <span class="nav-section-title">{{ t('nav.movies') }}</span>
             <span v-if="streamTypeCounts.vod" class="nav-section-count">{{ streamTypeCounts.vod }}</span>
             <svg :class="['nav-chevron', { open: activeStreamType === 'vod' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
+          </button>
           <div v-if="activeStreamType === 'vod'" class="nav-items">
-            <div :class="['nav-item', { active: activeView === 'basic' }]" role="button" tabindex="0" @click="activeView = 'basic'" @keydown.enter.space.prevent="activeView = 'basic'">
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'basic' }]" :aria-current="activeView === 'basic' ? 'true' : undefined" @click="activeView = 'basic'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.movieEditor') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'sort' }]" role="button" tabindex="0" @click="activeView = 'sort'" @keydown.enter.space.prevent="activeView = 'sort'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'sort' }]" :aria-current="activeView === 'sort' ? 'true' : undefined" @click="activeView = 'sort'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'category' }]" role="button" tabindex="0" @click="activeView = 'category'" @keydown.enter.space.prevent="activeView = 'category'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'category' }]" :aria-current="activeView === 'category' ? 'true' : undefined" @click="activeView = 'category'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
-            </div>
+            </button>
           </div>
         </div>
         <!-- Diziler -->
         <div class="nav-section">
-          <div :class="['nav-section-header', { 'nav-section-active': activeStreamType === 'series' }]" role="button" tabindex="0" :aria-expanded="activeStreamType === 'series'" @click="toggleStreamSection('series')" @keydown.enter.space.prevent="toggleStreamSection('series')">
+          <button type="button" :class="['btn-plain', 'nav-section-header', { 'nav-section-active': activeStreamType === 'series' }]" :aria-expanded="activeStreamType === 'series'" @click="toggleStreamSection('series')">
             <span class="nav-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg></span>
             <span class="nav-section-title">{{ t('nav.series') }}</span>
             <span v-if="streamTypeCounts.series" class="nav-section-count">{{ streamTypeCounts.series }}</span>
             <svg :class="['nav-chevron', { open: activeStreamType === 'series' }]" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
+          </button>
           <div v-if="activeStreamType === 'series'" class="nav-items">
-            <div :class="['nav-item', { active: activeView === 'basic' }]" role="button" tabindex="0" @click="activeView = 'basic'" @keydown.enter.space.prevent="activeView = 'basic'">
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'basic' }]" :aria-current="activeView === 'basic' ? 'true' : undefined" @click="activeView = 'basic'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> {{ t('nav.seriesEditor') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'sort' }]" role="button" tabindex="0" @click="activeView = 'sort'" @keydown.enter.space.prevent="activeView = 'sort'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'sort' }]" :aria-current="activeView === 'sort' ? 'true' : undefined" @click="activeView = 'sort'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg> {{ t('nav.sorting') }}
-            </div>
-            <div :class="['nav-item', { active: activeView === 'category' }]" role="button" tabindex="0" @click="activeView = 'category'" @keydown.enter.space.prevent="activeView = 'category'">
+            </button>
+            <button type="button" :class="['btn-plain', 'nav-item', { active: activeView === 'category' }]" :aria-current="activeView === 'category' ? 'true' : undefined" @click="activeView = 'category'">
               <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ t('nav.categoryEditor') }}
-            </div>
+            </button>
           </div>
         </div>
         <div class="nav-bottom">
-          <div class="nav-item" role="button" tabindex="0" @click="$router.push('/dashboard')" @keydown.enter.space.prevent="$router.push('/dashboard')">
+          <button type="button" class="btn-plain nav-item" @click="$router.push('/dashboard')">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg> {{ t('nav.dashboard') }}
-          </div>
-          <div class="nav-item" role="button" tabindex="0" @click="showXtreamOutput = true" @keydown.enter.space.prevent="showXtreamOutput = true">
+          </button>
+          <button type="button" class="btn-plain nav-item" @click="showXtreamOutput = true">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> {{ t('nav.downloadM3u') }}
-          </div>
-          <div class="nav-item" role="button" tabindex="0" @click="doShare" @keydown.enter.space.prevent="doShare">
+          </button>
+          <button type="button" class="btn-plain nav-item" @click="doShare">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> {{ t('nav.share') }}
-          </div>
-          <div class="nav-item" role="button" tabindex="0" @click="showViewProfiles = true" @keydown.enter.space.prevent="showViewProfiles = true">
+          </button>
+          <button type="button" class="btn-plain nav-item" @click="showViewProfiles = true">
             <svg class="nav-item-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> {{ t('viewProfiles.title') }}
-          </div>
+          </button>
         </div>
       </nav>
       <button v-if="mobileNavOpen" class="mobile-scrim" :aria-label="t('accessibility.closeMenu')" @click="mobileNavOpen = false"></button>
@@ -248,28 +248,28 @@
 
                         <div class="empty-smart-options">
                           <!-- Xtream Codes ile baglan -->
-                          <div class="empty-option-card" role="button" tabindex="0" @click="openXtream" @keydown.enter.space.prevent="openXtream">
-                            <div class="empty-option-icon xtream">
+                          <button type="button" class="btn-plain empty-option-card" @click="openXtream">
+                            <span class="empty-option-icon xtream">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-                            </div>
-                            <div class="empty-option-info">
-                              <div class="empty-option-title">{{ t('addTypes.xtreamOption') }}</div>
-                              <div class="empty-option-desc">{{ t('addTypes.xtreamOptionDesc') }}</div>
-                            </div>
+                            </span>
+                            <span class="empty-option-info">
+                              <span class="empty-option-title">{{ t('addTypes.xtreamOption') }}</span>
+                              <span class="empty-option-desc">{{ t('addTypes.xtreamOptionDesc') }}</span>
+                            </span>
                             <svg class="empty-option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                          </div>
+                          </button>
 
                           <!-- M3U dosyasindan ice aktar -->
-                          <div class="empty-option-card" role="button" tabindex="0" @click="showM3uImportInEditor = true" @keydown.enter.space.prevent="showM3uImportInEditor = true">
-                            <div class="empty-option-icon m3u">
+                          <button type="button" class="btn-plain empty-option-card" @click="showM3uImportInEditor = true">
+                            <span class="empty-option-icon m3u">
                               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-                            </div>
-                            <div class="empty-option-info">
-                              <div class="empty-option-title">{{ t('addTypes.m3uOption') }}</div>
-                              <div class="empty-option-desc">{{ t('addTypes.m3uOptionDesc') }}</div>
-                            </div>
+                            </span>
+                            <span class="empty-option-info">
+                              <span class="empty-option-title">{{ t('addTypes.m3uOption') }}</span>
+                              <span class="empty-option-desc">{{ t('addTypes.m3uOptionDesc') }}</span>
+                            </span>
                             <svg class="empty-option-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                          </div>
+                          </button>
                         </div>
                       </div>
                     </template>
@@ -1018,16 +1018,16 @@
             </div>
             <div class="ep-body">
               <div class="ep-logo-area">
-                <div v-if="canShowImage(editForm.logo_url)" class="ep-logo-preview" role="button" tabindex="0" @click="triggerLogoUpload" @keydown.enter.space.prevent="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
+                <button type="button" v-if="canShowImage(editForm.logo_url)" class="btn-plain ep-logo-preview" @click="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
                   <img :src="editForm.logo_url" :alt="t('accessibility.channelLogo', { name: editingChannel.name })" @error="markImageBroken(editForm.logo_url)" />
-                  <div class="ep-logo-overlay">
+                  <span class="ep-logo-overlay">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                  </div>
-                </div>
-                <div v-else class="ep-logo-placeholder ep-logo-upload" role="button" tabindex="0" @click="triggerLogoUpload" @keydown.enter.space.prevent="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
+                  </span>
+                </button>
+                <button type="button" v-else class="btn-plain ep-logo-placeholder ep-logo-upload" @click="triggerLogoUpload" :title="t('editPanel.uploadLogo')">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                   <span class="ep-logo-upload-hint">{{ t('common.upload') }}</span>
-                </div>
+                </button>
                 <input ref="logoFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none" @change="handleLogoUpload" />
               </div>
               <div class="ep-form">
@@ -2734,7 +2734,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 }
 .nav-section { margin-bottom: 4px; }
 .nav-section-header {
-  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px; width: 100%;
   cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-primary);
   transition: background 0.15s;
 }
@@ -2745,7 +2745,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .nav-chevron.open { transform: rotate(180deg); }
 .nav-items { padding: 2px 0; }
 .nav-item {
-  display: flex; align-items: center; gap: 8px; padding: 8px 16px 8px 28px;
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px 8px 28px; width: calc(100% - 8px);
   cursor: pointer; font-size: 13px; color: var(--text-secondary);
   transition: all 0.15s; border-left: 2px solid transparent;
   border-radius: 0 6px 6px 0; margin-right: 8px;
@@ -3189,8 +3189,8 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .empty-option-icon.xtream { background: linear-gradient(135deg, #6366f1, #818cf8); color: white; }
 .empty-option-icon.m3u { background: linear-gradient(135deg, #10b981, #34d399); color: white; }
 .empty-option-info { flex: 1; min-width: 0; }
-.empty-option-title { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
-.empty-option-desc { font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; }
+.empty-option-title { display: block; font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.empty-option-desc { display: block; font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; }
 .empty-option-arrow { color: var(--text-muted); flex-shrink: 0; transition: var(--transition); }
 .empty-option-card:hover .empty-option-arrow { color: var(--accent); transform: translateX(3px); }
 
@@ -3323,7 +3323,7 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .ep-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
 .ep-logo-area { display: flex; justify-content: center; padding: 14px; }
 .ep-logo-preview {
-  position: relative; cursor: pointer; width: 64px; height: 64px; border-radius: 8px; overflow: hidden;
+  display: block; position: relative; cursor: pointer; width: 64px; height: 64px; border-radius: 8px; overflow: hidden;
 }
 .ep-logo-preview img {
   width: 64px; height: 64px; border-radius: 8px; object-fit: contain; background: var(--bg-tertiary);
