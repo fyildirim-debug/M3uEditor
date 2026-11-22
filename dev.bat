@@ -68,11 +68,19 @@ if %errorlevel% neq 0 (
 )
 :docker_ok
 
+:: docker-compose.yml db portunu host'a acmaz; backend ve migration host'ta
+:: calistigi icin dev-ports override'i 5432'yi loopback'e acar.
+set COMPOSE_FILES=-f "%SCRIPT_DIR%\docker-compose.yml"
+if exist "%SCRIPT_DIR%\docker-compose.dev-ports.yml" set COMPOSE_FILES=%COMPOSE_FILES% -f "%SCRIPT_DIR%\docker-compose.dev-ports.yml"
+:: Compose tum dosyayi yorumlar ve zorunlu SEARXNG_SECRET'i ister; gelistirmede
+:: searxng baslatilmaz. .env'de deger yoksa yalnizca bu calisma icin gecici deger.
+findstr /r /c:"^SEARXNG_SECRET=." "%SCRIPT_DIR%\.env" >nul 2>&1 || set "SEARXNG_SECRET=dev-only-searxng-not-started"
+
 :: PostgreSQL container kontrol
-docker compose -f "%SCRIPT_DIR%\docker-compose.yml" ps db 2>nul | findstr /i "running Up" >nul 2>&1
+docker compose %COMPOSE_FILES% ps db 2>nul | findstr /i "running Up" >nul 2>&1
 if %errorlevel% neq 0 (
     echo   PostgreSQL container baslatiliyor...
-    docker compose -f "%SCRIPT_DIR%\docker-compose.yml" up -d db
+    docker compose %COMPOSE_FILES% up -d db
 )
 
 :: PostgreSQL hazir olana kadar bekle (max 30 saniye)
@@ -80,7 +88,7 @@ echo   PostgreSQL hazir olana kadar bekleniyor...
 set "PG_READY=0"
 for /l %%i in (1,1,30) do (
     timeout /t 1 /nobreak >nul
-    for /f "tokens=*" %%a in ('docker compose -f "%SCRIPT_DIR%\docker-compose.yml" ps -q db 2^>nul') do (
+    for /f "tokens=*" %%a in ('docker compose %COMPOSE_FILES% ps -q db 2^>nul') do (
         docker exec %%a pg_isready -U postgres -q >nul 2>&1
         if !errorlevel! equ 0 (
             set "PG_READY=1"
@@ -90,7 +98,7 @@ for /l %%i in (1,1,30) do (
 )
 if "!PG_READY!"=="0" (
     echo   X PostgreSQL baslatilamadi!
-    docker compose -f "%SCRIPT_DIR%\docker-compose.yml" logs db 2>nul
+    docker compose %COMPOSE_FILES% logs db 2>nul
     pause
     exit /b 1
 )
