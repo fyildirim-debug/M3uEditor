@@ -617,7 +617,7 @@ function onM3uFileSelect(e) {
 async function doM3uImport() {
   m3uImporting.value = true; m3uImportResult.value = null; m3uImportError.value = ''
   try {
-    const payload = { playlistName: m3uImportForm.value.name || 'M3U Import' }
+    const payload = { playlistName: m3uImportForm.value.name || t('m3uImport.defaultName') }
     if (m3uImportForm.value.content) {
       payload.m3uContent = m3uImportForm.value.content
     } else {

@@ -211,7 +211,8 @@
     "hideCategory": "Hide",
     "hiddenCategoryBadge": "Hidden",
     "hiddenCategoryHint": "This category is hidden from M3U, share-link, Xtream and XMLTV outputs.",
-    "rename": "Rename"
+    "rename": "Rename",
+    "untitledPlaylist": "Playlist"
   },
   "editPanel": {
     "title": "Edit Channel",
@@ -550,7 +551,8 @@
     "urlPlaceholder": "https://example.com/playlist.m3u",
     "selectFile": "Select File",
     "playlistName": "Playlist Name",
-    "namePlaceholder": "e.g. My M3U List"
+    "namePlaceholder": "e.g. My M3U List",
+    "defaultName": "M3U Import"
   },
   "addChannel": {
     "title": "Add Channel",
@@ -714,7 +716,8 @@
     "closeEditPanel": "Close edit panel",
     "selectedEpgLogo": "Logo for the selected EPG channel",
     "channelLogo": "Logo for {name}",
-    "backdropImage": "Backdrop image for {name}"
+    "backdropImage": "Backdrop image for {name}",
+    "dialog": "Dialog"
   },
   "forgotPw": {
     "title": "Forgot Password",
@@ -984,5 +987,8 @@
     "INTERNAL_ERROR": "An unexpected error occurred",
     "NETWORK_ERROR": "Could not reach the server; check your connection",
     "TIMEOUT": "The server took too long to respond"
+  },
+  "pageTitles": {
+    "editor": "Editor"
   }
 }

@@ -1,3 +1,5 @@
+import { useI18n } from '../langs/useI18n'
+
 const SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
 export default {
@@ -8,7 +10,7 @@ export default {
     dialog.setAttribute('aria-modal', 'true')
     if (!dialog.hasAttribute('aria-label') && !dialog.hasAttribute('aria-labelledby')) {
       const heading = dialog.querySelector('h1, h2, h3')
-      dialog.setAttribute('aria-label', heading?.textContent?.trim() || 'İletişim penceresi')
+      dialog.setAttribute('aria-label', heading?.textContent?.trim() || useI18n().t('accessibility.dialog'))
     }
     element.__focusHandler = (event) => {
       if (event.key === 'Escape') {

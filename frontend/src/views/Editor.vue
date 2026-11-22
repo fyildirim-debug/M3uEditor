@@ -1804,7 +1804,7 @@ onMounted(async () => {
       api.get(`/playlists/${playlistId}/categories`, { params: { streamType: activeStreamType.value } })
     ])
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
-    playlistName.value = pl?.name || 'Playlist'
+    playlistName.value = pl?.name || t('editor.untitledPlaylist')
     playlistShared.value = Boolean(pl?.is_shared)
     applyAutoSyncSettings(pl)
     if (pl?.xtream_server_url) {

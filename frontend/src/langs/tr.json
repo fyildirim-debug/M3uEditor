@@ -211,7 +211,8 @@
     "hideCategory": "Gizle",
     "hiddenCategoryBadge": "Gizli",
     "hiddenCategoryHint": "Bu kategori M3U, paylaşım bağlantısı, Xtream ve XMLTV çıktılarında gösterilmez.",
-    "rename": "Yeniden Adlandır"
+    "rename": "Yeniden Adlandır",
+    "untitledPlaylist": "Oynatma listesi"
   },
   "editPanel": {
     "title": "Kanal Düzenle",
@@ -550,7 +551,8 @@
     "urlPlaceholder": "https://example.com/playlist.m3u",
     "selectFile": "Dosya Seç",
     "playlistName": "Playlist Adı",
-    "namePlaceholder": "Örn: M3U Listem"
+    "namePlaceholder": "Örn: M3U Listem",
+    "defaultName": "M3U İçe Aktarım"
   },
   "addChannel": {
     "title": "Kanal Ekle",
@@ -714,7 +716,8 @@
     "closeEditPanel": "Düzenleme panelini kapat",
     "selectedEpgLogo": "Seçilen EPG kanalının logosu",
     "channelLogo": "{name} kanalının logosu",
-    "backdropImage": "{name} arka plan görseli"
+    "backdropImage": "{name} arka plan görseli",
+    "dialog": "İletişim penceresi"
   },
   "forgotPw": {
     "title": "Şifremi Unuttum",
@@ -984,5 +987,8 @@
     "INTERNAL_ERROR": "Beklenmeyen bir hata oluştu",
     "NETWORK_ERROR": "Sunucuya ulaşılamadı; bağlantınızı kontrol edin",
     "TIMEOUT": "Sunucu zamanında yanıt vermedi"
+  },
+  "pageTitles": {
+    "editor": "Düzenleyici"
   }
 }
