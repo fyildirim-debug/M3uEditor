@@ -258,7 +258,11 @@
     "live": "CANLI",
     "next": "SIRADAKI",
     "noDescription": "Açıklama mevcut değil",
-    "durationSuffix": "dk"
+    "durationSuffix": "dk",
+    "previousDay": "Önceki gün",
+    "nextDay": "Sonraki gün",
+    "loadEarlier": "Öncekileri yükle",
+    "windowRange": "{from}–{to} arası kanallar gösteriliyor (toplam {total})"
   },
   "epgProfiles": {
     "tab": "Profiller",

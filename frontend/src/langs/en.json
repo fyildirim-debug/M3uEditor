@@ -258,7 +258,11 @@
     "live": "LIVE",
     "next": "NEXT",
     "noDescription": "No description available",
-    "durationSuffix": "min"
+    "durationSuffix": "min",
+    "previousDay": "Previous day",
+    "nextDay": "Next day",
+    "loadEarlier": "Load earlier",
+    "windowRange": "Showing channels {from}–{to} of {total}"
   },
   "epgProfiles": {
     "tab": "Profiles",
