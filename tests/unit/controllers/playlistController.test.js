@@ -8,6 +8,7 @@ jest.mock('../../../src/config/database', () => mockKnex);
 // Mock PlaylistService
 const mockPlaylistService = {
   list: jest.fn(),
+  getById: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
@@ -56,6 +57,48 @@ describe('Playlist Controller', () => {
 
     it('should return 401 without token', async () => {
       const res = await request(app).get('/api/playlists');
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('GET /api/playlists/:id', () => {
+    const OWNED_ID = '3f2b8f0e-5d1a-4c3b-9a7e-1b2c3d4e5f60';
+
+    it('returns the requested playlist scoped to the current user', async () => {
+      mockPlaylistService.getById.mockResolvedValue({ id: OWNED_ID, name: 'Mine', user_id: USER_ID });
+
+      const res = await request(app)
+        .get(`/api/playlists/${OWNED_ID}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(expect.objectContaining({ id: OWNED_ID, name: 'Mine' }));
+      expect(mockPlaylistService.getById).toHaveBeenCalledWith(USER_ID, OWNED_ID);
+    });
+
+    it('returns 404 when the playlist is not owned by the user', async () => {
+      const { createAppError } = require('../../../src/utils/AppError');
+      mockPlaylistService.getById.mockRejectedValue(createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı'));
+
+      const res = await request(app)
+        .get(`/api/playlists/${OWNED_ID}`)
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('NOT_FOUND');
+    });
+
+    it('returns 404 for a malformed id without querying the database', async () => {
+      const res = await request(app)
+        .get('/api/playlists/not-a-uuid')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(404);
+      expect(mockPlaylistService.getById).not.toHaveBeenCalled();
+    });
+
+    it('requires authentication', async () => {
+      const res = await request(app).get(`/api/playlists/${OWNED_ID}`);
       expect(res.status).toBe(401);
     });
   });

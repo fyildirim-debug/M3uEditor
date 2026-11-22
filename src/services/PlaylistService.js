@@ -12,10 +12,35 @@ class PlaylistService {
    * @returns {Promise<object[]>}
    */
   async list(userId) {
+    return this._summaryQuery()
+      .where('playlists.user_id', userId)
+      .orderBy('playlists.created_at', 'desc');
+  }
+
+  /**
+   * Get a single playlist (same projection as list) owned by the user.
+   * Another user's playlist is reported as not found so ownership is not revealed.
+   * @param {string} userId
+   * @param {string} playlistId
+   * @returns {Promise<object>}
+   */
+  async getById(userId, playlistId) {
+    const playlist = await this._summaryQuery()
+      .where('playlists.id', playlistId)
+      .where('playlists.user_id', userId)
+      .first();
+    if (!playlist) throw createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı');
+    return playlist;
+  }
+
+  /**
+   * Playlist summary projection: never selects credentials or share secrets.
+   */
+  _summaryQuery() {
     // Gruplanmis alt sorgu, kullanicinin listesini gostermek icin TUM
     // kullanicilarin kanallarini tarayip topluyordu. LATERAL sayim her playlist
     // icin (kullanici basina birkac satir) playlist_id indeksini kullanir.
-    const playlists = await db('playlists')
+    return db('playlists')
       .joinRaw(`
         LEFT JOIN LATERAL (
           SELECT COUNT(*)::int AS channel_count
@@ -23,7 +48,6 @@ class PlaylistService {
            WHERE channels.playlist_id = playlists.id
         ) AS cc ON TRUE
       `)
-      .where('playlists.user_id', userId)
       .select(
         'playlists.id',
         'playlists.user_id',
@@ -40,10 +64,7 @@ class PlaylistService {
         db.raw('(playlists.share_token IS NOT NULL) as is_shared'),
         'playlists.share_expires_at',
         db.raw('COALESCE(cc.channel_count, 0) as channel_count')
-      )
-      .orderBy('playlists.created_at', 'desc');
-
-    return playlists;
+      );
   }
 
   /**

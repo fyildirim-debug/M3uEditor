@@ -41,6 +41,23 @@ describe('PlaylistService', () => {
     expect(playlists.groupBy).not.toHaveBeenCalled();
   });
 
+  test('gets a single playlist scoped by owner with the same safe projection', async () => {
+    const playlists = builder({ first: { id: 'p1', name: 'News', user_id: 'user-1' } });
+    mockDb.mockReturnValue(playlists);
+
+    await expect(playlistService.getById('user-1', 'p1')).resolves.toEqual(expect.objectContaining({ id: 'p1' }));
+    expect(playlists.where).toHaveBeenCalledWith('playlists.id', 'p1');
+    expect(playlists.where).toHaveBeenCalledWith('playlists.user_id', 'user-1');
+    const selectedFields = playlists.select.mock.calls.flat();
+    expect(selectedFields).not.toContain('playlists.xtream_password_enc');
+    expect(selectedFields).not.toContain('playlists.share_token');
+  });
+
+  test('reports another user\'s playlist as not found', async () => {
+    mockDb.mockReturnValue(builder({ first: undefined }));
+    await expect(playlistService.getById('user-2', 'p1')).rejects.toMatchObject({ code: 'NOT_FOUND', statusCode: 404 });
+  });
+
   test('creates a playlist with server-generated ownership', async () => {
     const playlists = builder({ returning: [{ id: 'p1', user_id: 'user-1', name: 'My list' }] });
     mockDb.mockReturnValue(playlists);

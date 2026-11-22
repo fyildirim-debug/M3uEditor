@@ -22,6 +22,23 @@ async function listPlaylists(req, res, next) {
   }
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * GET /api/playlists/:id
+ */
+async function getPlaylist(req, res, next) {
+  try {
+    const { id } = req.params;
+    // Gecersiz UUID Postgres'te 22P02 (500) uretir; bulunamadi olarak raporla.
+    if (!UUID_PATTERN.test(String(id))) throw createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı');
+    const playlist = await playlistService.getById(req.userId, id);
+    res.json(playlist);
+  } catch (err) {
+    next(err);
+  }
+}
+
 /**
  * POST /api/playlists
  */
@@ -114,4 +131,4 @@ async function updateSyncSettings(req, res, next) {
   }
 }
 
-module.exports = { listPlaylists, createPlaylist, updatePlaylist, deletePlaylist, updateSyncSettings };
+module.exports = { listPlaylists, getPlaylist, createPlaylist, updatePlaylist, deletePlaylist, updateSyncSettings };
