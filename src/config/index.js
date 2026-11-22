@@ -48,6 +48,9 @@ const config = {
   // Yenileme cerezinin Secure bayragi. Varsayilan: production'da acik.
   // Masaustu uygulamasi TLS'siz http://localhost uzerinden calistigi icin
   // COOKIE_SECURE=false verir.
+  // Masaustu uygulamasi: ana surecin yerel hesaba parolasiz oturum acmasini
+  // saglayan paylasilan gizli deger. Bos/kisa ise uc tamamen kapalidir.
+  desktopLoginToken: String(process.env.DESKTOP_LOGIN_TOKEN || '').length >= 32 ? process.env.DESKTOP_LOGIN_TOKEN : null,
   cookieSecure: process.env.COOKIE_SECURE !== undefined
     ? String(process.env.COOKIE_SECURE).toLowerCase() === 'true'
     : isProduction,

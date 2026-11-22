@@ -63,6 +63,35 @@ async function register(req, res, next) {
   } catch (error) { next(error); }
 }
 
+const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
+function tokensMatch(given, expected) {
+  const crypto = require('crypto');
+  const left = crypto.createHash('sha256').update(String(given || '')).digest();
+  const right = crypto.createHash('sha256').update(String(expected || '')).digest();
+  return crypto.timingSafeEqual(left, right);
+}
+
+/**
+ * Masaustu uygulamasinin ana sureci yerel hesaba oturum acar.
+ *
+ * Uc yalnizca DESKTOP_LOGIN_TOKEN tanimliyken vardir (Docker/sunucu
+ * kurulumunda 404), istek geri donus adresinden gelmeli ve paylasilan gizli
+ * degeri tasimalidir. Gizli deger arayuze (pencere icerigine) hic verilmez;
+ * yalnizca ana surec bilir.
+ */
+async function desktopSession(req, res, next) {
+  try {
+    if (!config.desktopLoginToken) throw createAppError('NOT_FOUND');
+    if (!LOOPBACK_ADDRESSES.has(req.socket?.remoteAddress) || !tokensMatch(req.get('x-desktop-token'), config.desktopLoginToken)) {
+      throw createAppError('FORBIDDEN');
+    }
+    const result = await authService.desktopSession(metadata(req));
+    setRefreshCookie(res, result.refreshToken);
+    res.json(publicAuthResult(result));
+  } catch (error) { next(error); }
+}
+
 async function registrationStatus(_req, res, next) {
   try {
     res.json({ allowed: await authService.isRegistrationAllowed() });
@@ -174,6 +203,7 @@ async function resetPassword(req, res, next) {
 }
 
 module.exports = {
+  desktopSession,
   register,
   registrationStatus,
   login,

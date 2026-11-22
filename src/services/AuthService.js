@@ -84,6 +84,37 @@ class AuthService {
     };
   }
 
+  /**
+   * Masaustu uygulamasinin yerel oturumu.
+   *
+   * Masaustunde tek kullanici vardir ve veriler zaten onun bilgisayarindadir;
+   * her acilista kayit/giris istemek anlamsiz bir engel. Kurulumdaki en eski
+   * yonetici (yoksa en eski kullanici) secilir; hic kullanici yoksa parolasi
+   * rastgele, yonetici yetkili yerel bir hesap olusturulur. Bu yol yalnizca
+   * DESKTOP_LOGIN_TOKEN tanimliyken ve geri donus adresinden acilir (bkz.
+   * authController.desktopSession).
+   */
+  async desktopSession(metadata = {}) {
+    return db.transaction(async (trx) => {
+      await trx.raw('LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE');
+      let user = await trx('users').where({ is_admin: true }).orderBy('created_at', 'asc').first()
+        || await trx('users').orderBy('created_at', 'asc').first();
+      if (!user) {
+        const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), SALT_ROUNDS);
+        [user] = await trx('users')
+          .insert({ email: 'yerel@m3u-editor.local', password_hash: passwordHash, is_admin: true })
+          .returning(['id', 'email', 'is_admin']);
+        logger.info({ userId: user.id }, 'Desktop local account created');
+      }
+      const session = await this._createSession(user.id, metadata, trx);
+      return {
+        user: this._publicUser(user),
+        token: this._generateToken(user.id, session.id),
+        refreshToken: session.rawToken,
+      };
+    });
+  }
+
   async refreshAccessToken(refreshToken, metadata = {}) {
     if (!refreshToken) throw createAppError('INVALID_CREDENTIALS', 'Oturum yenileme belirteci gerekli');
     const tokenHash = hashToken(refreshToken);
