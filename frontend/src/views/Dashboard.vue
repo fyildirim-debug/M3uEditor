@@ -422,7 +422,12 @@ onMounted(() => {
   // Asistan liste olusturdugunda/sildiginde panoyu tazele.
   window.addEventListener('ai:data-changed', loadPlaylists)
 })
-onUnmounted(() => window.removeEventListener('ai:data-changed', loadPlaylists))
+let importNavigationTimer = null
+onUnmounted(() => {
+  window.removeEventListener('ai:data-changed', loadPlaylists)
+  // Ice aktarim sonrasi gecikmeli yonlendirme, kullanici sayfadan ayrildiysa calismasin.
+  clearTimeout(importNavigationTimer)
+})
 
 async function loadPlaylists() {
   loading.value = true
@@ -627,7 +632,8 @@ async function doM3uImport() {
     m3uImportResult.value = data
     toast(t('toast.importSuccess', { channels: data.totalChannels, categories: data.totalCategories, duration: (data.duration / 1000).toFixed(1) }), 'success')
     await loadPlaylists()
-    setTimeout(() => {
+    clearTimeout(importNavigationTimer)
+    importNavigationTimer = setTimeout(() => {
       showM3uImport.value = false
       if (data.playlistId) router.push('/playlist/' + data.playlistId)
     }, 2000)

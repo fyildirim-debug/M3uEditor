@@ -1702,6 +1702,7 @@ const emptySmartTitle = computed(() => {
 })
 
 const showM3uImportInEditor = ref(false)
+let m3uImportCloseTimer = null
 
 function toggleStreamSection(type) {
   if (activeStreamType.value === type) { mobileNavOpen.value = false; return }
@@ -1712,24 +1713,47 @@ function toggleStreamSection(type) {
   page.value = 1
   search.value = ''
   selectedIds.value = new Set()
+  // Filtresiz loadChannels toplami zaten getirir; bilinen sayiyla hemen goster.
+  totalChannelCount.value = streamTypeCounts.value[type] || 0
   loadChannels()
-  loadTotalCount()
   loadCategories()
   mobileNavOpen.value = false
 }
 
+const STREAM_TYPES = ['live', 'vod', 'series']
+
+// xtream_stream_types metin kolonudur; bozuk ya da beklenmedik deger editoru
+// acilista dusurmemeli.
+function parseStreamTypes(value) {
+  if (Array.isArray(value)) return value.length ? value : ['live']
+  if (typeof value !== 'string' || !value) return ['live']
+  try {
+    const parsed = JSON.parse(value)
+    const types = Array.isArray(parsed) ? parsed.filter(type => STREAM_TYPES.includes(type)) : []
+    return types.length ? types : ['live']
+  } catch {
+    return ['live']
+  }
+}
+
+function applyPlaylistDetails(pl) {
+  playlistShared.value = Boolean(pl?.is_shared)
+  applyAutoSyncSettings(pl)
+  if (pl?.xtream_server_url) {
+    savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
+    savedXtreamTypes.value = parseStreamTypes(pl.xtream_stream_types)
+  }
+}
+
+// Uc turun sayisi tek seferde alinir; aktif turun toplami da buradan gelir.
+// Eskiden loadTotalCount ayni COUNT istegini ayrica atiyordu.
 async function loadStreamTypeCounts() {
   try {
-    const [liveRes, vodRes, seriesRes] = await Promise.all([
-      api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: 'live' } }),
-      api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: 'vod' } }),
-      api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: 'series' } })
-    ])
-    streamTypeCounts.value = {
-      live: liveRes.data.total || 0,
-      vod: vodRes.data.total || 0,
-      series: seriesRes.data.total || 0
-    }
+    const responses = await Promise.all(STREAM_TYPES.map(streamType =>
+      api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType } })))
+    const counts = Object.fromEntries(STREAM_TYPES.map((type, index) => [type, responses[index].data.total || 0]))
+    streamTypeCounts.value = counts
+    totalChannelCount.value = counts[activeStreamType.value] || 0
   } catch {}
 }
 
@@ -1784,7 +1808,7 @@ async function refreshAfterAiChange() {
     const { data } = await api.get(`/playlists/${playlistId}/categories`, { params: { streamType: activeStreamType.value } })
     categories.value = data
   } catch { /* kategori tazeleme kritik degil */ }
-  await Promise.all([loadChannels(), loadTotalCount(), loadStreamTypeCounts()])
+  await Promise.all([loadChannels(), loadStreamTypeCounts()])
 }
 
 onMounted(() => {
@@ -1800,19 +1824,14 @@ onUnmounted(() => {
 onMounted(async () => {
   try {
     const [plRes, catRes] = await Promise.all([
-      api.get('/playlists'),
+      api.get(`/playlists/${playlistId}`),
       api.get(`/playlists/${playlistId}/categories`, { params: { streamType: activeStreamType.value } })
     ])
-    const pl = plRes.data.find(p => String(p.id) === String(playlistId))
+    const pl = plRes.data
     playlistName.value = pl?.name || t('editor.untitledPlaylist')
-    playlistShared.value = Boolean(pl?.is_shared)
-    applyAutoSyncSettings(pl)
-    if (pl?.xtream_server_url) {
-      savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
-      savedXtreamTypes.value = pl.xtream_stream_types ? JSON.parse(pl.xtream_stream_types) : ['live']
-    }
+    applyPlaylistDetails(pl)
     categories.value = catRes.data
-    await Promise.all([loadChannels(), loadTotalCount(), loadStreamTypeCounts(), loadFilterRules(), loadSources()])
+    await Promise.all([loadChannels(), loadStreamTypeCounts(), loadFilterRules(), loadSources()])
   } catch { toast(t('toast.loadError'), 'error') }
   finally { pageLoading.value = false }
 })
@@ -1854,10 +1873,15 @@ async function loadChannels() {
   finally { if (requestId === channelsRequestId) channelsLoading.value = false }
 }
 
+// Yalnizca aktif turun sayisini tazeler (silme/ekleme sonrasi); sol menudeki
+// tur sayaci da guncel kalir.
 async function loadTotalCount() {
+  const streamType = activeStreamType.value
   try {
-    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType: activeStreamType.value } })
+    const { data } = await api.get(`/playlists/${playlistId}/channels`, { params: { limit: 1, streamType } })
+    if (streamType !== activeStreamType.value) return
     totalChannelCount.value = data.total || 0
+    streamTypeCounts.value = { ...streamTypeCounts.value, [streamType]: data.total || 0 }
   } catch {}
 }
 
@@ -2092,7 +2116,6 @@ function refreshFeatureData({ clearSelected = false } = {}) {
   for (const catId of Object.keys(accChannels)) delete accChannels[catId]
   loadChannels()
   loadCategories()
-  loadTotalCount()
   loadStreamTypeCounts()
   for (const catId of openAccordions.value) loadAccChannels(catId)
 }
@@ -2265,18 +2288,12 @@ async function handleXtreamImported(data) {
     duration: ((Number(data.duration) || 0) / 1000).toFixed(1)
   }), 'success')
   try {
-    const plRes = await api.get('/playlists')
-    const pl = plRes.data.find(p => String(p.id) === String(playlistId))
-    playlistShared.value = Boolean(pl?.is_shared)
-    applyAutoSyncSettings(pl)
-    if (pl?.xtream_server_url) {
-      savedXtream.value = { serverUrl: pl.xtream_server_url, username: pl.xtream_username, lastSynced: pl.last_synced_at }
-      savedXtreamTypes.value = pl.xtream_stream_types ? JSON.parse(pl.xtream_stream_types) : ['live']
-    }
+    const { data: pl } = await api.get(`/playlists/${playlistId}`)
+    applyPlaylistDetails(pl)
   } catch {
     toast(t('toast.playlistsLoadError'), 'error')
   }
-  loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
+  loadCategories(); loadChannels(); loadStreamTypeCounts()
   for (const catId of openAccordions.value) loadAccChannels(catId)
 }
 async function startSyncPreview() {
@@ -2346,10 +2363,9 @@ async function doSync() {
     syncResult.value = data
     syncPreview.value = null
     toast(t('toast.syncResult', { added: data.added, updated: data.updated, removed: data.removed }), 'success')
-    const plRes = await api.get('/playlists')
-    const pl = plRes.data.find(p => String(p.id) === String(playlistId))
+    const { data: pl } = await api.get(`/playlists/${playlistId}`)
     if (pl?.last_synced_at) savedXtream.value = { ...savedXtream.value, lastSynced: pl.last_synced_at }
-    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
+    loadCategories(); loadChannels(); loadStreamTypeCounts()
   } catch (e) { toast(apiErrorMessage(e, t, 'toast.updateError'), 'error') }
   finally { syncing.value = false }
 }
@@ -2457,10 +2473,9 @@ async function syncAllSources() {
     const { data } = await api.post(`/playlists/${playlistId}/sync-all`)
     syncAllResult.value = data
     toast(t('multiSource.syncResult', { added: data.added, updated: data.updated, removed: data.removed }), data.failedSources ? 'error' : 'success')
-    const plRes = await api.get('/playlists')
-    const pl = plRes.data.find(p => String(p.id) === String(playlistId))
+    const { data: pl } = await api.get(`/playlists/${playlistId}`)
     if (pl?.last_synced_at) savedXtream.value = { ...savedXtream.value, lastSynced: pl.last_synced_at }
-    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
+    loadCategories(); loadChannels(); loadStreamTypeCounts()
   } catch (e) { toast(apiErrorMessage(e, t, 'toast.updateError'), 'error') }
   finally { syncingAll.value = false }
 }
@@ -2473,7 +2488,7 @@ async function doAddTypes(types) {
     addTypesResult.value = data
     savedXtreamTypes.value = data.allTypes
     toast(t('addTypes.result', { added: data.added, types: data.addedTypes.join(', '), duration: (data.duration / 1000).toFixed(1) }), 'success')
-    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
+    loadCategories(); loadChannels(); loadStreamTypeCounts()
   } catch (e) {
     toast(apiErrorMessage(e, t, 'toast.updateError'), 'error')
   } finally { addingTypes.value = false }
@@ -2502,8 +2517,9 @@ async function doEditorM3uImport() {
     const { data } = await api.post(`/playlists/${playlistId}/import/m3u`, payload)
     editorM3uResult.value = data
     toast(t('toast.importSuccess', { channels: data.totalChannels, categories: data.totalCategories, duration: (data.duration / 1000).toFixed(1) }), 'success')
-    loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
-    setTimeout(() => { showM3uImportInEditor.value = false }, 2000)
+    loadCategories(); loadChannels(); loadStreamTypeCounts()
+    clearTimeout(m3uImportCloseTimer)
+    m3uImportCloseTimer = setTimeout(() => { showM3uImportInEditor.value = false }, 2000)
   } catch (e) {
     editorM3uError.value = apiErrorMessage(e, t, 'toast.genericError')
   } finally { editorM3uImporting.value = false }
@@ -2774,6 +2790,12 @@ async function startHealthScan() {
 onUnmounted(() => {
   if (_nowTimer) clearInterval(_nowTimer)
   if (_healthTimer) clearInterval(_healthTimer)
+  // Bekleyen gecikmeli aramalar sayfa kapandiktan sonra istek atmasin.
+  clearTimeout(searchTimer)
+  clearTimeout(libQueryTimer)
+  clearTimeout(epgAcTimer)
+  clearTimeout(epgIdAcTimer)
+  clearTimeout(m3uImportCloseTimer)
 })
 
 function doShare() {
