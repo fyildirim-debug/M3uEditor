@@ -65,6 +65,17 @@ describe('M3UParser', () => {
       expect(() => parser.parse(undefined)).toThrow('boş veya geçersiz');
     });
 
+    it('raises a 400 validation error instead of a generic error', () => {
+      for (const content of ['', '#EXTINF:-1,Channel\nhttp://x/1']) {
+        try {
+          parser.parse(content);
+          throw new Error('parse should have failed');
+        } catch (error) {
+          expect(error).toMatchObject({ code: 'VALIDATION_ERROR', statusCode: 400 });
+        }
+      }
+    });
+
     it('should throw error for whitespace-only content', () => {
       expect(() => parser.parse('   \n  \n  ')).toThrow('boş veya geçersiz');
     });

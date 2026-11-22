@@ -60,6 +60,22 @@ describe('Export Controller', () => {
       expect(mockExportService.exportAsM3U).toHaveBeenCalledWith(USER_ID, PLAYLIST_ID, [], null, null);
     });
 
+    it('accepts excludeCategories as a comma list or as repeated parameters', async () => {
+      mockExportService.exportAsM3U.mockResolvedValue('#EXTM3U\n');
+
+      const repeated = await request(app)
+        .get(`/api/playlists/${PLAYLIST_ID}/export?excludeCategories=a&excludeCategories=b,c`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(repeated.status).toBe(200);
+      expect(mockExportService.exportAsM3U).toHaveBeenLastCalledWith(USER_ID, PLAYLIST_ID, ['a', 'b', 'c'], null, null);
+
+      const single = await request(app)
+        .get(`/api/playlists/${PLAYLIST_ID}/export?excludeCategories=a,b`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(single.status).toBe(200);
+      expect(mockExportService.exportAsM3U).toHaveBeenLastCalledWith(USER_ID, PLAYLIST_ID, ['a', 'b'], null, null);
+    });
+
     it('should return 401 without token', async () => {
       const res = await request(app)
         .get(`/api/playlists/${PLAYLIST_ID}/export`);

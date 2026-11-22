@@ -45,11 +45,20 @@ describe('toAbsoluteMediaUrl', () => {
 
     // Player'lar ozel baslik gonderemedigi icin sifre sorgu dizesinde gelir;
     // gunluge oldugu gibi yazilirsa diskte birikir.
-    expect(redactUrl('/api/shared/abc?password=gizli123')).toBe('/api/shared/abc?password=REDACTED');
+    expect(redactUrl('/api/shared/abc?password=gizli123')).toBe('/api/shared/REDACTED?password=REDACTED');
     expect(redactUrl('/get.php?username=u&password=p&type=m3u_plus'))
       .toBe('/get.php?username=REDACTED&password=REDACTED&type=m3u_plus');
-    expect(redactUrl('/api/shared/abc?share_password=x')).toBe('/api/shared/abc?share_password=REDACTED');
-    expect(redactUrl('/api/shared/abc?PASSWORD=x')).toBe('/api/shared/abc?PASSWORD=REDACTED');
+    expect(redactUrl('/api/shared/abc?share_password=x')).toBe('/api/shared/REDACTED?share_password=REDACTED');
+    expect(redactUrl('/api/shared/abc?PASSWORD=x')).toBe('/api/shared/REDACTED?PASSWORD=REDACTED');
+  });
+
+  test('redacts the share token carried in the path', () => {
+    const { redactUrl } = require('../../../src/utils/urls');
+
+    expect(redactUrl('/api/shared/s3cr3t-token')).toBe('/api/shared/REDACTED');
+    expect(redactUrl('/api/shared/s3cr3t-token/xmltv')).toBe('/api/shared/REDACTED/xmltv');
+    expect(redactUrl('/api/shared/s3cr3t-token/xmltv?tz=3')).toBe('/api/shared/REDACTED/xmltv?tz=3');
+    expect(redactUrl('/api/playlists/1/shares')).toBe('/api/playlists/1/shares');
   });
 
   test('leaves URLs without sensitive parameters untouched', () => {
