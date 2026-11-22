@@ -150,11 +150,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, inject } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, inject } from 'vue';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
 import { useI18n } from '../langs/useI18n';
-import { apiErrorMessage } from '../utils/apiError'
+import { apiErrorMessage } from '../utils/apiError';
 
 const toast = inject('toast');
 const auth = useAuthStore();
@@ -205,17 +205,25 @@ async function fetchStats() {
   }
 }
 
+// Arama/sayfa hizla degisirse onceki istek daha gec donebilir; yalnizca en
+// son istegin yaniti tabloya yazilir.
+let usersRequestId = 0;
+
 async function fetchUsers() {
+  const requestId = ++usersRequestId;
   try {
     const params = { page: currentPage.value, limit: 20 };
     if (searchQuery.value) params.search = searchQuery.value;
     const res = await api.get('/admin/users', { params });
+    if (requestId !== usersRequestId) return;
     users.value = res.data.users;
     totalPages.value = res.data.totalPages;
   } catch {
-    toast?.(t('admin.usersLoadFailed'), 'error');
+    if (requestId === usersRequestId) toast?.(t('admin.usersLoadFailed'), 'error');
   }
 }
+
+onUnmounted(() => clearTimeout(searchTimeout));
 
 function debouncedSearch() {
   clearTimeout(searchTimeout);
