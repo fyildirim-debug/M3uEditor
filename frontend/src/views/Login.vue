@@ -92,6 +92,7 @@ import { ref, computed, inject } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useI18n } from '../langs/useI18n'
+import { apiErrorMessage } from '../utils/apiError'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -149,7 +150,7 @@ async function handleSubmit() {
     }
     router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard')
   } catch (err) {
-    error.value = err.response?.data?.error?.message || t('toast.genericError')
+    error.value = apiErrorMessage(err, t, 'toast.genericError')
   } finally {
     loading.value = false
   }

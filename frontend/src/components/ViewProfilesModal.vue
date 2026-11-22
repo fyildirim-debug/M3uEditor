@@ -56,6 +56,7 @@ import { computed, inject, onMounted, ref } from 'vue'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import EditorFeatureModal from './EditorFeatureModal.vue'
+import { apiErrorMessage } from '../utils/apiError'
 
 const props = defineProps({
   playlistId: { type: String, required: true },
@@ -78,7 +79,7 @@ const busyAction = ref('')
 const busy = computed(() => Boolean(busyAction.value))
 
 function errorMessage(error) {
-  return error.response?.data?.error?.message || t('viewProfiles.error')
+  return apiErrorMessage(error, t, 'viewProfiles.error')
 }
 
 function currentHiddenIds() {

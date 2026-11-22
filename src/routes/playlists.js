@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/playlists', authMiddleware, playlistController.listPlaylists);
+router.get('/playlists/:id', authMiddleware, playlistController.getPlaylist);
 router.post('/playlists', authMiddleware, playlistController.createPlaylist);
 router.put('/playlists/:id', authMiddleware, playlistController.updatePlaylist);
 router.put('/playlists/:id/sync-settings', authMiddleware, playlistController.updateSyncSettings);

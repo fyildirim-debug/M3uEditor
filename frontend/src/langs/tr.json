@@ -54,7 +54,6 @@
     "admin": "Yönetim"
   },
   "status": {
-    "systemActive": "Sistem aktif",
     "active": "Aktif",
     "connected": "Bağlı",
     "offline": "Bağlantı yok"
@@ -69,7 +68,6 @@
     "hasAccount": "Zaten hesabın var mı?",
     "noAccount": "Henüz hesabın yok mu?",
     "freeSignup": "Ücretsiz Kayıt Ol",
-    "divider": "veya",
     "email": "E-posta Adresi",
     "emailPlaceholder": "ornek@email.com",
     "password": "Şifre",
@@ -77,7 +75,6 @@
     "confirmPassword": "Şifre Tekrar",
     "confirmPlaceholder": "Şifreyi tekrar gir",
     "passwordMismatch": "Şifreler eşleşmemiş",
-    "socialProof": "1.000+ kullanıcı güvenle kullanıyor",
     "showPassword": "Şifreyi göster",
     "hidePassword": "Şifreyi gizle"
   },
@@ -95,14 +92,12 @@
     "statsLastUpdated": "Son Güncelleme",
     "noPlaylists": "Henüz playlist yok",
     "createFirstHint": "İlk playlistini oluştur ve Xtream Codes ile kanallarını içe aktar.",
-    "createFirst": "İlk Playlistini Oluştur",
     "onboardStep1Title": "İçe Aktar",
     "onboardStep1Desc": "Xtream Codes veya M3U ile kanalları içe aktar",
     "onboardStep2Title": "Düzenle",
     "onboardStep2Desc": "Kanalları düzenle, kategorize et",
     "onboardStep3Title": "Paylaş",
     "onboardStep3Desc": "M3U indir veya paylaşım linki oluştur",
-    "lastEdited": "Son düzenleme: {time}",
     "justNow": "az önce",
     "minutesAgo": "{n} dk önce",
     "hoursAgo": "{n} saat önce",
@@ -116,16 +111,10 @@
     "namePlaceholder": "Örn: Ana Liste, Spor Kanalları...",
     "nameLabel": "Playlist Adı",
     "deleteConfirm": "playlistini ve tüm kanallarını kalıcı olarak silmek istediğine emin misin?",
-    "deleting": "Siliniyor...",
-    "channelCount": "{count} kanal"
+    "deleting": "Siliniyor..."
   },
   "xtream": {
     "importTitle": "Xtream Codes İçe Aktar",
-    "autoFillLabel": "M3U URL'den Otomatik Doldur",
-    "autoFillPlaceholder": "http://example.com:8080/get.php?username=xxx&password=yyy&type=m3u_plus",
-    "autoFilled": "URL'den bilgiler otomatik dolduruldu",
-    "autoFillFailed": "URL'den bilgiler çıkarılmadı. Manuel gir.",
-    "manualEntry": "veya manuel gir",
     "serverUrl": "Sunucu URL",
     "serverPlaceholder": "http://example.com:8080",
     "username": "Kullanıcı Adı",
@@ -137,16 +126,10 @@
     "updateChannels": "Kanalları Güncelle",
     "updating": "Güncelleniyor...",
     "changeAccount": "Farklı hesapla içe aktar",
-    "streamTypes": "İçerik Tipleri",
     "typeLive": "Canlı TV",
     "typeVod": "Filmler (VOD)",
     "typeSeries": "Diziler (Series)",
     "stageConnecting": "Sunucuya bağlanılıyor...",
-    "stageAuth": "Kimlik doğrulanıyor...",
-    "stageCategories": "Kategoriler indiriliyor...",
-    "stageChannels": "Kanallar indiriliyor...",
-    "stageVod": "Filmler indiriliyor...",
-    "stageSeries": "Diziler indiriliyor...",
     "stageProcessing": "Veriler işleniyor...",
     "stageSaving": "Veritabanına kaydediliyor...",
     "stageFinalizing": "Tamamlanıyor...",
@@ -202,16 +185,15 @@
     "searchMovies": "Film ara...",
     "searchSeries": "Dizi ara...",
     "newCategory": "Yeni Kategori",
-    "channelCount": "{count} kanal",
     "noChannelsInCat": "Bu kategoride kanal yok",
     "noChannels": "Henüz kanal yok. Xtream ile içe aktar.",
     "selectChannelToEdit": "Düzenlemek için bir kanal seçin",
-    "channelsAvailable": "{count} kanal mevcut",
     "showCategory": "Göster",
     "hideCategory": "Gizle",
     "hiddenCategoryBadge": "Gizli",
     "hiddenCategoryHint": "Bu kategori M3U, paylaşım bağlantısı, Xtream ve XMLTV çıktılarında gösterilmez.",
-    "rename": "Yeniden Adlandır"
+    "rename": "Yeniden Adlandır",
+    "untitledPlaylist": "Oynatma listesi"
   },
   "editPanel": {
     "title": "Kanal Düzenle",
@@ -257,7 +239,11 @@
     "live": "CANLI",
     "next": "SIRADAKI",
     "noDescription": "Açıklama mevcut değil",
-    "durationSuffix": "dk"
+    "durationSuffix": "dk",
+    "previousDay": "Önceki gün",
+    "nextDay": "Sonraki gün",
+    "loadEarlier": "Öncekileri yükle",
+    "windowRange": "{from}–{to} arası kanallar gösteriliyor (toplam {total})"
   },
   "epgProfiles": {
     "tab": "Profiller",
@@ -461,7 +447,6 @@
     "updated": "Güncellendi",
     "deleted": "Silindi",
     "deleteFailed": "Silinemedi",
-    "connectionError": "Bağlantı hatası. Sunucu URL, kullanıcı adı ve şifreyi kontrol et.",
     "importSuccess": "{channels} kanal, {categories} kategori içe aktarıldı ({duration}s)",
     "channelUpdated": "Kanal güncellendi",
     "channelsLoadError": "Kanallar yüklenemedi",
@@ -495,15 +480,12 @@
     "deleteChannelConfirm": "{count} kanalı silmek istediğine emin misin?",
     "metadataFetched": "Metadata çekildi",
     "metadataError": "Metadata çekilemedi",
-    "metadataNotFound": "TMDB'de bulunamadı",
-    "noXtreamSource": "Xtream Codes kaynağı bulunamadı",
     "channelCreated": "Kanal oluşturuldu"
   },
   "metadata": {
     "title": "Meta Veriler",
     "fetch": "Bilgi Çek",
     "refetch": "Tekrar Çek",
-    "overview": "Özet",
     "cast": "Oyuncular",
     "director": "Yönetmen",
     "genres": "Tür",
@@ -548,9 +530,9 @@
     "fromUrl": "URL'den İçe Aktar",
     "fromFile": "Dosyadan İçe Aktar",
     "urlPlaceholder": "https://example.com/playlist.m3u",
-    "selectFile": "Dosya Seç",
     "playlistName": "Playlist Adı",
-    "namePlaceholder": "Örn: M3U Listem"
+    "namePlaceholder": "Örn: M3U Listem",
+    "defaultName": "M3U İçe Aktarım"
   },
   "addChannel": {
     "title": "Kanal Ekle",
@@ -625,7 +607,6 @@
     "profile": "Profil",
     "email": "E-posta",
     "memberSince": "Üyelik Tarihi",
-    "stats": "İstatistikler",
     "changePassword": "Şifre Değiştir",
     "currentPassword": "Mevcut Şifre",
     "newPassword": "Yeni Şifre",
@@ -647,26 +628,13 @@
     "unknownDevice": "Bilinmeyen cihaz"
   },
   "share2": {
-    "expiry": "Süre Sınırı",
-    "noExpiry": "Süresiz",
-    "days7": "7 gün",
-    "days30": "30 gün",
-    "days90": "90 gün",
-    "password": "Şifre Koruması",
-    "passwordPlaceholder": "Opsiyonel şifre"
+    "password": "Şifre Koruması"
   },
   "keyboard": {
-    "shortcuts": "Klavye Kısayolları",
     "save": "Kaydet",
     "delete": "Sil",
-    "selectAll": "Tümünü Seç",
     "search": "Arama",
-    "escape": "İptal / Kapat",
-    "focusSearch": "Aramaya odaklan (/)",
-    "goEpg": "EPG görünümü (g e)",
-    "goSort": "Sıralama görünümü (g s)",
-    "goCategory": "Kategori görünümü (g k)",
-    "goUpdate": "Güncelleme görünümü (g g)"
+    "focusSearch": "Aramaya odaklan (/)"
   },
   "addTypes": {
     "title": "İçerik Tipi Ekle",
@@ -714,7 +682,8 @@
     "closeEditPanel": "Düzenleme panelini kapat",
     "selectedEpgLogo": "Seçilen EPG kanalının logosu",
     "channelLogo": "{name} kanalının logosu",
-    "backdropImage": "{name} arka plan görseli"
+    "backdropImage": "{name} arka plan görseli",
+    "dialog": "İletişim penceresi"
   },
   "forgotPw": {
     "title": "Şifremi Unuttum",
@@ -965,5 +934,30 @@
     "group_custom": "Özel",
     "group_misc": "Çeşitli",
     "group_24_7": "7/24 kanallar"
+  },
+  "errors": {
+    "VALIDATION_ERROR": "Geçersiz istek parametreleri",
+    "INVALID_CREDENTIALS": "Hatalı giriş bilgileri",
+    "TOKEN_EXPIRED": "Oturumun süresi doldu, lütfen tekrar giriş yapın",
+    "UNAUTHORIZED": "Bu işlem için giriş yapmalısınız",
+    "FORBIDDEN": "Bu kaynağa erişim yetkiniz yok",
+    "NOT_FOUND": "Kaynak bulunamadı",
+    "CONFLICT": "İşlem mevcut verilerle çakışıyor",
+    "DUPLICATE_CHANNEL": "Bu akış adresi bu oynatma listesinde zaten kayıtlı",
+    "IMPORT_IN_PROGRESS": "Bu oynatma listesi için bir içe aktarım zaten çalışıyor",
+    "IMPORT_CANCELLED": "İçe aktarım iptal edildi",
+    "IMPORT_CAPACITY_REACHED": "Sunucu şu an çok meşgul; lütfen biraz sonra tekrar deneyin",
+    "IMPORT_FAILED": "İçe aktarım sırasında beklenmeyen bir hata oluştu",
+    "XTREAM_CONNECTION_FAILED": "Xtream sunucusuna bağlanılamadı",
+    "XTREAM_AUTH_FAILED": "Xtream kullanıcı adı veya şifresi hatalı",
+    "EPG_FETCH_FAILED": "EPG kaynağına erişilemedi",
+    "RATE_LIMITED": "Çok fazla istek gönderildi; lütfen biraz bekleyip tekrar deneyin",
+    "DATABASE_UNAVAILABLE": "Veritabanına ulaşılamıyor; sunucu yöneticisine haber verin",
+    "INTERNAL_ERROR": "Beklenmeyen bir hata oluştu",
+    "NETWORK_ERROR": "Sunucuya ulaşılamadı; bağlantınızı kontrol edin",
+    "TIMEOUT": "Sunucu zamanında yanıt vermedi"
+  },
+  "pageTitles": {
+    "editor": "Düzenleyici"
   }
 }

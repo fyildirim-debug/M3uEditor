@@ -20,6 +20,7 @@
 import { ref, watch } from 'vue'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
+import { apiErrorMessage } from '../utils/apiError'
 
 const props = defineProps({
   channelId: { type: String, required: true },
@@ -39,7 +40,7 @@ async function testStream() {
     const { data } = await api.post(`/channels/${props.channelId}/test`)
     result.value = data
   } catch (error) {
-    result.value = { reachable: false, error: error.response?.data?.error?.message || t('common.error') }
+    result.value = { reachable: false, error: apiErrorMessage(error, t, 'common.error') }
   } finally {
     testing.value = false
   }

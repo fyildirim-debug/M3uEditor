@@ -141,6 +141,7 @@ import { useI18n } from '../langs/useI18n'
 import { useTheme } from '../composables/useTheme'
 import AiSettingsForm from '../components/AiSettingsForm.vue'
 import api from '../api'
+import { apiErrorMessage } from '../utils/apiError'
 
 const { t } = useI18n()
 const auth = useAuthStore()
@@ -185,7 +186,7 @@ async function revokeSession(s) {
     toast(t('account.sessionRevoked'), 'success')
     sessions.value = sessions.value.filter(x => x.familyId !== s.familyId)
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.genericError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.genericError'), 'error')
   } finally {
     s._revoking = false
   }
@@ -214,7 +215,7 @@ async function handleChangePassword() {
     pwForm.value = { current: '', newPw: '', confirm: '' }
     router.push('/login')
   } catch (e) {
-    pwError.value = e.response?.data?.error?.message || t('toast.genericError')
+    pwError.value = apiErrorMessage(e, t, 'toast.genericError')
   } finally {
     pwLoading.value = false
   }
@@ -228,7 +229,7 @@ async function handleChangeEmail() {
     toast(t('account.emailChanged'), 'success')
     emailForm.value = { newEmail: '', password: '' }
   } catch (e) {
-    emailError.value = e.response?.data?.error?.message || t('toast.genericError')
+    emailError.value = apiErrorMessage(e, t, 'toast.genericError')
   } finally {
     emailLoading.value = false
   }
@@ -241,7 +242,7 @@ async function handleDeleteAccount() {
     toast(t('account.accountDeleted'), 'success')
     router.push('/login')
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.genericError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.genericError'), 'error')
   } finally {
     deleteLoading.value = false
   }
