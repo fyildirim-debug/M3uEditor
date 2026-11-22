@@ -157,17 +157,19 @@ docker compose exec api npm run reset-password -- <email>
 
 ## Docker deployment
 
-Create `.env` from `.env.example`. Generate the two secrets independently — do not reuse one value for both, and do not ship the placeholders:
+Create `.env` from `.env.example`. Generate the three secrets independently — do not reuse one value, and do not ship the placeholders. Compose refuses to start while any of them is empty:
 
 ```bash
 echo "JWT_SECRET=$(openssl rand -hex 32)"
 echo "CREDENTIAL_ENCRYPTION_KEY=$(openssl rand -hex 32)"
+echo "SEARXNG_SECRET=$(openssl rand -hex 32)"
 ```
 
 ```env
 DB_PASSWORD=a-strong-database-password
 JWT_SECRET=<output of the first command>
 CREDENTIAL_ENCRYPTION_KEY=<output of the second command>
+SEARXNG_SECRET=<output of the third command>
 APP_URL=https://m3u.example.com
 CORS_ORIGIN=https://m3u.example.com
 HTTP_PORT=8080
@@ -189,7 +191,7 @@ Terminate TLS in front of the stack and keep the container port private:
 - Bind the published port to loopback (`HTTP_PORT=8080` and a `127.0.0.1:8080:80` mapping), or attach the frontend to an internal Docker network reachable only by your proxy.
 - Put Caddy, Traefik, nginx, or a cloud load balancer in front, terminating HTTPS on 443 and redirecting 80 to 443.
 - Forward `X-Forwarded-For` and `X-Forwarded-Proto` from that proxy, and keep `TRUST_PROXY` set to the number of proxies in front of the API — rate limiting keys on the client IP derived from those headers.
-- Enable HSTS at the proxy only after HTTPS is verified end to end.
+- The bundled Nginx sends `Strict-Transport-Security: max-age=15552000` (no `includeSubDomains`, no `preload`). Browsers ignore it over plain HTTP, so it takes effect only once your proxy serves the site over HTTPS — verify HTTPS end to end before going live, or strip the header at the proxy until you have.
 
 A LAN-only deployment behind a firewall is the one case where plain HTTP is defensible, and even then any client on that LAN can read the traffic.
 
@@ -384,7 +386,10 @@ nothing**: whichever model you point the assistant at, `web_search` and
 
 Two details worth knowing. SearXNG's JSON output is *off* by default, so
 `searxng/settings.yml` in this repository turns it on — without it the assistant
-would get HTML it cannot read. And because the service resolves to a private
+would get HTML it cannot read. The file is mounted read-only and carries only a
+placeholder key; the real one comes from the required `SEARXNG_SECRET`
+variable, which SearXNG reads directly, so no secret is ever written into the
+checkout. And because the service resolves to a private
 address, the SSRF guard would normally refuse it; the exception is granted to the
 **server-configured** URL only (`allowPrivateHost`), never to anything the user
 or the model supplies. `open_web_page` visits addresses that ultimately come from
