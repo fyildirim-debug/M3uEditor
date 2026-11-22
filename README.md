@@ -310,7 +310,7 @@ and reports the ones it was not confident about instead of guessing.
 
 Every authenticated page carries a chat launcher in the bottom-right corner, and
 the same settings live under **Account → AI Assistant**. The assistant is not a
-help bot: it operates the application through **175 server-side tools**, so it can
+help bot: it operates the application through **180+ server-side tools**, so it can
 do anything the UI can do — and a good deal the UI cannot. It also accepts file
 attachments, streams its answer as it is produced, can pause for your approval
 before destructive work, hands finished output back as downloadable files, and
@@ -499,8 +499,11 @@ up at all and is marked accordingly from the start.
 `list_task_runs` and `undo_task_run` expose the same thing to the assistant, so
 *"what did last night's task do?"* and *"undo it"* work in chat as well.
 
-Providers cap how many functions one request may carry (OpenAI's limit is 128),
-so each turn ships the first 120 tools plus three meta-tools —
+The catalogue currently holds 179 domain tools plus three meta-tools (182); with
+SearXNG configured, as in the Docker stack, `web_search` and `open_web_page` bring
+it to 184. Providers cap how many functions one request may carry (OpenAI's limit
+is 128), so each turn ships the 120 tools most relevant to the message plus the
+three meta-tools —
 `search_capabilities`, `describe_capability` and `invoke_capability`. The
 assistant searches the catalogue for anything not in its current list and invokes
 it by name, so no capability is ever out of reach.
@@ -597,16 +600,43 @@ tests/                Jest unit and property tests
 
 ## Latest updates
 
+### Unreleased
+
+- **Web search with nothing to configure.** The Docker stack ships an internal
+  SearXNG service, so `web_search` and `open_web_page` work with any provider.
+  See [Web search](#web-search-with-nothing-to-configure).
+- **Logo library.** *Find logo* in the channel panel searches a channel-logo
+  library; the assistant can fill in every missing logo in one go.
+- **Scheduled task run log and one-click undo.** Every run records what it did
+  and the backup taken before it, so a run can be rolled back.
+- **Dead-channel repair.** Broken stream addresses are re-pointed at a working
+  source instead of the channels being deleted.
+- **Xtream sharing.** A short M3U address and an Xtream Codes API link are
+  offered next to the classic server/username/password login.
+
 ### v1.10.0.0 — 2026-08-02
 
 - **AI assistant with full application access.** A chat panel on every
-  authenticated page drives 55 server-side tools covering playlists, categories,
-  channels, EPG, imports, exports, filter rules, health scans, backups, and
-  views — including playlist merging and pulling logos out of the EPG guide.
+  authenticated page drives the application through server-side tools (162 at
+  release, 180+ today) covering playlists, categories, channels, EPG, imports,
+  exports, filter rules, health scans, backups, and views — including playlist
+  merging and pulling logos out of the EPG guide.
   Bring your own OpenAI-compatible provider: base URL and API key are yours, the
   model list is fetched from the provider, and the key is stored encrypted.
   Destructive tools are gated behind a switch and every executed tool is shown
   in the chat trace. See [AI assistant](#ai-assistant).
+
+### v1.9.0.0 — 2026-08-01
+
+- **Automation.** Scheduled auto-sync for playlists and EPG (with an optional
+  backup before each sync), gzip backups with restore and retention, stream
+  health scans, regex filter rules applied before sync, merging several Xtream
+  sources into one playlist, advanced channel filters (no logo / no EPG /
+  duplicate / dead / unchecked), the iptv-org EPG source library, persistent EPG
+  matching profiles, and view templates that hide category sets on export.
+- **Quality of life.** Mobile sort buttons, keyboard shortcuts, URL deep links,
+  share revocation, editable Xtream credentials, session management, a theme
+  switcher in the header, and real import progress.
 
 ### v1.8.0.0 — 2026-08-01
 
