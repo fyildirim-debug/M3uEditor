@@ -116,10 +116,12 @@ describe('Knexfile Configuration', () => {
     expect(knexConfig.test.connection.database).toMatch(/_test$/);
   });
 
-  test('migrations directory points to src/models/migrations', () => {
-    expect(knexConfig.development.migrations.directory).toBe('./src/models/migrations');
-    expect(knexConfig.test.migrations.directory).toBe('./src/models/migrations');
-    expect(knexConfig.production.migrations.directory).toBe('./src/models/migrations');
+  test('migrations directory points to src/models/migrations regardless of the working directory', () => {
+    // Mutlak yol: masaustu uygulamasi proje kokunden calismaz.
+    const expected = path.join(__dirname, '..', '..', '..', 'src', 'models', 'migrations');
+    expect(knexConfig.development.migrations.directory).toBe(expected);
+    expect(knexConfig.test.migrations.directory).toBe(expected);
+    expect(knexConfig.production.migrations.directory).toBe(expected);
   });
 
   test('production has connection pool config', () => {

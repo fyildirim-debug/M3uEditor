@@ -45,6 +45,12 @@ const config = {
   port: parsePositiveInteger(process.env.PORT, 3000),
   nodeEnv,
   isProduction,
+  // Yenileme cerezinin Secure bayragi. Varsayilan: production'da acik.
+  // Masaustu uygulamasi TLS'siz http://localhost uzerinden calistigi icin
+  // COOKIE_SECURE=false verir.
+  cookieSecure: process.env.COOKIE_SECURE !== undefined
+    ? String(process.env.COOKIE_SECURE).toLowerCase() === 'true'
+    : isProduction,
   db: {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,

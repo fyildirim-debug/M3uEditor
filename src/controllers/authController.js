@@ -28,7 +28,7 @@ function parseCookies(req) {
 function setRefreshCookie(res, token) {
   res.cookie(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: config.isProduction,
+    secure: config.cookieSecure,
     sameSite: 'strict',
     path: '/api/auth',
     maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -36,7 +36,7 @@ function setRefreshCookie(res, token) {
 }
 
 function clearRefreshCookie(res) {
-  res.clearCookie(COOKIE_NAME, { httpOnly: true, secure: config.isProduction, sameSite: 'strict', path: '/api/auth' });
+  res.clearCookie(COOKIE_NAME, { httpOnly: true, secure: config.cookieSecure, sameSite: 'strict', path: '/api/auth' });
 }
 
 function validateCredentials(email, password) {
