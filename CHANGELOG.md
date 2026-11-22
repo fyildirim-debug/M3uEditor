@@ -7,6 +7,39 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ### Security
 
+- **The assistant's approval and destructive-permission gate could be
+  bypassed through `invoke_capability`.** The meta tool called the wrapped
+  tool's `run()` directly, so the destructive switch, the scheduled-task limits
+  and argument validation never ran on that path — and about 60 tools are only
+  reachable that way because each turn carries at most 120. It now goes through
+  `execute()` like a direct call and cannot wrap another meta tool. Approval,
+  the destructive flag and the step log look through the wrapper at the real
+  tool, so the approval card names `delete_playlist`, not `invoke_capability`.
+- **Approval mode now also covers lasting, outward-facing changes**: creating,
+  changing or running a scheduled task, sharing a playlist, enabling or
+  regenerating the Xtream output, replacing stored Xtream credentials and
+  changing a channel's stream address. Approval mode is **on by default** for
+  new users (existing saved settings are untouched).
+- **Scheduled tasks are confined.** A task run cannot create, change, delete or
+  undo tasks (a prompt-injected channel name could otherwise plant a permanent
+  unattended job), cannot touch a playlist other than the one it is bound to,
+  and never gets more destructive rights than the user's own setting. A
+  destructive task must be bound to a playlist, because only then is a pre-run
+  backup — and undo — possible.
+- **Stored secrets only go back to where they were saved.**
+  `repair_dead_channels` with a different `serverUrl` used to send the
+  playlist's stored Xtream username and password to that server; the assistant's
+  model list call did the same with the stored API key for any `baseUrl`. Both
+  now require the secret to be supplied for a different origin, and changing the
+  provider address without a new key clears the old key.
+- **Approving twice runs once.** The pending action is claimed with a
+  conditional update, so a double click, two tabs or a retry cannot execute a
+  destructive call twice.
+- Playlist and category names in the assistant's context are passed as escaped,
+  single-line strings and marked as data.
+- Attachments can no longer be linked to another user's conversation; malformed
+  attachment ids return 404 instead of a database error.
+
 - **Dependency audits are clean again.** `express` 4.22.3 brings `proxy-addr`
   2.0.8 (critical: IP spoofing through an IPv4-mapped IPv6 trust subnet) and
   `body-parser` 1.20.9 (high: DoS); `nodemailer` moves to 10.6.1 (high: a run of
@@ -61,6 +94,14 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
   `test-result.txt`) and `pw-test.cjs`, a Playwright script that registered real
   accounts against the production site. `.gitignore` covers them.
 ### Fixed
+
+- **A conversation stopped working for good if the user typed instead of
+  approving.** The paused `tool_calls` stayed in history without results and the
+  provider rejected every later request with a 400. A new message now closes the
+  pending action with a "not executed" result, and unmatched tool calls are
+  dropped from the history sent to the provider.
+- Task runs left `running` by a server restart are closed on the next scheduler
+  tick; each task keeps only its last 10 run conversations.
 
 - **Toast notifications never appeared.** The toast loop variable in `App.vue`
   shadowed the i18n `t()` function, so every toast failed to render. Success and
@@ -123,6 +164,21 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
   (TiviMate, IPTV Smarters and the common mobile players) are unaffected.
 
 ### Added
+
+- **Stop button in the assistant.** While a reply streams the send button turns
+  into *Stop*; closing the stream makes the server end the tool loop at the next
+  step instead of running (and billing) up to the step limit. The approval card
+  shows the call's arguments.
+- **`AI_PROVIDER_PRIVATE_HOSTS`** opens only the named model hosts (Ollama, LM
+  Studio, vLLM) on the private network, instead of `ALLOW_PRIVATE_NETWORK_URLS`
+  opening every M3U, EPG and web request to it.
+- Provider `429/502/503/504` responses are retried up to twice, honouring
+  `Retry-After`; streamed turns now report token usage (`include_usage`).
+- `player_api.php?action=get_series_info` answers from a 10-minute in-process
+  cache (`XTREAM_SERIES_INFO_CACHE_MS`) with in-flight de-duplication, so a
+  player opening a series screen no longer hits the provider on every view.
+- `AI_MAX_CONCURRENT_TASK_RUNS` (default 3) caps how many scheduled tasks run at
+  once across all users.
 
 - **The assistant can search the web, and nothing needs configuring.** The stack
   now ships SearXNG as an internal service — no domain, not attached to Traefik,
