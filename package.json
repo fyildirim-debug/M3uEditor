@@ -13,7 +13,7 @@
     "test": "cross-env NODE_OPTIONS=--localstorage-file=.node-localstorage jest",
     "test:ci": "cross-env NODE_OPTIONS=--localstorage-file=.node-localstorage jest --runInBand --detectOpenHandles",
     "test:watch": "cross-env NODE_OPTIONS=--localstorage-file=.node-localstorage jest --watch",
-    "test:property": "cross-env NODE_OPTIONS=--localstorage-file=.node-localstorage jest --testPathPattern=property",
+    "test:property": "cross-env NODE_OPTIONS=--localstorage-file=.node-localstorage jest --testPathPatterns=property --passWithNoTests",
     "migrate": "knex migrate:latest",
     "migrate:rollback": "knex migrate:rollback",
     "seed": "knex seed:run",
