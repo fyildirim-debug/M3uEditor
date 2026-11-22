@@ -77,6 +77,7 @@
 </template>
 
 <script setup>
+import { apiErrorMessage } from '../utils/apiError'
 import { reactive, ref, inject, onMounted } from 'vue'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
@@ -127,7 +128,7 @@ async function fetchModels() {
     if (!models.value.length) toast(t('ai.noModels'), 'info')
     else if (!form.model || !models.value.includes(form.model)) form.model = models.value[0]
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.modelsFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.modelsFailed'), 'error')
   } finally {
     loadingModels.value = false
   }
@@ -155,7 +156,7 @@ async function save() {
     window.dispatchEvent(new CustomEvent('ai:settings-changed', { detail: data }))
     emit('saved', data)
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.settingsFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.settingsFailed'), 'error')
   } finally {
     saving.value = false
   }

@@ -270,6 +270,7 @@
 </template>
 
 <script setup>
+import { apiErrorMessage } from '../utils/apiError'
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch, inject } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
@@ -509,7 +510,7 @@ async function onFileSelect(event) {
       pendingFiles.value.push(data)
     }
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.attachFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.attachFailed'), 'error')
   } finally {
     uploading.value = false
   }
@@ -534,7 +535,7 @@ async function downloadFile(file) {
     link.remove()
     URL.revokeObjectURL(url)
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.downloadFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.downloadFailed'), 'error')
   }
 }
 
@@ -674,7 +675,7 @@ async function send(preset) {
       assistant.content = t('ai.failed')
     }
   } catch (error) {
-    assistant.content = error.response?.data?.error?.message || t('ai.failed')
+    assistant.content = apiErrorMessage(error, t, 'ai.failed')
   } finally {
     assistant.streaming = false
     sending.value = false
@@ -702,7 +703,7 @@ async function resolveApproval(message, approved) {
     assistant.pending = data.pendingApproval || null
     notifyDataChanged(data.steps)
   } catch (error) {
-    assistant.content = error.response?.data?.error?.message || t('ai.failed')
+    assistant.content = apiErrorMessage(error, t, 'ai.failed')
   } finally {
     assistant.streaming = false
     sending.value = false
@@ -735,7 +736,7 @@ async function deleteConversation(item) {
     conversations.value = conversations.value.filter((row) => row.id !== item.id)
     if (conversationId.value === item.id) startNewChat()
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.failed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.failed'), 'error')
   }
 }
 
@@ -757,7 +758,7 @@ async function loadRuns(taskId) {
     const { data } = await api.get(`/ai/tasks/${taskId}/runs`)
     runs.value = data.runs || []
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.taskFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.taskFailed'), 'error')
     runs.value = []
   } finally {
     runsLoading.value = false
@@ -791,7 +792,7 @@ function undoRun(run) {
       await loadRuns(run.taskId)
       await loadTasks()
     } catch (error) {
-      toast(error.response?.data?.error?.message || t('ai.runUndoFailed'), 'error')
+      toast(apiErrorMessage(error, t, 'ai.runUndoFailed'), 'error')
     } finally {
       busyRunId.value = null
     }
@@ -816,7 +817,7 @@ async function toggleTask(task) {
     const { data } = await api.patch(`/ai/tasks/${task.id}`, { enabled: !task.enabled })
     Object.assign(task, data)
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.taskFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.taskFailed'), 'error')
   } finally {
     busyTaskId.value = null
   }
@@ -831,7 +832,7 @@ async function runTask(task) {
     window.dispatchEvent(new CustomEvent('ai:data-changed'))
     toast(t('ai.taskRanOk', { name: task.name }), 'success')
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.taskFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.taskFailed'), 'error')
     await loadTasks()
   } finally {
     busyTaskId.value = null
@@ -844,7 +845,7 @@ async function deleteTask(task) {
     await api.delete(`/ai/tasks/${task.id}`)
     tasks.value = tasks.value.filter((item) => item.id !== task.id)
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('ai.taskFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'ai.taskFailed'), 'error')
   } finally {
     busyTaskId.value = null
   }
