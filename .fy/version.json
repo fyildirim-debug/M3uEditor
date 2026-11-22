@@ -1,6 +1,11 @@
 {
-  "version": "1.10.0.0",
+  "version": "1.11.0.0",
   "history": [
+    {
+      "version": "1.11.0.0",
+      "date": "2026-11-22",
+      "summary": "Masaustu surumu ve tam denetim. Windows (NSIS) ve Linux (AppImage, deb, rpm) masaustu uygulamasi: Electron kabugu, uygulamayla gelen PostgreSQL, giris ekrani yok (yerel hesap), veriler kullanici klasorunde. Guvenlik: asistanin onay/yikici izin kapisi invoke_capability ile atlanamiyor, zamanlanmis gorevler listesine bagli, kayitli gizli degerler yalnizca kaydedildigi kokene gidiyor, cift onay engellendi. Guvenilirlik: basarisiz sync/EPG ustel geri cekilme, tur basina yedek kovasi, elle EPG eslesmesi kilidi, oransal silme esigi, sync kullanici siralamasini koruyor, veritabani yokken anlasilir 503. Arayuz: toast bildirimleri yeniden gorunuyor, sekmeler arasi oturum, hata kodu cevirisi, EPG rehberi penceresi. Altyapi: npm audit 0, SearXNG sabit surum ve zorunlu anahtar, CSP sikilastirma, CI imaj derleme ve masaustu paket is akisi."
+    },
     {
       "version": "1.10.0.0",
       "date": "2026-08-02",

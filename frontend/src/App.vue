@@ -48,7 +48,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
           {{ t('nav.playlists') }}
         </router-link>
-        <router-link v-if="auth.user?.is_admin" to="/admin" class="nav-link" active-class="active">{{ t('nav.admin') }}</router-link>
+        <router-link v-if="auth.user?.is_admin && !isDesktop" to="/admin" class="nav-link" active-class="active">{{ t('nav.admin') }}</router-link>
       </nav>
 
       <div class="header-right">
@@ -77,13 +77,13 @@
         <div class="header-sep hide-mobile" aria-hidden="true"></div>
 
         <div class="user-menu" role="group" :aria-label="t('accessibility.userInfo')">
-          <router-link to="/account" class="user-avatar" :title="auth.user?.email" style="text-decoration:none;color:inherit;">
-            {{ auth.user?.email?.charAt(0).toUpperCase() }}
+          <router-link to="/account" class="user-avatar" :title="displayName" style="text-decoration:none;color:inherit;">
+            {{ displayName.charAt(0).toUpperCase() }}
           </router-link>
-          <router-link to="/account" class="user-email hide-mobile" style="text-decoration:none;color:inherit;">{{ auth.user?.email }}</router-link>
+          <router-link to="/account" class="user-email hide-mobile" style="text-decoration:none;color:inherit;">{{ displayName }}</router-link>
         </div>
 
-        <button class="btn btn-ghost btn-sm logout-btn" @click="handleLogout" :aria-label="t('accessibility.logout')">
+        <button v-if="!isDesktop" class="btn btn-ghost btn-sm logout-btn" @click="handleLogout" :aria-label="t('accessibility.logout')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           <span class="hide-mobile">{{ t('auth.logout') }}</span>
         </button>
@@ -120,6 +120,7 @@
 
 <script setup>
 import { ref, computed, provide, onMounted, onUnmounted, nextTick } from 'vue'
+import { isDesktop } from './desktop'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useI18n } from './langs/useI18n'
@@ -130,6 +131,8 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 const { t, lang, setLang, langs } = useI18n()
+// Masaüstünde e-posta yerine "Bu bilgisayar": hesap ana süreç tarafından açılır.
+const displayName = computed(() => (isDesktop ? t('desktop.localAccount') : (auth.user?.email || '')))
 const { theme, setTheme } = useTheme()
 
 function cycleTheme() {

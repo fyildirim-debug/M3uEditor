@@ -405,6 +405,9 @@ app.on('web-contents-created', (_event, contents) => {
 
 app.whenReady().then(async () => {
   t = createTranslator(app.getLocale());
+  // Arayuz masaustunde calistigini buradan anlar ve giris/cikis, parola,
+  // oturum ve kullanici yonetimi ogelerini gizler (frontend/src/desktop.js).
+  app.userAgentFallback = `${app.userAgentFallback} M3UEditorDesktop/${app.getVersion()}`;
   fs.mkdirSync(logDir, { recursive: true });
   settings = loadSettings(userData);
   buildMenu();

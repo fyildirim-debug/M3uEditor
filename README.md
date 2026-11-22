@@ -678,7 +678,7 @@ tests/                Jest unit and property tests
 
 ## Latest updates
 
-### Unreleased
+### v1.11.0.0 — 2026-11-22
 
 - **Desktop application for Windows and Linux.** The same app with a bundled
   PostgreSQL: install it and use it — no Docker, no database, no sign-up.

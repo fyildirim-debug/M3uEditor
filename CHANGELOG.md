@@ -5,6 +5,11 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ## [Unreleased]
 
+## [1.11.0.0] — 2026-11-22
+
+Desktop release for Windows and Linux, plus the fixes from the 2026-11-22 audit
+(`.fy/denetim-2026-11-22.md`).
+
 ### Security
 
 - **The assistant's approval and destructive-permission gate could be

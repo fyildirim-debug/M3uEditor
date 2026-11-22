@@ -2,7 +2,7 @@
   "name": "m3u-editor-desktop",
   "productName": "M3U Editor",
   "desktopName": "m3u-editor-desktop.desktop",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "description": "M3U Editor masaüstü uygulaması (Windows ve Linux): IPTV oynatma listelerini bu bilgisayarda düzenleyin.",
   "homepage": "https://github.com/fyildirim-debug/M3uEditor",
   "author": {

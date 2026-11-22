@@ -1,8 +1,9 @@
 name: Desktop
 
 # Windows ve Linux masaustu paketlerini kendi isletim sistemlerinde derler,
-# acilip /health'e cevap verdigini dogrular. `v*` etiketinde paketler taslak
-# (draft) bir GitHub surumune yuklenir; yayinlamak elle yapilir.
+# acilip /health'e cevap verdigini dogrular. `v*` etiketinde (ornek v1.11.0)
+# iki platform da basariliysa paketler GitHub Releases'ta YAYINLANIR; notlar
+# .github/release-notes/<etiket>.md dosyasindan okunur.
 on:
   push:
     tags: ['v*']
@@ -126,16 +127,28 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: artifacts
           merge-multiple: true
-      - name: Create draft release
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" artifacts/* \
-            --repo "${GITHUB_REPOSITORY}" \
-            --draft \
-            --title "M3U Editor ${GITHUB_REF_NAME}" \
-            --notes "Windows (NSIS) ve Linux (AppImage, deb, rpm) masaüstü paketleri. Ayrıntılar için CHANGELOG.md."
+          NOTES=".github/release-notes/${GITHUB_REF_NAME}.md"
+          if [ ! -f "$NOTES" ]; then
+            printf 'M3U Editor %s — Windows (NSIS) ve Linux (AppImage, deb, rpm) masaüstü paketleri.\n\nAyrıntılar: CHANGELOG.md\n' "${GITHUB_REF_NAME}" > /tmp/notes.md
+            NOTES=/tmp/notes.md
+          fi
+          ls -la artifacts
+          if gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            # Yeniden calistirma: dosyalari guncelle.
+            gh release upload "${GITHUB_REF_NAME}" artifacts/* --repo "${GITHUB_REPOSITORY}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" artifacts/* \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "M3U Editor ${GITHUB_REF_NAME#v}" \
+              --notes-file "$NOTES" \
+              --latest
+          fi

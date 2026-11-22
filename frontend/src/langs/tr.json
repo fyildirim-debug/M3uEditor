@@ -959,5 +959,9 @@
   },
   "pageTitles": {
     "editor": "Düzenleyici"
+  },
+  "desktop": {
+    "localAccount": "Bu bilgisayar",
+    "connecting": "Yerel hesap açılıyor…"
   }
 }

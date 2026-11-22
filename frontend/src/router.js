@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import { useI18n } from './langs/useI18n'
+import { isDesktop } from './desktop'
 
 const routes = [
   { path: '/', component: () => import('./views/Landing.vue') },
@@ -29,6 +30,8 @@ router.beforeEach(async (to) => {
     if (!auth.user?.is_admin) return '/dashboard'
   }
   if (to.meta.guest && token) return '/dashboard'
+  // Masaüstü: tanıtım sayfası, parola sıfırlama ve kullanıcı yönetimi yok.
+  if (isDesktop && ['/', '/forgot-password', '/reset-password', '/admin'].includes(to.path)) return '/dashboard'
 })
 
 const APP_NAME = 'M3U Editor'

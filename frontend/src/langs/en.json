@@ -959,5 +959,9 @@
   },
   "pageTitles": {
     "editor": "Editor"
+  },
+  "desktop": {
+    "localAccount": "This computer",
+    "connecting": "Opening your local account…"
   }
 }
