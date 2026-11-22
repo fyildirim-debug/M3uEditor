@@ -5,6 +5,79 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A failing scheduled sync or EPG refresh no longer reruns every minute.** A
+  failed (or partial) run never advanced its timestamp, so the scheduler picked it
+  up again on every 60-second tick — hammering the provider and, with
+  `backup_before_sync`, taking a backup each time until the user's own backups
+  were evicted. Failures are now counted (`playlists.sync_failure_count` /
+  `sync_next_attempt_at`, `epg_sources.failure_count` / `next_attempt_at`) and the
+  next attempt backs off exponentially (one interval, then doubling, 5 minutes to
+  24 hours); a success resets the counter. The pre-sync backup is skipped while
+  the previous scheduled run is failing, and due EPG sources are refreshed two at
+  a time so one slow guide no longer holds up the rest.
+- **Scheduled sync and backup restore respect the import lock.** Only the HTTP
+  import path took the per-user / per-playlist job lock; the scheduler called the
+  sync directly and a restore could overwrite a playlist mid-import. The lock now
+  lives in `ImportJobs` and is shared: a scheduled sync is skipped while the lock
+  is held, and overwriting restores answer `409 IMPORT_IN_PROGRESS`.
+- **Sync keeps the user's channel order and category moves.** Existing channels
+  keep their `sort_order`; new channels are appended after the playlist's current
+  maximum in provider order, so multi-source syncs no longer interleave colliding
+  positions. Categories follow the same rule as names and logos: a channel still
+  in its provider category (`channels.original_category_id`) follows provider
+  moves, a channel the user moved stays where it is.
+- **Two streams with the same URL no longer break sync permanently.** Records
+  whose `stream_url` repeats within the batch or belongs to another existing row
+  are skipped and reported as `skippedDuplicates` instead of failing the whole
+  upsert on the `(playlist_id, stream_url)` unique index.
+- **Auto-match no longer overwrites manual EPG assignments.** Assigning (or
+  clearing) an EPG id by hand, or giving one when creating a channel, sets
+  `channels.epg_locked`; auto-match never touches locked channels and by default
+  only fills channels without an EPG id (`{ "overwrite": true }` on the
+  auto-match and profile-run endpoints recomputes the unlocked ones). The token
+  join ignores quality/codec words and two-letter country prefixes and tokens
+  shared by more than 50 guide channels, which used to explode into hundreds of
+  millions of rows; the post-import run requires confidence ≥ 0.7.
+- **An import with no categories crashed** — `_upsertCategories` returned a bare
+  object instead of `{ map, addedNames }`.
+- **Deleting an account left its backups on disk**, credentials included; the
+  admin delete left logos as well. Both paths now remove logos and every
+  playlist's backup directory after the commit.
+- **Health scans could start twice and were unbounded.** The job is registered
+  before the first `await`; at most `HEALTH_SCAN_MAX_JOBS` (2) scans run on the
+  server (`503 HEALTH_SCAN_CAPACITY_REACHED` beyond that) and at most
+  `HEALTH_SCAN_PER_HOST_CONCURRENCY` (2) requests go to one provider host.
+- **Database outages produced an "unexpected error".** Connection failures
+  (refused, unknown host, admin shutdown, pool timeout, missing database, bad
+  credentials) now answer `503 DATABASE_UNAVAILABLE` with a clear message, and
+  startup logs a plain-language explanation when the database is unreachable or
+  migrations are pending (#2).
+- Raw PostgreSQL errors are mapped: an invalid UUID is `404` in a route parameter
+  and `400 VALIDATION_ERROR` elsewhere, unique violations are `409 CONFLICT`,
+  foreign key violations `400`/`409`. Invalid M3U content is a `400`, a non-string
+  password in account deletion or e-mail change is a `400`, and
+  `excludeCategories` accepts repeated query parameters as well as a comma list.
+- `createChannel` now applies the same validation as channel updates (byte
+  limits, no control characters in name or URL).
+- The share token in `/api/shared/<token>` is masked in request and error logs.
+- `TRUST_PROXY=true` / `false` crashed startup (Express read the string as an IP
+  list); both are now mapped to booleans.
+
+### Changed
+
+- **Removal safety threshold is proportional.** A sync skips removals for a
+  content type (reported in `skippedRemovalTypes`) when more than 30% of a type
+  with at least 20 channels would disappear at once, not only when all of it
+  would.
+- **Backup retention is per kind.** Manual, pre-sync, scheduled and assistant
+  task backups each keep their own last 10.
+- **Minimum sync / EPG refresh interval is 15 minutes**
+  (`MIN_SYNC_INTERVAL_MINUTES`). Shorter values are rejected with `400`; older
+  rows below the floor are treated as the floor when scheduling.
+- Deleting a category recompacts the remaining order with one set-based update.
+
 ### Removed
 
 - **The `proxy` stream mode is gone, and with it every path that made this
