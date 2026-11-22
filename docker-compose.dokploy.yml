@@ -6,7 +6,12 @@
 #     yiginin kendi ic aginda kalir.
 #
 # Gerekli ortam degiskenleri: DB_PASSWORD, JWT_SECRET, CREDENTIAL_ENCRYPTION_KEY,
-# APP_URL (ornegin https://m3ueditor.example.com).
+# APP_URL (ornegin https://m3ueditor.example.com), SEARXNG_SECRET
+# (openssl rand -hex 32).
+#
+# Dokploy tek dosya bekledigi icin bu dosya docker-compose.yml'den turetilmis bir
+# kopyadir. Yukaridaki iki fark disinda her degisiklik IKI dosyaya da yapilir;
+# CI ikisini de `docker compose config` ile dogrular.
 services:
   db:
     image: postgres:16-alpine
@@ -105,17 +110,39 @@ services:
   # yalnizca yigin ici agdan http://searxng:8080 olarak erisilir. Boylece
   # kullanicinin hicbir ayar girmesi gerekmez ve arama ucu internete acilmaz.
   searxng:
-    image: searxng/searxng:latest
+    # Tarih etiketli surum: `latest` her pull'da habersiz degisirdi. Yukseltmek
+    # icin https://hub.docker.com/r/searxng/searxng/tags uzerinden yeni etiket.
+    image: searxng/searxng:2026.11.21-c6ee3e9fd
     restart: unless-stopped
     environment:
       SEARXNG_BASE_URL: http://searxng:8080/
-      # Imajin girisi settings.yml icindeki `ultrasecretkey` degerini bununla
-      # degistirir; bu yuzden dosya salt-okunur baglanmaz.
-      SEARXNG_SECRET: ${SEARXNG_SECRET:-degistirilmeli-searxng-anahtari}
+      # SearXNG bu degiskeni server.secret_key'in yerine dogrudan okur; dosyaya
+      # yazilmaz. Depodaki settings.yml'de yer tutucu kalir. Varsayilan yok:
+      # herkesce bilinen bir anahtarla calismaktansa baslamamak daha iyi.
+      # Uretmek icin: openssl rand -hex 32
+      SEARXNG_SECRET: ${SEARXNG_SECRET:?SEARXNG_SECRET must be set}
+      # Ayar dosyasi izlenen dosyadan, SALT-OKUNUR okunur. Eskiden ./searxng
+      # dizini /etc/searxng'ye yazilabilir baglaniyordu ve imajin girisi o
+      # dizini `chown -R` ile sahiplenip calisma agacini degistiriyordu. Giris
+      # betigi /etc/searxng/settings.yml yoksa sablondan rastgele anahtarla bir
+      # kopya uretir; o kopya tmpfs'te kalir ve kullanilmaz.
+      SEARXNG_SETTINGS_PATH: /etc/searxng-template/settings.yml
+      # Imajin varsayilani `::` (IPv6). Cekirdekte IPv6 kapaliysa granian hic
+      # baslamaz; yigin ici ag IPv4 oldugu icin bu yeterli.
+      GRANIAN_HOST: 0.0.0.0
     volumes:
-      - ./searxng:/etc/searxng
+      - ./searxng/settings.yml:/etc/searxng-template/settings.yml:ro
+    tmpfs:
+      - /etc/searxng
+      - /var/cache/searxng
     expose:
       - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     cap_drop:
       - ALL
     cap_add:
@@ -155,6 +182,12 @@ services:
       - /tmp
     mem_limit: ${FRONTEND_MEM_LIMIT:-256m}
     pids_limit: 128
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/nginx-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 networks:
   dokploy-network:

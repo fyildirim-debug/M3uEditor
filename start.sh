@@ -80,26 +80,30 @@ check_postgres() {
   echo -e "\n${BLUE}${BOLD}[0/4] PostgreSQL (Docker) kontrol ediliyor...${NC}"
   check_docker
 
-  # Zaten ayakta mı?
-  if docker compose -f "$ROOT_DIR/docker-compose.yml" ps db 2>/dev/null | grep -q "running\|Up"; then
-    echo -e "  ${GREEN}✔ PostgreSQL container zaten çalışıyor${NC}"
-    return
+  # docker-compose.yml db portunu host'a acmaz (uretim sertlestirmesi). Backend
+  # ve `npm run migrate` host'ta calistigi icin dev-ports override'i 5432'yi
+  # loopback'e acar (dev.sh ile ayni). `up -d` her seferinde calistirilir:
+  # db baska bir komutla portsuz baslatilmissa bu, onu portlu yeniden yaratir;
+  # zaten dogru calisiyorsa hicbir sey yapmaz.
+  local compose=(docker compose -f "$ROOT_DIR/docker-compose.yml")
+  if [[ -f "$ROOT_DIR/docker-compose.dev-ports.yml" ]]; then
+    compose+=(-f "$ROOT_DIR/docker-compose.dev-ports.yml")
   fi
 
   echo -e "  ${YELLOW}→ PostgreSQL container başlatılıyor...${NC}"
-  docker compose -f "$ROOT_DIR/docker-compose.yml" up -d db
+  "${compose[@]}" up -d db
 
   # Healthcheck'i bekle (max 30sn)
   for i in {1..30}; do
     sleep 1
-    STATUS=$(docker compose -f "$ROOT_DIR/docker-compose.yml" ps db --format json 2>/dev/null \
+    STATUS=$("${compose[@]}" ps db --format json 2>/dev/null \
       | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('Health','') if isinstance(d,dict) else d[0].get('Health',''))" 2>/dev/null)
     if [[ "$STATUS" == "healthy" ]]; then
       echo -e "  ${GREEN}✔ PostgreSQL hazır${NC} ${CYAN}→ localhost:5432${NC}"
       return
     fi
     # pg_isready fallback
-    if docker exec "$(docker compose -f "$ROOT_DIR/docker-compose.yml" ps -q db)" \
+    if docker exec "$("${compose[@]}" ps -q db)" \
         pg_isready -U postgres -q 2>/dev/null; then
       echo -e "  ${GREEN}✔ PostgreSQL hazır${NC} ${CYAN}→ localhost:5432${NC}"
       return
@@ -107,7 +111,7 @@ check_postgres() {
   done
 
   echo -e "  ${RED}✗ PostgreSQL başlatılamadı!${NC}"
-  docker compose -f "$ROOT_DIR/docker-compose.yml" logs db | tail -20
+  "${compose[@]}" logs db | tail -20
   exit 1
 }
 
@@ -116,6 +120,12 @@ check_env() {
     echo -e "${YELLOW}⚠  .env bulunamadı, .env.example kopyalanıyor...${NC}"
     cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
     echo -e "${GREEN}✔  .env oluşturuldu. Gerekirse düzenleyin.${NC}"
+  fi
+  # Compose yalnizca db'yi baslatsa da tum dosyayi yorumlar ve zorunlu
+  # SEARXNG_SECRET'i ister. Gelistirmede searxng baslatilmaz; .env'de deger
+  # yoksa compose'a yalnizca bu calisma icin gecici bir deger verilir.
+  if ! grep -qE '^SEARXNG_SECRET=.+' "$ROOT_DIR/.env"; then
+    export SEARXNG_SECRET="dev-only-searxng-not-started"
   fi
 }
 
@@ -211,8 +221,8 @@ print_summary() {
 
 # ─── Ana Akış ───
 print_banner
-check_postgres
 check_env
+check_postgres
 check_deps
 run_migrations
 start_backend

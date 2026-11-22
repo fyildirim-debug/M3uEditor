@@ -35,6 +35,12 @@ if [ ! -f "$SCRIPT_DIR/.env" ]; then
   cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
   echo -e "${CYAN}   → .env oluşturuldu. DB bilgilerini kontrol et!${RESET}"
 fi
+# Compose yalnizca db'yi baslatsa da tum dosyayi yorumlar ve zorunlu
+# SEARXNG_SECRET'i ister. Gelistirmede searxng baslatilmaz; .env'de deger
+# yoksa compose'a yalnizca bu calisma icin gecici bir deger verilir.
+if ! grep -qE '^SEARXNG_SECRET=.+' "$SCRIPT_DIR/.env"; then
+  export SEARXNG_SECRET="dev-only-searxng-not-started"
+fi
 
 # ── Node modules kontrolü ─────────────────────
 if [ ! -d "$SCRIPT_DIR/node_modules" ]; then
@@ -96,17 +102,17 @@ ensure_postgres() {
   if [ -f "$SCRIPT_DIR/docker-compose.dev-ports.yml" ]; then
     COMPOSE_FILES+=(-f "$SCRIPT_DIR/docker-compose.dev-ports.yml")
   fi
-  if ! docker compose "${COMPOSE_FILES[@]}" ps db 2>/dev/null | grep -qE "running|Up"; then
-    echo -e "${YELLOW}  PostgreSQL container baslatiliyor...${RESET}"
-    docker compose "${COMPOSE_FILES[@]}" up -d db 2>&1 | grep -v "^$" || true
-  fi
+  # `up -d` her seferinde: db portsuz baslatilmissa portlu yeniden yaratilir,
+  # zaten dogru calisiyorsa hicbir sey yapmaz.
+  echo -e "${YELLOW}  PostgreSQL container baslatiliyor...${RESET}"
+  docker compose "${COMPOSE_FILES[@]}" up -d db 2>&1 | grep -v "^$" || true
 
   # PostgreSQL hazir olana kadar bekle (max 30 saniye)
   echo -e "${YELLOW}  PostgreSQL hazir olana kadar bekleniyor...${RESET}"
   PG_READY=0
   for i in $(seq 1 30); do
     sleep 1
-    DB_CONTAINER=$(docker compose -f "$SCRIPT_DIR/docker-compose.yml" ps -q db 2>/dev/null)
+    DB_CONTAINER=$(docker compose "${COMPOSE_FILES[@]}" ps -q db 2>/dev/null)
     if [ -n "$DB_CONTAINER" ] && docker exec "$DB_CONTAINER" pg_isready -U postgres -q 2>/dev/null; then
       PG_READY=1
       break
@@ -116,7 +122,7 @@ ensure_postgres() {
   if [ $PG_READY -eq 0 ]; then
     echo -e "${RED}✕ PostgreSQL baslatılamadı!${RESET}"
     echo -e "${YELLOW}  Son loglar:${RESET}"
-    docker compose -f "$SCRIPT_DIR/docker-compose.yml" logs db 2>/dev/null | tail -15
+    docker compose "${COMPOSE_FILES[@]}" logs db 2>/dev/null | tail -15
     exit 1
   fi
 
