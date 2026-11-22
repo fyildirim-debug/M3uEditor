@@ -881,120 +881,10 @@
                 </div>
 
                 <!-- Filtre Kurallari -->
-                <div class="add-types-section">
-                  <h4 class="add-types-title">{{ t('filterRules.title') }}</h4>
-                  <p class="add-types-desc">{{ t('filterRules.desc') }}</p>
-
-                  <ul v-if="filterRules.length" class="filter-rule-list">
-                    <li v-for="(rule, idx) in filterRules" :key="rule.id" class="filter-rule-row" :class="{ 'filter-rule-disabled': !rule.enabled }">
-                      <span class="badge" :class="rule.exclude ? 'badge-danger' : 'badge-success'">{{ rule.exclude ? t('filterRules.exclude') : t('filterRules.include') }}</span>
-                      <span class="filter-rule-field">{{ t('filterRules.fields.' + rule.field) }}</span>
-                      <code class="filter-rule-pattern" :title="rule.pattern">{{ rule.pattern }}</code>
-                      <div class="filter-rule-actions">
-                        <button class="btn btn-ghost btn-icon-sm" type="button" :disabled="idx === 0" :title="t('filterRules.moveUp')" @click="moveFilterRule(rule, 'up')">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
-                        </button>
-                        <button class="btn btn-ghost btn-icon-sm" type="button" :disabled="idx === filterRules.length - 1" :title="t('filterRules.moveDown')" @click="moveFilterRule(rule, 'down')">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                        </button>
-                        <button class="btn btn-ghost btn-icon-sm" type="button" :title="rule.enabled ? t('filterRules.disable') : t('filterRules.enable')" @click="toggleFilterRule(rule)">
-                          <svg v-if="rule.enabled" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                          <svg v-else width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                        </button>
-                        <button class="btn btn-ghost btn-icon-sm" type="button" :title="t('common.delete')" @click="deleteFilterRule(rule)">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                        </button>
-                      </div>
-                    </li>
-                  </ul>
-                  <p v-else class="filter-rule-empty">{{ t('filterRules.empty') }}</p>
-
-                  <form class="filter-rule-form" @submit.prevent="addFilterRule">
-                    <select v-model="newRule.field" class="input filter-rule-select" :aria-label="t('filterRules.fieldLabel')">
-                      <option value="group">{{ t('filterRules.fields.group') }}</option>
-                      <option value="name">{{ t('filterRules.fields.name') }}</option>
-                      <option value="url">{{ t('filterRules.fields.url') }}</option>
-                    </select>
-                    <input v-model="newRule.pattern" class="input filter-rule-input" type="text" autocomplete="off" :placeholder="t('filterRules.patternPlaceholder')" />
-                    <select v-model="newRule.exclude" class="input filter-rule-select" :aria-label="t('filterRules.modeLabel')">
-                      <option :value="true">{{ t('filterRules.exclude') }}</option>
-                      <option :value="false">{{ t('filterRules.include') }}</option>
-                    </select>
-                    <button class="btn btn-secondary btn-sm" type="button" :disabled="!newRule.pattern.trim() || ruleTesting" @click="testFilterRule">
-                      <span v-if="ruleTesting" class="spinner" style="width:12px;height:12px"></span>
-                      {{ t('filterRules.test') }}
-                    </button>
-                    <button class="btn btn-primary btn-sm" type="submit" :disabled="!newRule.pattern.trim() || ruleSaving">
-                      <span v-if="ruleSaving" class="spinner" style="width:12px;height:12px"></span>
-                      {{ t('filterRules.add') }}
-                    </button>
-                  </form>
-                  <div v-if="ruleTestResult" class="filter-rule-test-result">
-                    <p class="filter-rule-test-summary">{{ t('filterRules.testSummary', { count: ruleTestResult.matches.length, sampled: ruleTestResult.sampled }) }}</p>
-                    <ul v-if="ruleTestResult.matches.length" class="filter-rule-test-matches">
-                      <li v-for="match in ruleTestResult.matches" :key="match.name">
-                        {{ match.name }} <span v-if="match.group" class="filter-rule-test-group">{{ match.group }}</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
+                <FilterRulesPanel :playlist-id="String(playlistId)" />
 
                 <!-- Ek Kaynaklar (coklu kaynak) -->
-                <div v-if="savedXtream" class="add-types-section">
-                  <h4 class="add-types-title">{{ t('multiSource.title') }}</h4>
-                  <p class="add-types-desc">{{ t('multiSource.desc') }}</p>
-
-                  <ul v-if="extraSources.length" class="source-list">
-                    <li v-for="source in extraSources" :key="source.id" class="source-row">
-                      <div class="source-info">
-                        <span class="source-label">{{ source.label || source.username }}</span>
-                        <span class="source-detail">{{ source.username }} @ {{ source.server_url }}</span>
-                      </div>
-                      <button class="btn btn-ghost btn-icon-sm" type="button" :title="t('common.delete')" @click="deleteSource(source)">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                      </button>
-                    </li>
-                  </ul>
-                  <p v-else class="filter-rule-empty">{{ t('multiSource.empty') }}</p>
-
-                  <form class="source-form" @submit.prevent="addSource">
-                    <input v-model="newSource.label" class="input" type="text" autocomplete="off" :placeholder="t('multiSource.labelPlaceholder')" />
-                    <input v-model="newSource.serverUrl" class="input" type="text" autocomplete="off" :placeholder="t('multiSource.serverPlaceholder')" required />
-                    <input v-model="newSource.username" class="input" type="text" autocomplete="off" :placeholder="t('multiSource.usernamePlaceholder')" required />
-                    <input v-model="newSource.password" class="input" type="password" autocomplete="new-password" :placeholder="t('multiSource.passwordPlaceholder')" required />
-                    <button class="btn btn-secondary btn-sm" type="submit" :disabled="sourceSaving || !newSource.serverUrl.trim() || !newSource.username.trim() || !newSource.password">
-                      <span v-if="sourceSaving" class="spinner" style="width:12px;height:12px"></span>
-                      {{ t('multiSource.add') }}
-                    </button>
-                  </form>
-
-                  <button class="btn btn-primary" type="button" style="margin-top:12px" :disabled="syncingAll || syncing" @click="syncAllSources">
-                    <span v-if="syncingAll" class="spinner" style="width:14px;height:14px"></span>
-                    <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
-                    {{ syncingAll ? t('multiSource.syncingAll') : t('multiSource.syncAll') }}
-                  </button>
-
-                  <div v-if="syncAllResult" class="sync-report" style="margin-top:12px">
-                    <h4 class="sync-report-title">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                      {{ t('multiSource.reportTitle') }}
-                    </h4>
-                    <div class="sync-report-stats">
-                      <span class="badge badge-success">{{ t('updateView.addedCount', { count: syncAllResult.added }) }}</span>
-                      <span class="badge badge-accent">{{ t('updateView.updatedCount', { count: syncAllResult.updated }) }}</span>
-                      <span v-if="syncAllResult.removed" class="badge badge-danger">{{ t('updateView.removedCount', { count: syncAllResult.removed }) }}</span>
-                      <span v-if="syncAllResult.filteredOut" class="badge">{{ t('updateView.filteredOutCount', { count: syncAllResult.filteredOut }) }}</span>
-                    </div>
-                    <ul class="source-report-list">
-                      <li v-for="entry in syncAllResult.sources" :key="entry.sourceId || 'main'" class="source-report-row">
-                        <span class="source-report-label">{{ entry.label }}</span>
-                        <span v-if="entry.ok" class="source-report-ok">{{ t('multiSource.sourceOk', { added: entry.added, updated: entry.updated }) }}</span>
-                        <span v-else class="source-report-fail">{{ t('multiSource.sourceFailed', { error: entry.error }) }}</span>
-                      </li>
-                    </ul>
-                    <button class="btn btn-ghost btn-sm" type="button" @click="syncAllResult = null">{{ t('common.close') }}</button>
-                  </div>
-                </div>
+                <SourcesPanel v-if="savedXtream" :playlist-id="String(playlistId)" :syncing="syncing" @synced="onSourcesSynced" />
 
                 <div class="update-info">
                   <div class="update-stat">
@@ -1358,6 +1248,8 @@ import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import StreamTestControl from '../components/StreamTestControl.vue'
 import EpgGuidePanel from '../components/editor/EpgGuidePanel.vue'
+import FilterRulesPanel from '../components/editor/FilterRulesPanel.vue'
+import SourcesPanel from '../components/editor/SourcesPanel.vue'
 import { apiErrorMessage } from '../utils/apiError'
 
 // Pencereler yalnizca acildiklarinda indirilir; editorun ilk yuku kuculur.
@@ -1500,20 +1392,6 @@ const syncPreview = ref(null)
 const syncSelection = reactive({ live: new Set(), series: new Set(), vod: new Set() })
 const syncSearches = reactive({ live: '', series: '', vod: '' })
 const syncResult = ref(null)
-
-// Filtre kurallari
-const filterRules = ref([])
-const newRule = reactive({ field: 'group', pattern: '', exclude: true })
-const ruleSaving = ref(false)
-const ruleTesting = ref(false)
-const ruleTestResult = ref(null)
-
-// Ek kaynaklar (coklu kaynak)
-const extraSources = ref([])
-const newSource = reactive({ label: '', serverUrl: '', username: '', password: '' })
-const sourceSaving = ref(false)
-const syncingAll = ref(false)
-const syncAllResult = ref(null)
 
 // EPG
 const epgSources = ref([])
@@ -1734,7 +1612,7 @@ onMounted(async () => {
     playlistName.value = pl?.name || t('editor.untitledPlaylist')
     applyPlaylistDetails(pl)
     categories.value = catRes.data
-    await Promise.all([loadChannels(), loadStreamTypeCounts(), loadFilterRules(), loadSources()])
+    await Promise.all([loadChannels(), loadStreamTypeCounts()])
   } catch { toast(t('toast.loadError'), 'error') }
   finally { pageLoading.value = false }
 })
@@ -2273,114 +2151,13 @@ async function doSync() {
   finally { syncing.value = false }
 }
 
-// ---- Filtre kurallari ----
-async function loadFilterRules() {
+// Ek kaynaklarin toplu esitlemesi bittiginde (SourcesPanel) liste ve son esitleme zamani tazelenir.
+async function onSourcesSynced() {
   try {
-    const { data } = await api.get(`/playlists/${playlistId}/filter-rules`)
-    filterRules.value = data
-  } catch { filterRules.value = [] }
-}
-
-async function addFilterRule() {
-  if (!newRule.pattern.trim() || ruleSaving.value) return
-  ruleSaving.value = true
-  ruleTestResult.value = null
-  try {
-    await api.post(`/playlists/${playlistId}/filter-rules`, {
-      field: newRule.field,
-      pattern: newRule.pattern.trim(),
-      exclude: newRule.exclude,
-    })
-    newRule.pattern = ''
-    toast(t('filterRules.added'), 'success')
-    await loadFilterRules()
-  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
-  finally { ruleSaving.value = false }
-}
-
-async function deleteFilterRule(rule) {
-  try {
-    await api.delete(`/filter-rules/${rule.id}`)
-    toast(t('filterRules.deleted'), 'success')
-    await loadFilterRules()
-  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
-}
-
-async function toggleFilterRule(rule) {
-  try {
-    await api.put(`/filter-rules/${rule.id}`, { enabled: !rule.enabled })
-    await loadFilterRules()
-  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
-}
-
-async function moveFilterRule(rule, direction) {
-  try {
-    await api.put(`/filter-rules/${rule.id}/order`, { direction })
-    await loadFilterRules()
-  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
-}
-
-async function testFilterRule() {
-  if (!newRule.pattern.trim() || ruleTesting.value) return
-  ruleTesting.value = true
-  try {
-    const { data } = await api.post(`/playlists/${playlistId}/filter-rules/test`, {
-      field: newRule.field,
-      pattern: newRule.pattern.trim(),
-    })
-    ruleTestResult.value = data
-  } catch (e) {
-    ruleTestResult.value = null
-    toast(apiErrorMessage(e, t, 'common.error'), 'error')
-  } finally { ruleTesting.value = false }
-}
-
-// ---- Ek kaynaklar (coklu kaynak) ----
-async function loadSources() {
-  try {
-    const { data } = await api.get(`/playlists/${playlistId}/sources`)
-    extraSources.value = data
-  } catch { extraSources.value = [] }
-}
-
-async function addSource() {
-  if (sourceSaving.value) return
-  sourceSaving.value = true
-  try {
-    await api.post(`/playlists/${playlistId}/sources`, {
-      label: newSource.label.trim() || undefined,
-      serverUrl: newSource.serverUrl.trim(),
-      username: newSource.username.trim(),
-      password: newSource.password,
-    })
-    newSource.label = ''; newSource.serverUrl = ''; newSource.username = ''; newSource.password = ''
-    toast(t('multiSource.added'), 'success')
-    await loadSources()
-  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
-  finally { sourceSaving.value = false }
-}
-
-async function deleteSource(source) {
-  try {
-    await api.delete(`/sources/${source.id}`)
-    toast(t('multiSource.deleted'), 'success')
-    await loadSources()
-  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
-}
-
-async function syncAllSources() {
-  if (syncingAll.value || syncing.value) return
-  syncingAll.value = true
-  syncAllResult.value = null
-  try {
-    const { data } = await api.post(`/playlists/${playlistId}/sync-all`)
-    syncAllResult.value = data
-    toast(t('multiSource.syncResult', { added: data.added, updated: data.updated, removed: data.removed }), data.failedSources ? 'error' : 'success')
     const { data: pl } = await api.get(`/playlists/${playlistId}`)
     if (pl?.last_synced_at) savedXtream.value = { ...savedXtream.value, lastSynced: pl.last_synced_at }
-    loadCategories(); loadChannels(); loadStreamTypeCounts()
-  } catch (e) { toast(apiErrorMessage(e, t, 'toast.updateError'), 'error') }
-  finally { syncingAll.value = false }
+  } catch { /* zaman damgasi kritik degil */ }
+  loadCategories(); loadChannels(); loadStreamTypeCounts()
 }
 
 async function doAddTypes(types) {
@@ -3205,48 +2982,6 @@ function formatTime(d) { if (!d) return ''; return new Date(d).toLocaleTimeStrin
 .add-types-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
 .add-types-complete { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--success); margin-top: 8px; }
 
-/* Filtre kurallari */
-.filter-rule-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.filter-rule-row {
-  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-  background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius);
-}
-.filter-rule-disabled { opacity: 0.5; }
-.filter-rule-field { font-size: 11px; color: var(--text-muted); min-width: 56px; }
-.filter-rule-pattern {
-  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 12px; color: var(--text-primary); background: var(--bg-tertiary);
-  padding: 2px 6px; border-radius: 4px;
-}
-.filter-rule-actions { display: flex; gap: 2px; flex-shrink: 0; }
-.filter-rule-empty { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
-.filter-rule-form { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.filter-rule-select { width: auto; flex: 0 0 auto; }
-.filter-rule-input { flex: 1; min-width: 140px; }
-.filter-rule-test-result {
-  margin-top: 10px; padding: 10px 12px; background: var(--bg-secondary);
-  border: 1px solid var(--border); border-radius: var(--radius);
-}
-.filter-rule-test-summary { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
-.filter-rule-test-matches { list-style: none; margin: 0; padding: 0; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
-.filter-rule-test-group { color: var(--text-muted); margin-left: 6px; }
-
-/* Ek kaynaklar */
-.source-list { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.source-row {
-  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
-  background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius);
-}
-.source-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.source-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.source-detail { font-size: 11px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.source-form { display: flex; gap: 6px; flex-wrap: wrap; }
-.source-form .input { flex: 1; min-width: 120px; }
-.source-report-list { list-style: none; margin: 10px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.source-report-row { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
-.source-report-label { font-weight: 600; color: var(--text-primary); }
-.source-report-ok { color: var(--success); }
-.source-report-fail { color: var(--danger); }
 .result-box { padding: 10px 14px; border-radius: var(--radius); font-size: 13px; display: flex; align-items: center; gap: 8px; }
 .result-box.success { background: var(--success-soft); color: var(--success); border: 1px solid rgba(16,185,129,0.2); }
 
