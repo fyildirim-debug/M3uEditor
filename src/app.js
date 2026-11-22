@@ -40,7 +40,7 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:', 'http:', 'https:'],
-      connectSrc: ["'self'", 'http:', 'https:'],
+      connectSrc: ["'self'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       frameAncestors: ["'none'"],

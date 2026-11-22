@@ -236,6 +236,23 @@ describe('AI tool registry', () => {
     expect(outcome).toMatchObject({ ok: false, code: 'FORBIDDEN' });
   });
 
+  test('an EPG mapping set by the assistant is locked against auto-matching', async () => {
+    let patch;
+    mockDb.mockImplementation((table) => {
+      if (table === 'channels') {
+        const query = builder({ first: { id: 'c1', playlist_id: 'p1' }, returning: [{ id: 'c1', name: 'TRT 1', epg_channel_id: 'trt1.tr' }] });
+        query.update = jest.fn((value) => { patch = value; return query; });
+        return query;
+      }
+      return builder({ first: { id: 'x', source_id: 's1', user_id: 'user-1' } });
+    });
+
+    const outcome = await tools.execute('assign_epg_to_channel', { channelId: 'c1', epgChannelId: 'trt1.tr' }, { userId: 'user-1' });
+
+    expect(outcome.ok).toBe(true);
+    expect(patch).toMatchObject({ epg_channel_id: 'trt1.tr', epg_locked: true });
+  });
+
   test('custom sorting refuses ids from another playlist', async () => {
     const playlists = builder({ first: { id: 'p1', user_id: 'user-1' } });
     const channels = builder({ first: { count: '1' } });
