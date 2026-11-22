@@ -962,5 +962,27 @@
     "group_custom": "Custom",
     "group_misc": "Miscellaneous",
     "group_24_7": "24/7 channels"
+  },
+  "errors": {
+    "VALIDATION_ERROR": "Some of the submitted values are invalid",
+    "INVALID_CREDENTIALS": "Invalid email or password",
+    "TOKEN_EXPIRED": "Your session has expired, please sign in again",
+    "UNAUTHORIZED": "You need to sign in to do this",
+    "FORBIDDEN": "You don't have permission to access this resource",
+    "NOT_FOUND": "The requested item was not found",
+    "CONFLICT": "This conflicts with existing data",
+    "DUPLICATE_CHANNEL": "This stream URL already exists in this playlist",
+    "IMPORT_IN_PROGRESS": "An import is already running for this playlist",
+    "IMPORT_CANCELLED": "The import was cancelled",
+    "IMPORT_CAPACITY_REACHED": "The server is busy with other imports; please try again shortly",
+    "IMPORT_FAILED": "The import failed unexpectedly",
+    "XTREAM_CONNECTION_FAILED": "Could not connect to the Xtream server",
+    "XTREAM_AUTH_FAILED": "Xtream username or password was rejected",
+    "EPG_FETCH_FAILED": "Could not download the EPG source",
+    "RATE_LIMITED": "Too many requests; please wait a moment and try again",
+    "DATABASE_UNAVAILABLE": "The database is not reachable; please contact the server administrator",
+    "INTERNAL_ERROR": "An unexpected error occurred",
+    "NETWORK_ERROR": "Could not reach the server; check your connection",
+    "TIMEOUT": "The server took too long to respond"
   }
 }

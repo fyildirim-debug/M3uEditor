@@ -32,6 +32,7 @@ import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
+import { apiErrorMessage } from '../utils/apiError'
 const { t } = useI18n()
 const route = useRoute()
 const password = ref('')
@@ -49,7 +50,7 @@ async function handleSubmit() {
     await api.post('/auth/reset-password', { token, password: password.value })
     success.value = true
   } catch (e) {
-    error.value = e.response?.data?.error?.message || t('toast.genericError')
+    error.value = apiErrorMessage(e, t, 'toast.genericError')
   } finally { loading.value = false }
 }
 </script>

@@ -60,6 +60,7 @@ import { computed, inject, onMounted, reactive, ref } from 'vue'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import EditorFeatureModal from './EditorFeatureModal.vue'
+import { apiErrorMessage } from '../utils/apiError'
 
 const props = defineProps({
   playlistId: { type: String, required: true },
@@ -120,7 +121,7 @@ async function save() {
     await ensureCreated()
     close()
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('common.error'), 'error')
+    toast(apiErrorMessage(error, t, 'common.error'), 'error')
   } finally {
     saving.value = false
   }
@@ -134,7 +135,7 @@ async function testConnection() {
     const { data } = await api.post(`/channels/${channel.id}/test`)
     testResult.value = data
   } catch (error) {
-    testResult.value = { reachable: false, error: error.response?.data?.error?.message || t('common.error') }
+    testResult.value = { reachable: false, error: apiErrorMessage(error, t, 'common.error') }
   } finally {
     testing.value = false
   }

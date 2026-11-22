@@ -962,5 +962,27 @@
     "group_custom": "Özel",
     "group_misc": "Çeşitli",
     "group_24_7": "7/24 kanallar"
+  },
+  "errors": {
+    "VALIDATION_ERROR": "Geçersiz istek parametreleri",
+    "INVALID_CREDENTIALS": "Hatalı giriş bilgileri",
+    "TOKEN_EXPIRED": "Oturumun süresi doldu, lütfen tekrar giriş yapın",
+    "UNAUTHORIZED": "Bu işlem için giriş yapmalısınız",
+    "FORBIDDEN": "Bu kaynağa erişim yetkiniz yok",
+    "NOT_FOUND": "Kaynak bulunamadı",
+    "CONFLICT": "İşlem mevcut verilerle çakışıyor",
+    "DUPLICATE_CHANNEL": "Bu akış adresi bu oynatma listesinde zaten kayıtlı",
+    "IMPORT_IN_PROGRESS": "Bu oynatma listesi için bir içe aktarım zaten çalışıyor",
+    "IMPORT_CANCELLED": "İçe aktarım iptal edildi",
+    "IMPORT_CAPACITY_REACHED": "Sunucu şu an çok meşgul; lütfen biraz sonra tekrar deneyin",
+    "IMPORT_FAILED": "İçe aktarım sırasında beklenmeyen bir hata oluştu",
+    "XTREAM_CONNECTION_FAILED": "Xtream sunucusuna bağlanılamadı",
+    "XTREAM_AUTH_FAILED": "Xtream kullanıcı adı veya şifresi hatalı",
+    "EPG_FETCH_FAILED": "EPG kaynağına erişilemedi",
+    "RATE_LIMITED": "Çok fazla istek gönderildi; lütfen biraz bekleyip tekrar deneyin",
+    "DATABASE_UNAVAILABLE": "Veritabanına ulaşılamıyor; sunucu yöneticisine haber verin",
+    "INTERNAL_ERROR": "Beklenmeyen bir hata oluştu",
+    "NETWORK_ERROR": "Sunucuya ulaşılamadı; bağlantınızı kontrol edin",
+    "TIMEOUT": "Sunucu zamanında yanıt vermedi"
   }
 }

@@ -1438,6 +1438,7 @@ import XtreamOutputModal from '../components/XtreamOutputModal.vue'
 import ConfirmModal from '../components/ConfirmModal.vue'
 import ViewProfilesModal from '../components/ViewProfilesModal.vue'
 import LogoLibraryModal from '../components/LogoLibraryModal.vue'
+import { apiErrorMessage } from '../utils/apiError'
 
 const route = useRoute()
 const router = useRouter()
@@ -1554,7 +1555,7 @@ async function saveAutoSync() {
     autoSyncBackup.value = !!data.backup_before_sync
     toast(t('autoSync.saved'), 'success')
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.updateError'), 'error')
   } finally {
     autoSyncSaving.value = false
   }
@@ -1923,7 +1924,7 @@ async function saveChannel() {
     toast(t('toast.channelUpdated'), 'success'); editingChannel.value = null
     loadChannels(); loadCategories(); loadTotalCount()
     for (const catId of openAccordions.value) loadAccChannels(catId)
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 function deleteChannel(ch) {
@@ -1947,7 +1948,7 @@ async function resetChannel() {
     editingChannel.value = data
     toast(t('toast.resetToOriginal'), 'success')
     loadChannels()
-  } catch (e) { toast(e.response?.data?.error?.message || t('toast.resetError'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'toast.resetError'), 'error') }
 }
 
 function triggerLogoUpload() {
@@ -1993,7 +1994,7 @@ async function applyLibraryLogo(logo) {
     toast(t('logoLibrary.applied', { name: logo.name }), 'success')
   } catch (error) {
     editForm.value.logo_url = previous
-    toast(error.response?.data?.error?.message || t('logoLibrary.applyFailed'), 'error')
+    toast(apiErrorMessage(error, t, 'logoLibrary.applyFailed'), 'error')
   }
 }
 
@@ -2034,7 +2035,7 @@ async function handleLogoUpload(event) {
     if (row) row.logo_url = logoUrl
     toast(t('toast.logoUploaded'), 'success')
   } catch (err) {
-    toast(err.response?.data?.error?.message || t('toast.logoUploadError'), 'error')
+    toast(apiErrorMessage(err, t, 'toast.logoUploadError'), 'error')
   } finally {
     logoUploading.value = false
   }
@@ -2083,7 +2084,7 @@ async function doBulkMove() {
         loadAccChannels(catId)
       }
     }
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 function refreshFeatureData({ clearSelected = false } = {}) {
@@ -2107,31 +2108,31 @@ function handleBulkApplied() {
 async function createCategory() {
   if (!newCatName.value.trim()) return
   try { await api.post(`/playlists/${playlistId}/categories`, { name: newCatName.value.trim() }); newCatName.value = ''; showCatCreate.value = false; toast(t('toast.created'), 'success'); loadCategories() }
-  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 function startEditCat(cat) { editingCat.value = cat; editCatName.value = cat.name }
 async function updateCategory() {
   if (!editCatName.value.trim()) return
   try { await api.put(`/categories/${editingCat.value.id}`, { name: editCatName.value.trim() }); editingCat.value = null; toast(t('toast.updated'), 'success'); loadCategories() }
-  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 function confirmDeleteCat(cat) { deletingCat.value = cat }
 async function toggleCatHidden(cat) {
   try {
     const { data } = await api.put(`/categories/${cat.id}`, { is_hidden: !cat.is_hidden })
     categories.value = categories.value.map(item => item.id === cat.id ? { ...item, ...data } : item)
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 function startInlineEdit(cat) { inlineEditCatId.value = cat.id; inlineEditName.value = cat.name }
 async function saveInlineEdit(cat) {
   if (!inlineEditName.value.trim() || inlineEditName.value === cat.name) { inlineEditCatId.value = null; return }
   try { await api.put(`/categories/${cat.id}`, { name: inlineEditName.value.trim() }); toast(t('toast.renamed'), 'success'); loadCategories() }
-  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
   finally { inlineEditCatId.value = null }
 }
 async function doDeleteCat() {
   try { await api.delete(`/categories/${deletingCat.value.id}`); if (selectedCatId.value === deletingCat.value?.id) selectedCatId.value = null; deletingCat.value = null; toast(t('toast.deleted'), 'success'); loadCategories(); loadChannels() }
-  catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 async function catDrop(idx) {
@@ -2252,7 +2253,7 @@ async function saveAccountEdit() {
     accountEditOpen.value = false
     toast(t('xtream.accountUpdated'), 'success')
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('common.error'), 'error')
+    toast(apiErrorMessage(e, t, 'common.error'), 'error')
   } finally {
     accountEditSaving.value = false
   }
@@ -2291,7 +2292,7 @@ async function startSyncPreview() {
       syncSearches[type] = ''
     }
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.updateError'), 'error')
   } finally {
     syncPreviewLoading.value = false
   }
@@ -2349,7 +2350,7 @@ async function doSync() {
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
     if (pl?.last_synced_at) savedXtream.value = { ...savedXtream.value, lastSynced: pl.last_synced_at }
     loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
-  } catch (e) { toast(e.response?.data?.error?.message || t('toast.updateError'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'toast.updateError'), 'error') }
   finally { syncing.value = false }
 }
 
@@ -2374,7 +2375,7 @@ async function addFilterRule() {
     newRule.pattern = ''
     toast(t('filterRules.added'), 'success')
     await loadFilterRules()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
   finally { ruleSaving.value = false }
 }
 
@@ -2383,21 +2384,21 @@ async function deleteFilterRule(rule) {
     await api.delete(`/filter-rules/${rule.id}`)
     toast(t('filterRules.deleted'), 'success')
     await loadFilterRules()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 async function toggleFilterRule(rule) {
   try {
     await api.put(`/filter-rules/${rule.id}`, { enabled: !rule.enabled })
     await loadFilterRules()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 async function moveFilterRule(rule, direction) {
   try {
     await api.put(`/filter-rules/${rule.id}/order`, { direction })
     await loadFilterRules()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 async function testFilterRule() {
@@ -2411,7 +2412,7 @@ async function testFilterRule() {
     ruleTestResult.value = data
   } catch (e) {
     ruleTestResult.value = null
-    toast(e.response?.data?.error?.message || t('common.error'), 'error')
+    toast(apiErrorMessage(e, t, 'common.error'), 'error')
   } finally { ruleTesting.value = false }
 }
 
@@ -2436,7 +2437,7 @@ async function addSource() {
     newSource.label = ''; newSource.serverUrl = ''; newSource.username = ''; newSource.password = ''
     toast(t('multiSource.added'), 'success')
     await loadSources()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
   finally { sourceSaving.value = false }
 }
 
@@ -2445,7 +2446,7 @@ async function deleteSource(source) {
     await api.delete(`/sources/${source.id}`)
     toast(t('multiSource.deleted'), 'success')
     await loadSources()
-  } catch (e) { toast(e.response?.data?.error?.message || t('common.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'common.error'), 'error') }
 }
 
 async function syncAllSources() {
@@ -2460,7 +2461,7 @@ async function syncAllSources() {
     const pl = plRes.data.find(p => String(p.id) === String(playlistId))
     if (pl?.last_synced_at) savedXtream.value = { ...savedXtream.value, lastSynced: pl.last_synced_at }
     loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
-  } catch (e) { toast(e.response?.data?.error?.message || t('toast.updateError'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'toast.updateError'), 'error') }
   finally { syncingAll.value = false }
 }
 
@@ -2474,7 +2475,7 @@ async function doAddTypes(types) {
     toast(t('addTypes.result', { added: data.added, types: data.addedTypes.join(', '), duration: (data.duration / 1000).toFixed(1) }), 'success')
     loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.updateError'), 'error')
   } finally { addingTypes.value = false }
 }
 
@@ -2504,7 +2505,7 @@ async function doEditorM3uImport() {
     loadCategories(); loadChannels(); loadTotalCount(); loadStreamTypeCounts()
     setTimeout(() => { showM3uImportInEditor.value = false }, 2000)
   } catch (e) {
-    editorM3uError.value = e.response?.data?.error?.message || t('toast.genericError')
+    editorM3uError.value = apiErrorMessage(e, t, 'toast.genericError')
   } finally { editorM3uImporting.value = false }
 }
 
@@ -2518,7 +2519,7 @@ async function saveEpgRefreshInterval(s, raw) {
     s.refresh_interval_minutes = minutes
     toast(t('autoSync.saved'), 'success')
   } catch (e) {
-    toast(e.response?.data?.error?.message || t('toast.updateError'), 'error')
+    toast(apiErrorMessage(e, t, 'toast.updateError'), 'error')
     loadEpgSources()
   } finally {
     s._savingInterval = false
@@ -2527,13 +2528,13 @@ async function saveEpgRefreshInterval(s, raw) {
 async function addEpgSource() {
   if (!newEpgUrl.value.trim()) return; addingEpg.value = true
   try { const { data } = await api.post('/epg/sources', { url: newEpgUrl.value.trim() }); toast(t('toast.epgAdded', { channels: data.channelCount, programs: data.programCount }), 'success'); newEpgUrl.value = ''; loadEpgSources(); loadGuide() }
-  catch (e) { toast(e.response?.data?.error?.message || t('toast.epgError'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'toast.epgError'), 'error') }
   finally { addingEpg.value = false }
 }
 async function refreshEpgSource(source) {
   source._refreshing = true
   try { const { data } = await api.post(`/epg/sources/${source.id}/refresh`); toast(t('toast.epgRefreshed', { channels: data.channelCount, programs: data.programCount }), 'success'); loadEpgSources(); loadGuide() }
-  catch (e) { toast(e.response?.data?.error?.message || t('toast.epgRefreshError'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'toast.epgRefreshError'), 'error') }
   finally { source._refreshing = false }
 }
 function deleteEpgSource(source) {
@@ -2542,7 +2543,7 @@ function deleteEpgSource(source) {
 
 async function performDeleteEpgSource(source) {
   try { await api.delete(`/epg/sources/${source.id}`); toast(t('toast.epgSourceDeleted'), 'success'); loadEpgSources(); loadGuide() }
-  catch (e) { toast(e.response?.data?.error?.message || t('toast.deletionError'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'toast.deletionError'), 'error') }
 }
 function parseWordList(text) {
   return String(text || '').split(',').map(w => w.trim()).filter(Boolean)
@@ -2574,7 +2575,7 @@ async function createEpgProfile() {
     toast(t('epgProfiles.saved'), 'success')
     newProfile.value = { name: '', stripPrefixes: '', stripSuffixes: '', ignoreWords: '' }
     loadEpgProfiles()
-  } catch (e) { toast(e.response?.data?.error?.message || t('epgProfiles.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'epgProfiles.error'), 'error') }
   finally { savingProfile.value = false }
 }
 async function runEpgProfile(profile) {
@@ -2584,7 +2585,7 @@ async function runEpgProfile(profile) {
     matchResult.value = data.result
     toast(t('epgProfiles.runDone', { matched: data.result.matched, total: data.result.total }), 'success')
     loadEpgProfiles(); loadGuide(); loadChannels()
-  } catch (e) { toast(e.response?.data?.error?.message || t('epgProfiles.error'), 'error') }
+  } catch (e) { toast(apiErrorMessage(e, t, 'epgProfiles.error'), 'error') }
   finally { runningProfileId.value = null }
 }
 function deleteEpgProfile(profile) {
@@ -2593,7 +2594,7 @@ function deleteEpgProfile(profile) {
 
 async function performDeleteEpgProfile(profile) {
   try { await api.delete(`/epg-profiles/${profile.id}`); toast(t('epgProfiles.deleted'), 'success'); loadEpgProfiles() }
-  catch (e) { toast(e.response?.data?.error?.message || t('epgProfiles.error'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'epgProfiles.error'), 'error') }
 }
 // EPG Source Library (iptv-org)
 const libCountries = ref([])
@@ -2633,7 +2634,7 @@ async function addFromLibrary(g) {
   if (!g.url || libAdding.value) return
   libAdding.value = g.site
   try { const { data } = await api.post('/epg/sources', { url: g.url }); toast(t('toast.epgAdded', { channels: data.channelCount, programs: data.programCount }), 'success'); loadEpgSources(); loadGuide() }
-  catch (e) { toast(e.response?.data?.error?.message || t('toast.epgError'), 'error') }
+  catch (e) { toast(apiErrorMessage(e, t, 'toast.epgError'), 'error') }
   finally { libAdding.value = null }
 }
 
@@ -2821,7 +2822,7 @@ async function fetchXtreamMetadata() {
     editingChannel.value = data
     toast(t('toast.metadataFetched'), 'success')
   } catch (e) {
-    const msg = e.response?.data?.error?.message || t('toast.metadataError')
+    const msg = apiErrorMessage(e, t, 'toast.metadataError')
     toast(msg, 'error')
   } finally { fetchingMetadata.value = false }
 }

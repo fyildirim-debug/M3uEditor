@@ -188,6 +188,7 @@ import { computed, inject, nextTick, onMounted, ref } from 'vue'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import EditorFeatureModal from './EditorFeatureModal.vue'
+import { apiErrorMessage } from '../utils/apiError'
 
 const props = defineProps({
   playlistId: { type: String, required: true },
@@ -242,7 +243,7 @@ async function downloadM3u() {
     URL.revokeObjectURL(url)
     toast(props.hiddenCount > 0 ? t('toast.m3uDownloadedExcluded') : t('toast.m3uDownloaded'), 'success')
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('toast.downloadError'), 'error')
+    toast(apiErrorMessage(error, t, 'toast.downloadError'), 'error')
   } finally {
     downloadingM3u.value = false
   }
@@ -268,7 +269,7 @@ function applyOutput(data) {
 
 function getErrorMessage(error, fallbackKey) {
   if (error.response?.status === 404) return t('xtreamOutput.notFound')
-  return error.response?.data?.error?.message || t(fallbackKey)
+  return apiErrorMessage(error, t, fallbackKey)
 }
 
 async function loadOutput() {

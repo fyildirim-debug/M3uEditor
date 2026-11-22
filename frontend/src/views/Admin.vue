@@ -154,6 +154,7 @@ import { ref, reactive, onMounted, inject } from 'vue';
 import api from '../api';
 import { useAuthStore } from '../stores/auth';
 import { useI18n } from '../langs/useI18n';
+import { apiErrorMessage } from '../utils/apiError'
 
 const toast = inject('toast');
 const auth = useAuthStore();
@@ -263,7 +264,7 @@ async function saveUser() {
     closeEditModal();
     await fetchUsers();
   } catch (err) {
-    toast?.(err.response?.data?.error?.message || t('admin.updateFailed'), 'error');
+    toast?.(apiErrorMessage(err, t, 'admin.updateFailed'), 'error');
   } finally {
     editModal.saving = false;
   }
@@ -288,7 +289,7 @@ async function doDelete() {
     closeDeleteModal();
     await Promise.all([fetchStats(), fetchUsers()]);
   } catch (err) {
-    toast?.(err.response?.data?.error?.message || t('admin.deleteFailed'), 'error');
+    toast?.(apiErrorMessage(err, t, 'admin.deleteFailed'), 'error');
   } finally {
     deleteModal.deleting = false;
   }

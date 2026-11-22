@@ -51,6 +51,7 @@ import { computed, inject, ref, watch } from 'vue'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import EditorFeatureModal from './EditorFeatureModal.vue'
+import { apiErrorMessage } from '../utils/apiError'
 
 const props = defineProps({ channelIds: { type: Array, required: true } })
 const emit = defineEmits(['close', 'applied'])
@@ -89,7 +90,7 @@ async function loadPreview() {
     previewSignature.value = requestedSignature
     previewed.value = true
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('common.error'), 'error')
+    toast(apiErrorMessage(error, t, 'common.error'), 'error')
   } finally {
     previewing.value = false
   }
@@ -103,7 +104,7 @@ async function applyRename() {
     emit('applied', data)
     emit('close')
   } catch (error) {
-    toast(error.response?.data?.error?.message || t('common.error'), 'error')
+    toast(apiErrorMessage(error, t, 'common.error'), 'error')
   } finally {
     applying.value = false
   }

@@ -61,6 +61,7 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
 import EditorFeatureModal from './EditorFeatureModal.vue'
+import { apiErrorMessage } from '../utils/apiError'
 
 const props = defineProps({
   // Kanal adı: modal açılır açılmaz bununla arama yapılır.
@@ -138,7 +139,7 @@ async function fetchLogos({ append = false } = {}) {
     total.value = data.total
   } catch (requestError) {
     if (current !== requestId) return
-    error.value = requestError.response?.data?.error?.message || t('logoLibrary.failed')
+    error.value = apiErrorMessage(requestError, t, 'logoLibrary.failed')
     if (!append) logos.value = []
   } finally {
     if (current === requestId) loading.value = false
