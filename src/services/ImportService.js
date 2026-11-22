@@ -11,6 +11,11 @@ const CHANNEL_BATCH_SIZE = 1000;
 const CATEGORY_BATCH_SIZE = 1000;
 const DELETE_BATCH_SIZE = 5000;
 const VALID_STREAM_TYPES = new Set(['live', 'vod', 'series']);
+// Oransal toptan silme esigi: bir turde en az MIN_TYPE_SIZE kanal varken
+// bunlarin MAX_REMOVAL_RATIO'dan fazlasi tek senkronda kaybolursa silme
+// atlanir. Saglayici paneli arizasinda kismi ama buyuk bos liste donebilir.
+const STALE_REMOVAL_MIN_TYPE_SIZE = 20;
+const STALE_REMOVAL_MAX_RATIO = 0.3;
 const filterRuleService = new FilterRuleService();
 const PROVIDER_EXTRA_KEYS_SQL = `ARRAY[
   'stream_id', 'stream_type', 'rating', 'genre', 'plot', 'year', 'tmdb_id', 'container_extension'
@@ -61,6 +66,7 @@ class ImportService {
         : client.buildStreamUrl(channel.stream_type, channel.stream_id, channel.container_extension || 'ts'),
       epg_channel_id: channel.epg_channel_id || null,
       category_id: channel.category_id ? categoryMap[channel.category_id] || null : null,
+      original_category_id: channel.category_id ? categoryMap[channel.category_id] || null : null,
       sort_order: sortOrder,
       stream_type: channel.stream_type || 'live',
       original_name: String(channel.name || 'İsimsiz kanal').slice(0, 500),
@@ -98,8 +104,9 @@ class ImportService {
    *
    * Bir türün mevcut kayıtlarının TAMAMINI silecek bir uzlaştırma, sağlayıcının
    * gerçekten o türü boşaltmasından ayırt edilemez (panel arızası da 200 + boş
-   * dizi döndürebilir). Bu durumda silme atlanır ve tür raporlanır; kısmi
-   * silmeler normal şekilde uygulanır.
+   * dizi döndürebilir). Bu durumda silme atlanır ve tür raporlanır. Aynı şekilde
+   * en az STALE_REMOVAL_MIN_TYPE_SIZE kanallı bir türün %30'undan fazlası tek
+   * seferde kayboluyorsa da silme atlanır; küçük kısmi silmeler normal uygulanır.
    *
    * @param {Array<{ stream_type: string, source_id: string }>} existing
    * @param {Set<string>} fetchedKeys - `${stream_type}:${source_id}` anahtarları
@@ -120,7 +127,10 @@ class ImportService {
       if (!rows?.length) continue;
 
       const staleRows = rows.filter((channel) => !fetchedKeys.has(`${channel.stream_type}:${channel.source_id}`));
-      if (staleRows.length === rows.length) {
+      const wipesType = staleRows.length === rows.length;
+      const tooLarge = rows.length >= STALE_REMOVAL_MIN_TYPE_SIZE
+        && staleRows.length / rows.length > STALE_REMOVAL_MAX_RATIO;
+      if (wipesType || tooLarge) {
         skippedTypes.push(type);
         continue;
       }
@@ -231,7 +241,9 @@ class ImportService {
       const filterResult = await filterRuleService.applyForPlaylist(playlist.id, records, trx);
       records = filterResult.records;
       const filteredOut = filterResult.filteredOut;
-      await this._bulkUpsertChannels(playlist.id, records, onProgress, trx, jobContext);
+      const { skippedDuplicates, skippedKeys } = (await this._bulkUpsertChannels(
+        playlist.id, records, onProgress, trx, jobContext, { existingKeys }
+      )) || { skippedDuplicates: 0, skippedKeys: new Set() };
 
       const fetchedKeys = new Set(records.map((channel) => `${channel.stream_type}:${channel.source_id}`));
       let stale = [];
@@ -251,12 +263,21 @@ class ImportService {
 
       // Kısmi senkronizasyon "son senkronizasyon" sayılmaz.
       const playlistUpdate = { updated_at: trx.fn.now() };
-      if (!failedTypes.length) playlistUpdate.last_synced_at = trx.fn.now();
+      if (!failedTypes.length) {
+        playlistUpdate.last_synced_at = trx.fn.now();
+        // Basarili tam sync zamanlayicinin geri cekilme sayacini sifirlar.
+        playlistUpdate.sync_failure_count = 0;
+        playlistUpdate.sync_next_attempt_at = null;
+      }
       await trx('playlists').where({ id: playlist.id }).update(playlistUpdate);
 
-      const added = records.filter((record) => !existingKeys.has(`${record.stream_type}:${record.source_id}`)).length;
+      const isAdded = (record) => {
+        const key = `${record.stream_type}:${record.source_id}`;
+        return !existingKeys.has(key) && !skippedKeys?.has(key);
+      };
+      const added = records.filter(isAdded).length;
       const addedChannelNames = records
-        .filter((record) => !existingKeys.has(`${record.stream_type}:${record.source_id}`))
+        .filter(isAdded)
         .slice(0, 20)
         .map((record) => record.name);
       return {
@@ -266,9 +287,10 @@ class ImportService {
         added,
         addedCategories,
         addedChannelNames,
-        updated: records.length - added,
+        updated: records.length - added - (skippedDuplicates || 0),
         removed,
         filteredOut,
+        skippedDuplicates: skippedDuplicates || 0,
         syncedTypes: completedTypes,
         failedTypes,
         scopedCategories,
@@ -505,6 +527,7 @@ class ImportService {
           updated: result.updated,
           totalChannels: result.totalChannels,
           filteredOut: result.filteredOut,
+          skippedDuplicates: result.skippedDuplicates || 0,
           failedTypes: result.failedTypes,
           partial: result.partial,
         });
@@ -529,6 +552,7 @@ class ImportService {
       updated: successful.reduce((sum, entry) => sum + entry.updated, 0),
       totalChannels: successful.reduce((sum, entry) => sum + entry.totalChannels, 0),
       filteredOut: successful.reduce((sum, entry) => sum + entry.filteredOut, 0),
+      skippedDuplicates: successful.reduce((sum, entry) => sum + (entry.skippedDuplicates || 0), 0),
       removed,
       skippedRemovalTypes,
       syncedSources: successful.length,
@@ -603,13 +627,15 @@ class ImportService {
     const added = await db.transaction(async (trx) => {
       throwIfCancelled(jobContext);
       const categoryMap = (await this._upsertCategories(playlist.id, categories, trx, jobContext)).map;
-      const maxSort = await trx('channels').where({ playlist_id: playlistId }).max('sort_order as max').first();
-      const records = channels.map((channel, index) => this._recordForChannel(playlist.id, channel, categoryMap, client, (maxSort?.max ?? -1) + 1 + index));
+      // sort_order'u _bulkUpsertChannels verir: yeni kayitlar mevcut en buyuk
+      // degerin arkasina saglayici sirasiyla eklenir.
+      const records = channels.map((channel, index) => this._recordForChannel(playlist.id, channel, categoryMap, client, index));
       const existing = completedTypes.length
         ? await trx('channels').where({ playlist_id: playlistId }).whereIn('stream_type', completedTypes).whereNotNull('source_id').select('source_id', 'stream_type')
         : [];
       const keys = new Set(existing.map((channel) => `${channel.stream_type}:${channel.source_id}`));
-      await this._bulkUpsertChannels(playlistId, records, null, trx, jobContext);
+      const upsert = await this._bulkUpsertChannels(playlistId, records, null, trx, jobContext, { existingKeys: keys });
+      for (const key of upsert?.skippedKeys || []) keys.add(key);
       await trx('playlists').where({ id: playlistId }).update({
         xtream_stream_types: JSON.stringify([...new Set([...existingTypes, ...completedTypes])]),
         last_synced_at: trx.fn.now(),
@@ -663,7 +689,8 @@ class ImportService {
   async _upsertCategories(playlistId, categories, connection = db, jobContext) {
     throwIfCancelled(jobContext);
     const categoryMap = {};
-    if (!categories.length) return categoryMap;
+    // Cagiranlar `.map` ve `.addedNames` bekler; bos listede de ayni sekil donmeli.
+    if (!categories?.length) return { map: categoryMap, addedNames: [] };
 
     const normalized = categories.map((category, index) => ({
       remoteId: category.category_id,
@@ -711,35 +738,119 @@ class ImportService {
     return { map: categoryMap, addedNames: rowsToInsert.map((row) => row.name) };
   }
 
-  async _bulkUpsertChannels(playlistId, channelRecords, onProgress, connection = db, jobContext) {
+  /**
+   * Kanal kayitlarini toplu upsert eder.
+   *
+   * Kullanici duzenlemeleri korunur:
+   * - ad/logo: kullanici degistirmediyse (deger hala original_* ile ayni) saglayicinin
+   *   yeni degeri uygulanir;
+   * - kategori: ayni desen `original_category_id` ile; kullanici kanali tasidiysa
+   *   tasima korunur;
+   * - sort_order: mevcut satirlarda HIC degismez (kullanici siralamasi). Yeni satirlar
+   *   listenin mevcut en buyuk sort_order degerinin arkasina saglayici sirasiyla
+   *   eklenir; boylece coklu kaynakli sync'te kaynaklarin siralari cakismaz.
+   *
+   * `(playlist_id, stream_url)` de benzersizdir ama Xtream yolunun cakisma hedefi
+   * kaynak kimligidir. Ayni adresli iki kayit (ya da baska kimlikli mevcut bir
+   * satirin adresi) toplu insert'i komple dusuruyordu; bu kayitlar atlanir ve
+   * `skippedDuplicates` olarak raporlanir.
+   *
+   * @param {object} [options]
+   * @param {Set<string>} [options.existingKeys] - `${stream_type}:${source_id}`; verilirse
+   *   yalnizca yeni kayitlar sira numarasi tuketir.
+   * @returns {Promise<{ skippedDuplicates: number, skippedKeys: Set<string> }>}
+   */
+  async _bulkUpsertChannels(playlistId, channelRecords, onProgress, connection = db, jobContext, options = {}) {
     throwIfCancelled(jobContext);
-    const uniqueRecords = [...new Map(channelRecords.map((record) => [`${record.stream_type}:${record.source_id || record.stream_url}`, record])).values()];
+    const recordKey = (record) => `${record.stream_type}:${record.source_id || record.stream_url}`;
+    const keyed = [...new Map(channelRecords.map((record) => [recordKey(record), record])).values()];
+    const hasSourceIds = channelRecords.some((record) => record.source_id);
+    const skippedKeys = new Set();
+
+    // Ayni toplu islemde ayni adres yalnizca bir kez: ilk gelen kalir.
+    let uniqueRecords = keyed;
+    if (hasSourceIds) {
+      const seenUrls = new Set();
+      uniqueRecords = [];
+      for (const record of keyed) {
+        if (seenUrls.has(record.stream_url)) {
+          skippedKeys.add(recordKey(record));
+          continue;
+        }
+        seenUrls.add(record.stream_url);
+        uniqueRecords.push(record);
+      }
+    }
+
+    // Yeni satirlarin sirasi: mevcut en buyuk sort_order + 1'den itibaren.
+    const maxResult = await connection.raw(
+      'SELECT COALESCE(MAX(sort_order), -1)::integer AS max FROM channels WHERE playlist_id = ?',
+      [playlistId]
+    );
+    let nextSortOrder = Number(maxResult?.rows?.[0]?.max ?? -1) + 1;
+    const existingKeys = options.existingKeys;
+    uniqueRecords = uniqueRecords.map((record) => {
+      // Mevcut satirin sort_order'u upsert'te degismez; bu deger yalnizca
+      // insert'te kullanilir, o yuzden bilinen kayitlar sira tuketmez.
+      const isKnown = existingKeys?.has(`${record.stream_type}:${record.source_id}`);
+      return { ...record, sort_order: isKnown ? nextSortOrder : nextSortOrder++ };
+    });
+
     // EXCLUDED carries the provider snapshot. Overlay only the existing non-provider keys so
     // application metadata (including future keys) survives sync; replacing extras here used
     // to silently reset metadata_fetched and discard fetched posters, cast, and similar data.
     const mergedExtrasSql = `COALESCE(EXCLUDED.extras, '{}'::jsonb)
           || (COALESCE(channels.extras, '{}'::jsonb) - ${PROVIDER_EXTRA_KEYS_SQL})`;
-    const conflictClause = channelRecords.some((record) => record.source_id)
+    const preservedFieldsSql = `name = CASE WHEN channels.name IS NOT DISTINCT FROM channels.original_name THEN EXCLUDED.name ELSE channels.name END,
+          logo_url = CASE WHEN channels.logo_url IS NOT DISTINCT FROM channels.original_logo_url THEN EXCLUDED.logo_url ELSE channels.logo_url END,
+          category_id = CASE WHEN channels.category_id IS NOT DISTINCT FROM channels.original_category_id THEN EXCLUDED.category_id ELSE channels.category_id END,
+          original_category_id = EXCLUDED.original_category_id`;
+    const conflictClause = hasSourceIds
       ? `ON CONFLICT (playlist_id, stream_type, source_id) WHERE source_id IS NOT NULL DO UPDATE SET
           original_name = EXCLUDED.original_name, original_logo_url = EXCLUDED.original_logo_url,
-          stream_url = EXCLUDED.stream_url, category_id = EXCLUDED.category_id, sort_order = EXCLUDED.sort_order,
+          stream_url = EXCLUDED.stream_url,
           extras = ${mergedExtrasSql}, updated_at = NOW(),
           epg_channel_id = COALESCE(channels.epg_channel_id, EXCLUDED.epg_channel_id),
-          name = CASE WHEN channels.name IS NOT DISTINCT FROM channels.original_name THEN EXCLUDED.name ELSE channels.name END,
-          logo_url = CASE WHEN channels.logo_url IS NOT DISTINCT FROM channels.original_logo_url THEN EXCLUDED.logo_url ELSE channels.logo_url END`
+          ${preservedFieldsSql}`
       : `ON CONFLICT (playlist_id, stream_url) DO UPDATE SET
           original_name = EXCLUDED.original_name, original_logo_url = EXCLUDED.original_logo_url,
-          category_id = EXCLUDED.category_id, sort_order = EXCLUDED.sort_order, extras = ${mergedExtrasSql}, updated_at = NOW(),
-          name = CASE WHEN channels.name IS NOT DISTINCT FROM channels.original_name THEN EXCLUDED.name ELSE channels.name END,
-          logo_url = CASE WHEN channels.logo_url IS NOT DISTINCT FROM channels.original_logo_url THEN EXCLUDED.logo_url ELSE channels.logo_url END`;
+          extras = ${mergedExtrasSql}, updated_at = NOW(),
+          ${preservedFieldsSql}`;
 
+    let processed = 0;
     for (let index = 0; index < uniqueRecords.length; index += CHANNEL_BATCH_SIZE) {
       throwIfCancelled(jobContext);
-      const batch = uniqueRecords.slice(index, index + CHANNEL_BATCH_SIZE);
-      const { sql, bindings } = connection('channels').insert(batch).toSQL();
-      await connection.raw(`${sql} ${conflictClause}`, bindings);
-      onProgress?.({ processed: Math.min(index + CHANNEL_BATCH_SIZE, uniqueRecords.length), total: uniqueRecords.length });
+      let batch = uniqueRecords.slice(index, index + CHANNEL_BATCH_SIZE);
+      processed += batch.length;
+      if (hasSourceIds) {
+        // Adresi baska bir kimlige (ya da kimliksiz M3U satirina) ait mevcut
+        // satirla cakisan kayitlar atlanir; aksi halde unique ihlali tum
+        // senkronu 500'e dusururdu.
+        const conflictResult = await connection.raw(
+          `SELECT stream_url, stream_type, source_id FROM channels
+            WHERE playlist_id = ? AND stream_url = ANY(?::text[])`,
+          [playlistId, batch.map((record) => record.stream_url)]
+        );
+        const ownerByUrl = new Map((conflictResult?.rows || [])
+          .map((row) => [row.stream_url, `${row.stream_type}:${row.source_id}`]));
+        batch = batch.filter((record) => {
+          const owner = ownerByUrl.get(record.stream_url);
+          if (owner === undefined || owner === `${record.stream_type}:${record.source_id}`) return true;
+          skippedKeys.add(recordKey(record));
+          return false;
+        });
+      }
+      if (batch.length) {
+        const { sql, bindings } = connection('channels').insert(batch).toSQL();
+        await connection.raw(`${sql} ${conflictClause}`, bindings);
+      }
+      onProgress?.({ processed, total: uniqueRecords.length });
     }
+
+    if (skippedKeys.size) {
+      logger.warn({ playlistId, skipped: skippedKeys.size }, 'Channels with a duplicate stream URL were skipped during upsert');
+    }
+    return { skippedDuplicates: skippedKeys.size, skippedKeys };
   }
 
   async importFromM3U(userId, m3uContent, playlistId, playlistName, jobContext) {
@@ -769,6 +880,7 @@ class ImportService {
         name: String(channel.name || 'İsimsiz kanal').slice(0, 500), original_name: String(channel.name || 'İsimsiz kanal').slice(0, 500),
         logo_url: channel.logo || null, original_logo_url: channel.logo || null, stream_url: channel.url,
         epg_channel_id: channel.epgId || null, category_id: channel.group ? groupIds[channel.group] || null : null,
+        original_category_id: channel.group ? groupIds[channel.group] || null : null,
         sort_order: index, stream_type: 'live', extras: JSON.stringify(channel.extras || {}),
       }));
       await this._bulkUpsertChannels(playlist.id, records, null, trx, jobContext);
