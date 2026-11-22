@@ -45,6 +45,7 @@ describe('Database Migrations', () => {
       '20240101000031_drop_output_stream_mode.js',
       '20240101000032_create_ai_task_runs.js',
       '20240101000033_add_output_short_link.js',
+      '20240101000040_ai_safety_defaults.js',
     ]);
   });
 

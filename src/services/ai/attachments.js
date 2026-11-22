@@ -15,7 +15,7 @@
 const path = require('path');
 const fs = require('fs/promises');
 const crypto = require('crypto');
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4, validate: isUuid } = require('uuid');
 const db = require('../../config/database');
 const config = require('../../config');
 const logger = require('../../config/logger');
@@ -138,6 +138,13 @@ class AiAttachmentStore {
       throw createAppError('VALIDATION_ERROR', `Dosya en fazla ${limitMb} MB olabilir`);
     }
 
+    if (conversationId) {
+      if (!isUuid(String(conversationId))) throw createAppError('NOT_FOUND', 'Sohbet bulunamadı');
+      // Baska kullanicinin (ya da var olmayan) sohbetine dosya baglanamaz.
+      const conversation = await db('ai_conversations').where({ id: conversationId, user_id: userId }).first();
+      if (!conversation) throw createAppError('NOT_FOUND', 'Sohbet bulunamadı');
+    }
+
     const used = await this.usedBytes(userId);
     if (used + bytes > config.ai.attachmentQuotaBytes) {
       const quotaMb = Math.round(config.ai.attachmentQuotaBytes / (1024 * 1024));
@@ -183,6 +190,8 @@ class AiAttachmentStore {
 
   /** Sahiplik kontrolu tek kapidan gecer: baska kullanicinin eki hicbir yoldan okunamaz. */
   async require(userId, attachmentId) {
+    // Bicimsiz kimlik veritabanina gitmeden 404: aksi halde Postgres 22P02 500 olurdu.
+    if (!isUuid(String(attachmentId || ''))) throw createAppError('NOT_FOUND', 'Dosya bulunamadı');
     const row = await db('ai_attachments').where({ id: attachmentId, user_id: userId }).first();
     if (!row) throw createAppError('NOT_FOUND', 'Dosya bulunamadı');
     return row;

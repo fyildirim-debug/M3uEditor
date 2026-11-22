@@ -108,6 +108,23 @@ describe('credential resolution', () => {
     expect(XtreamClient.lastCredentials.serverUrl).toBe('http://baska.ornek:8080');
   });
 
+  test('stored credentials are never sent to a different server', async () => {
+    mockTables({ channels: DEAD });
+    XtreamClient.lastCredentials = null;
+
+    await expect(repairService.repairFromXtream('user-1', 'pl-1', { serverUrl: 'http://saldirgan.ornek' }))
+      .rejects.toThrow(/kayıtlı bilgiler başka bir sunucuya gönderilmez/i);
+    expect(XtreamClient.lastCredentials).toBeNull();
+  });
+
+  test('the stored source may be named explicitly without retyping the password', async () => {
+    mockTables({ channels: DEAD });
+
+    await repairService.repairFromXtream('user-1', 'pl-1', { serverUrl: 'http://kaynak.ornek:8080/' });
+
+    expect(XtreamClient.lastCredentials).toMatchObject({ username: 'kullanici', password: 'gizli' });
+  });
+
   test('explains what is missing when there is no source at all', async () => {
     mockTables({ playlist: { id: 'pl-1', user_id: 'user-1' }, channels: DEAD });
 

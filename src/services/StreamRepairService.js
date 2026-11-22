@@ -24,6 +24,7 @@ const streamHealthService = require('./StreamHealthService');
 const { decrypt } = require('../utils/crypto');
 const { createAppError } = require('../utils/AppError');
 const { matchKey } = require('../utils/channelName');
+const { sameOrigin } = require('../utils/origin');
 
 // Tek cagride onarilacak kanal tavani: her biri bir HTTP dogrulamasi demek.
 const MAX_TARGETS = 1000;
@@ -47,7 +48,19 @@ async function mapWithConcurrency(items, limit, worker) {
 class StreamRepairService {
   /** Kimlik bilgisi verilmediyse listenin kendi kayitli Xtream bilgisine duser. */
   async _resolveCredentials(playlist, override = {}) {
-    const serverUrl = override.serverUrl || playlist.xtream_server_url;
+    // Farkli bir sunucu verildiyse kayitli kimlik bilgisi ONA GONDERILMEZ.
+    // Aksi halde modelin (ya da kanal adina gizlenmis bir yonergenin) verdigi
+    // herhangi bir adres, listenin Xtream kullanici adi ve parolasini toplardi.
+    const overrideServer = override.serverUrl ? String(override.serverUrl).trim() : '';
+    if (overrideServer && !sameOrigin(overrideServer, playlist.xtream_server_url)) {
+      if (!override.username || !override.password) {
+        throw createAppError('VALIDATION_ERROR',
+          'Farklı bir Xtream sunucusu verildiğinde kullanıcı adı ve parola da verilmelidir; kayıtlı bilgiler başka bir sunucuya gönderilmez.');
+      }
+      return { serverUrl: overrideServer, username: override.username, password: override.password };
+    }
+
+    const serverUrl = overrideServer || playlist.xtream_server_url;
     const username = override.username || playlist.xtream_username;
     const password = override.password
       || (playlist.xtream_password_enc ? decrypt(playlist.xtream_password_enc) : null);

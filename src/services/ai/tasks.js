@@ -31,6 +31,32 @@ const { createAppError } = require('../../utils/AppError');
 const MAX_PROMPT_LENGTH = 4000;
 const MAX_RESULT_LENGTH = 4000;
 const MAX_TASKS_PER_USER = 25;
+// Ayni anda calisabilecek gorev sayisi (tum kullanicilar). Her calistirma bir
+// veritabani baglantisi ve uzun suren saglayici istekleri tutar; sinir olmadan
+// cok kullanicili bir kurulumda havuz ve max_connections tukenirdi.
+const MAX_CONCURRENT_RUNS = Math.max(1, Number.parseInt(process.env.AI_MAX_CONCURRENT_TASK_RUNS || '3', 10) || 3);
+// Gorev basina saklanan calistirma sohbeti.
+const KEEP_RUN_CONVERSATIONS = 10;
+
+let activeRuns = 0;
+const waiters = [];
+
+async function acquireRunSlot() {
+  if (activeRuns < MAX_CONCURRENT_RUNS) {
+    activeRuns += 1;
+    return;
+  }
+  await new Promise((resolve) => waiters.push(resolve));
+  activeRuns += 1;
+}
+
+function releaseRunSlot() {
+  activeRuns -= 1;
+  const next = waiters.shift();
+  if (next) next();
+}
+
+let staleChecked = false;
 
 function publicRun(row) {
   return {
@@ -91,6 +117,23 @@ class AiTaskService {
     return row;
   }
 
+  /**
+   * Yikici izinli gorev icin iki kosul: kullanicinin kendi ayari yikici
+   * islemlere izin vermeli ve gorev bir listeye bagli olmali. Listesiz gorev
+   * yedek alamaz, dolayisiyla geri alinamaz; gozetimsiz ve geri alinamaz
+   * silme kabul edilmez.
+   */
+  async _assertDestructiveAllowed(userId, { allowDestructive, playlistId }) {
+    if (allowDestructive !== true) return;
+    const settings = await db('ai_settings').where({ user_id: userId }).first();
+    if (settings && settings.allow_destructive === false) {
+      throw createAppError('FORBIDDEN', 'Yapay zeka ayarlarında silme ve üzerine yazma kapalıyken yıkıcı izinli görev kurulamaz.');
+    }
+    if (!playlistId) {
+      throw createAppError('VALIDATION_ERROR', 'Yıkıcı izinli görev bir listeye bağlanmalıdır; listesiz görev yedek alamaz ve geri alınamaz.');
+    }
+  }
+
   async create(userId, { name, prompt, intervalMinutes, playlistId = null, allowDestructive = false, enabled = true } = {}) {
     const cleanName = String(name || '').trim();
     const cleanPrompt = String(prompt || '').trim();
@@ -109,6 +152,7 @@ class AiTaskService {
       const playlist = await db('playlists').where({ id: playlistId, user_id: userId }).first();
       if (!playlist) throw createAppError('NOT_FOUND', 'Oynatma listesi bulunamadı');
     }
+    await this._assertDestructiveAllowed(userId, { allowDestructive, playlistId });
 
     const [row] = await db('ai_tasks').insert({
       id: uuidv4(),
@@ -126,7 +170,7 @@ class AiTaskService {
   }
 
   async update(userId, taskId, patch = {}) {
-    await this.require(userId, taskId);
+    const current = await this.require(userId, taskId);
     const update = {};
     if (patch.name !== undefined) {
       const name = String(patch.name || '').trim();
@@ -152,6 +196,10 @@ class AiTaskService {
       }
     }
     if (!Object.keys(update).length) throw createAppError('VALIDATION_ERROR', 'Güncellenecek alan yok');
+    await this._assertDestructiveAllowed(userId, {
+      allowDestructive: update.allow_destructive ?? current.allow_destructive,
+      playlistId: update.playlist_id !== undefined ? update.playlist_id : current.playlist_id,
+    });
 
     update.updated_at = db.fn.now();
     const [row] = await db('ai_tasks').where({ id: taskId, user_id: userId }).update(update).returning('*');
@@ -197,14 +245,17 @@ class AiTaskService {
   async run(userId, taskId, { manual = false } = {}) {
     // A dedicated lock connection avoids exhausting the query pool while AI calls run.
     const { Client } = require('pg');
-    const connection = new Client(db.client.config.connection);
-    await connection.connect();
+    await acquireRunSlot();
+    let connection;
     try {
+      connection = new Client(db.client.config.connection);
+      await connection.connect();
       const lock = await connection.query('SELECT pg_try_advisory_lock(hashtext($1)) AS acquired', [`ai-task:${taskId}`]);
       if (!lock.rows[0]?.acquired) throw createAppError('VALIDATION_ERROR', 'Görev zaten çalışıyor');
       return await this._run(userId, taskId, { manual });
     } finally {
-      await connection.end();
+      if (connection) await connection.end().catch(() => {});
+      releaseRunSlot();
     }
   }
 
@@ -271,6 +322,7 @@ class AiTaskService {
 
       await finish({
         status,
+        conversation_id: result.conversationId || null,
         summary: message,
         steps: JSON.stringify(steps),
         tool_count: steps.length,
@@ -290,6 +342,7 @@ class AiTaskService {
         updated_at: db.fn.now(),
       });
 
+      await this._pruneRunConversations(task.id);
       logger.info({ userId, taskId: task.id, runId: run.id, manual, durationMs: Date.now() - startedAt }, 'AI task run completed');
       return {
         taskId: task.id, runId: run.id, status, reply: result.reply, steps: result.steps, conversationId: result.conversationId,
@@ -306,6 +359,42 @@ class AiTaskService {
       });
       logger.warn({ err: error, userId, taskId: task.id, runId: run.id }, 'AI task run failed');
       throw error;
+    }
+  }
+
+  /**
+   * Her calistirma bir sohbet acar; gunde onlarca calisan bir gorev zamanla
+   * binlerce sohbet biriktirirdi. Son KEEP_RUN_CONVERSATIONS calistirmanin
+   * sohbeti kalir, eskileri silinir (calistirma satiri ve ozeti durur).
+   */
+  async _pruneRunConversations(taskId) {
+    try {
+      const stale = await db('ai_task_runs')
+        .where({ task_id: taskId })
+        .whereNotNull('conversation_id')
+        .orderBy('created_at', 'desc')
+        .offset(KEEP_RUN_CONVERSATIONS)
+        .pluck('conversation_id');
+      if (stale.length) await db('ai_conversations').whereIn('id', stale).del();
+    } catch (error) {
+      logger.warn({ err: error, taskId }, 'AI task conversation cleanup failed');
+    }
+  }
+
+  /**
+   * Sunucu bir calistirmanin ortasinda kapandiysa satir sonsuza kadar
+   * 'running' kalirdi. Ilk zamanlayici turunda bu satirlar kapatilir.
+   */
+  async _closeStaleRuns() {
+    if (staleChecked) return;
+    staleChecked = true;
+    try {
+      const message = 'Sunucu bu çalıştırma sırasında yeniden başladı; çalıştırma yarıda kaldı.';
+      await db('ai_task_runs').where({ status: 'running' }).update({ status: 'error', error: message });
+      await db('ai_tasks').where({ last_status: 'running' }).update({ last_status: 'error', last_result: message });
+    } catch (error) {
+      staleChecked = false;
+      logger.warn({ err: error }, 'AI stale task run cleanup failed');
     }
   }
 
@@ -351,6 +440,7 @@ class AiTaskService {
 
   /** Vadesi gelen gorevler: hic calismamis ya da son calismadan bu yana araligi dolmus. */
   async listDue(now = new Date()) {
+    await this._closeStaleRuns();
     return db('ai_tasks')
       .where({ enabled: true })
       .andWhere((query) => query
