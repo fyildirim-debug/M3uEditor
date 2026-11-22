@@ -36,3 +36,6 @@ test-results/
 
 # Uploads & runtime data
 data/
+
+# Masaustu ikon kaynaklari derleme ciktisi degildir.
+!desktop/build/
