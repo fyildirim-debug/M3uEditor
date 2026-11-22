@@ -51,7 +51,15 @@ function resolveBinaries() {
   return binaries;
 }
 
-function run(command, args, { log, env } = {}) {
+/**
+ * Komutu calistirir ve bitmesini bekler.
+ *
+ * `untilExit`: Windows'ta `pg_ctl start`, baslattigi postgres.exe'ye cikti
+ * borularini miras birakir; borular sunucu yasadikca acik kalir ve 'close'
+ * olayi hic gelmez. Bu durumda surecin kendisinin cikmasi (exit) yeterlidir;
+ * bizim taraftaki boru uclari da kapatilir.
+ */
+function run(command, args, { log, env, untilExit = false } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { windowsHide: true, env: { ...process.env, ...env } });
     let output = '';
@@ -63,10 +71,22 @@ function run(command, args, { log, env } = {}) {
     child.stdout?.on('data', collect);
     child.stderr?.on('data', collect);
     child.on('error', reject);
-    child.on('close', (code) => {
+    const finish = (code) => {
       if (code === 0) resolve(output);
       else reject(new Error(`${path.basename(command)} ${code} koduyla çıktı:\n${output.slice(-2000)}`));
-    });
+    };
+    if (untilExit) {
+      child.on('exit', (code) => {
+        // Kalan ciktinin okunmasi icin bir tur bekle, sonra miras kalan borulari birak.
+        setImmediate(() => {
+          child.stdout?.destroy();
+          child.stderr?.destroy();
+          finish(code);
+        });
+      });
+    } else {
+      child.on('close', finish);
+    }
   });
 }
 
@@ -208,6 +228,7 @@ class LocalPostgres {
     await run(this.bin.pgCtl, ['start', '-D', this.dataDir, '-l', logFile, '-w', '-t', '60', '-o', options], {
       log: this.log,
       env: { LC_MESSAGES: 'C' },
+      untilExit: true,
     });
     this.startedWithPgCtl = true;
   }

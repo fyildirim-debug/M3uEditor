@@ -19,6 +19,9 @@ const PROJECT_URL = 'https://github.com/fyildirim-debug/M3uEditor';
 const DEFAULT_APP_PORT = 47821;
 const DEFAULT_DB_PORT = 47822;
 const SHUTDOWN_TIMEOUT_MS = 20_000;
+// Ilk acilista veritabani kurulumu dahil. Asilirsa acilis ekraninda sonsuza
+// kadar beklemek yerine gunluk klasorunu gosteren bir hata verilir.
+const STARTUP_TIMEOUT_MS = 180_000;
 
 app.setName(PRODUCT_NAME);
 if (process.platform === 'win32') app.setAppUserModelId('com.arnexlab.m3ueditor');
@@ -314,6 +317,10 @@ async function startBackend() {
         resolve();
       } else if (message?.type === 'fatal') reject(new Error(message.message));
     });
+    const timer = setTimeout(() => {
+      if (!backendReady) reject(new Error(`Uygulama ${STARTUP_TIMEOUT_MS / 1000} saniye içinde başlamadı.`));
+    }, STARTUP_TIMEOUT_MS);
+    timer.unref?.();
     backend.once('exit', (code) => {
       if (!backendReady) reject(new Error(`Arka plan hizmeti açılırken kapandı (kod ${code}).`));
     });
@@ -360,7 +367,15 @@ async function startBackend() {
     },
   });
 
-  await ready;
+  try {
+    await ready;
+  } catch (error) {
+    // Arka ucu (ve baslattigi veritabanini) kapatmadan cikilirsa veritabani
+    // sahipsiz kalir; bir sonraki acilis onu durdurur ama temiz kapatmak daha iyi.
+    quitting = true;
+    await stopBackend();
+    throw error;
+  }
 }
 
 /** Arka ucu duzgun kapatir (sunucu -> veritabani). */

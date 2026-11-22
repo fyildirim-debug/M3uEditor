@@ -124,6 +124,12 @@ parent?.on('message', (event) => {
   else if (message?.type === 'shutdown') shutdown(0);
 });
 
+// Oturum kapanisi ya da sistem kapanisi surecin tamamina sinyal gonderebilir;
+// o zaman da veritabani duzgun kapatilir.
+process.on('SIGTERM', () => shutdown(0));
+process.on('SIGINT', () => shutdown(0));
+process.on('SIGHUP', () => shutdown(0));
+
 process.on('uncaughtException', (error) => {
   pgLog?.(`Yakalanmamış hata: ${error?.stack || error}`);
   send({ type: 'fatal', stage: 'runtime', message: String(error?.message || error) });
