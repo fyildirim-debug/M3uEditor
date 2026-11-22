@@ -2,6 +2,8 @@
 
 A self-hosted IPTV playlist manager for importing, editing, organizing, exporting, and sharing M3U/Xtream playlists. It includes a responsive Vue interface, XMLTV guide support, multi-user isolation, and a production Docker stack.
 
+It runs two ways from the same code: as a **web application** (Docker, multi-user) and as a **desktop application for Windows and Linux** that needs no server, no Docker and no database setup — see [Desktop application](#desktop-application-windows-and-linux).
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-22%2B-43853d.svg)](https://nodejs.org/)
 [![Vue 3](https://img.shields.io/badge/Vue-3.5-42b883.svg)](https://vuejs.org/)
@@ -22,13 +24,14 @@ A self-hosted IPTV playlist manager for importing, editing, organizing, exportin
 - Cross-origin redirects strip sensitive headers, HTTPS downgrades are rejected, and numeric proxy settings are parsed correctly.
 - Updated dependencies and CI checks for PostgreSQL integration tests and accidentally tracked runtime data.
 
-Validation for this update: **631 tests passed across 49 suites**, including two real PostgreSQL integration tests; all 33 migrations applied successfully. Frontend lint/build and translation parity passed. Both dependency audits reported zero known vulnerabilities at validation time. Physical-player compatibility and production load testing remain separate checks.
+Validation for this update: **733 tests passed across 54 suites** (8 more run only against a real database with `RUN_DB_TESTS=1`, and pass); all 35 migrations apply, roll back and re-apply cleanly, including on the PostgreSQL 18 bundled with the desktop app. Frontend lint/build and translation parity passed. Both dependency audits reported zero known vulnerabilities at validation time. Physical-player compatibility and production load testing remain separate checks.
 
 Every release is documented in [CHANGELOG.md](CHANGELOG.md), including the audit
 finding each change closes.
 
 ## Highlights
 
+- Desktop application for Windows and Linux with a bundled database — install and use, nothing to set up
 - AI assistant that drives the whole application through chat with your own OpenAI-compatible provider
 - Xtream Codes imports for Live TV, VOD, and Series
 - Local or remote M3U import and escaped M3U export
@@ -79,6 +82,75 @@ Reorder categories on the left, then drag channels on the right. Order is persis
 Profile summary, theme switcher (System / Dark / Light) and password change.
 
 ![Account settings](screenshot/account.png)
+
+## Desktop application (Windows and Linux)
+
+The desktop build is the same application packaged with Electron. The API runs
+in a background process inside the app and **PostgreSQL ships with it**, so
+there is nothing to install or configure: no Docker, no database server, no
+account to register. On first start the app creates its database and a local
+account and opens straight on your playlists.
+
+| Platform | Package | Notes |
+| --- | --- | --- |
+| Windows 10/11 (x64) | `M3U-Editor-Setup-<version>-x64.exe` | Per-user install, no administrator rights needed. The installer is not code-signed yet, so SmartScreen shows *More info → Run anyway*. |
+| Linux (x64) | `M3U-Editor-<version>-x86_64.AppImage` | Runs on any distribution; uses the static AppImage runtime, so `libfuse2` is **not** required. `chmod +x` and start it. |
+| Debian / Ubuntu / Pardus | `M3U-Editor-<version>-amd64.deb` | `sudo apt install ./M3U-Editor-*.deb` |
+| Fedora / RHEL / openSUSE | `M3U-Editor-<version>-x86_64.rpm` | `sudo dnf install ./M3U-Editor-*.rpm` |
+
+Packages are built by the [Desktop workflow](.github/workflows/desktop.yml) on
+real Windows and Linux runners; each build is started and must answer
+`/health` before it is accepted. Pushing a `v*` tag attaches the packages to a
+draft GitHub release.
+
+**Where your data lives.** Everything stays on your computer, in the
+application data folder (*File → Open data folder*):
+
+| | Windows | Linux |
+| --- | --- | --- |
+| Data | `%APPDATA%\M3U Editor` | `~/.config/M3U Editor` |
+
+It holds the database (`pgdata/`), logos, backups, assistant attachments, logs
+(`logs/`) and `secrets.json` — the keys that encrypt stored Xtream passwords and
+the assistant's API key. Back up the whole folder together; without
+`secrets.json` the encrypted credentials cannot be read. Uninstalling the app
+does not delete this folder.
+
+**Differences from the web version.**
+
+- Single user. There is no login screen; signing out signs you back in to the
+  local account. (The account is a normal administrator account inside the
+  app.)
+- Scheduled syncs, EPG refreshes and assistant tasks run while the app is open.
+- The Xtream output and share links point to `127.0.0.1`, so other devices on
+  the network cannot use them. Export the M3U/XMLTV files instead, or run the
+  web version on a server for that.
+- Web search for the assistant is off (it relies on the SearXNG service of the
+  Docker stack). A local model works out of the box: Ollama
+  (`http://localhost:11434/v1`) and LM Studio (`http://localhost:1234/v1`) are
+  allowed as providers without opening the private network to anything else.
+- Private-network M3U/EPG sources stay blocked by default, as on the server.
+
+**Troubleshooting.** If the app reports that it could not start, *Open log
+folder* shows `server.log` and `postgres.log`. Do not run the app as root on
+Linux — PostgreSQL refuses to start as root. On Ubuntu 24.04 and later, where
+AppArmor restricts unprivileged user namespaces, an AppImage may close
+immediately; start it with `--no-sandbox` or use the `.deb` package, which sets
+up Chromium's sandbox helper correctly.
+
+**Building it yourself.**
+
+```bash
+cd frontend && npm ci && cd ../desktop && npm ci
+npm run dist:linux     # AppImage, deb, rpm (rpm needs the rpm package)
+npm run dist:win       # on Windows: NSIS installer
+npm start              # development: runs the app against the repository
+```
+
+`desktop/scripts/prepare.js` copies `src/` and the built frontend into the
+package. The desktop package has its own `package.json`; its runtime
+dependencies must equal the server's, which `npm run check-deps` (and CI)
+verifies.
 
 ## Requirements
 
@@ -599,6 +671,7 @@ src/
   services/           Authentication, import, EPG, and domain logic
   utils/              Encryption, SSRF-safe fetch, and validation
 frontend/src/         Vue application
+desktop/              Electron shell for the Windows/Linux desktop app
 screenshot/           UI screenshots used in this README
 tests/                Jest unit and property tests
 ```
@@ -607,6 +680,15 @@ tests/                Jest unit and property tests
 
 ### Unreleased
 
+- **Desktop application for Windows and Linux.** The same app with a bundled
+  PostgreSQL: install it and use it — no Docker, no database, no sign-up.
+  See [Desktop application](#desktop-application-windows-and-linux).
+- **Security and reliability pass.** The assistant's approval gate can no
+  longer be bypassed, scheduled tasks are confined to their playlist, stored
+  secrets are only sent back to where they were saved, failing syncs back off
+  instead of retrying every minute, manual EPG matches are locked against
+  auto-matching, and sync keeps your channel order. Details in
+  [CHANGELOG.md](CHANGELOG.md).
 - **Web search with nothing to configure.** The Docker stack ships an internal
   SearXNG service, so `web_search` and `open_web_page` work with any provider.
   See [Web search](#web-search-with-nothing-to-configure).

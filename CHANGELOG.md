@@ -68,6 +68,34 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ### Added
 
+- **Desktop application for Windows and Linux** (`desktop/`). The same code,
+  packaged with Electron and a bundled PostgreSQL (`@embedded-postgres`), so it
+  runs with nothing to install or configure. The API runs in an Electron
+  utility process — heavy imports cannot freeze the window, and a crash offers
+  a restart instead of a dead window. The database listens on 127.0.0.1 only
+  with Unix sockets off, uses the ICU locale so case-insensitive search folds
+  Turkish letters, stops with `pg_ctl stop -m fast`, and a server left behind
+  by a crash is stopped on the next start; on Windows it is started through
+  `pg_ctl` so it also runs when the app is opened as administrator. Per-install
+  secrets are generated on first start into a user-only `secrets.json`. There is
+  no sign-up screen: the main process opens a session for the local account
+  through `POST /api/auth/desktop-session`, which exists only when
+  `DESKTOP_LOGIN_TOKEN` is set, answers only loopback requests and compares the
+  shared secret in constant time; the secret is never exposed to the page. The
+  window shows only its own origin (external links open in the browser,
+  permission requests are denied), remembers its size and port, and has a TR/EN
+  menu with the data and log folders. Ollama and LM Studio on localhost are
+  allowed as assistant providers. electron-builder produces an NSIS installer
+  for Windows and AppImage (static runtime, no libfuse2), deb and rpm for Linux;
+  the Windows build bundles the VC++ runtime DLLs PostgreSQL needs. The new
+  *Desktop* workflow builds on real Windows and Linux runners, starts each
+  package and requires `/health` to answer, and attaches the packages to a draft
+  release on `v*` tags.
+- `src/server.js` holds the startup shared by `src/index.js` and the desktop
+  app. New settings for single-process installs: `FRONTEND_DIST_DIR` (serve the
+  built UI without nginx), `COOKIE_SECURE`, `LOG_FILE`. Knex migration paths no
+  longer depend on the working directory.
+
 - **Stop button in the assistant.** While a reply streams the send button turns
   into *Stop*; closing the stream makes the server end the tool loop at the next
   step instead of running (and billing) up to the step limit. The approval card
@@ -329,6 +357,10 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
   of plain text.
 
 ### Fixed
+
+- Helmet's default `upgrade-insecure-requests` directive is gone from API
+  responses: it would upgrade the `http://` channel logos that most IPTV
+  providers use (and the UI when served over plain HTTP) to HTTPS and break them.
 
 - **A conversation stopped working for good if the user typed instead of
   approving.** The paused `tool_calls` stayed in history without results and the

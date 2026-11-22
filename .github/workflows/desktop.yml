@@ -1,0 +1,141 @@
+name: Desktop
+
+# Windows ve Linux masaustu paketlerini kendi isletim sistemlerinde derler,
+# acilip /health'e cevap verdigini dogrular. `v*` etiketinde paketler taslak
+# (draft) bir GitHub surumune yuklenir; yayinlamak elle yapilir.
+on:
+  push:
+    tags: ['v*']
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'src/**'
+      - 'frontend/**'
+      - 'knexfile.js'
+      - 'package.json'
+      - '.github/workflows/desktop.yml'
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'src/server.js'
+      - 'src/app.js'
+      - 'src/config/**'
+      - 'knexfile.js'
+      - 'package.json'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux
+          - os: windows-latest
+            target: win
+    runs-on: ${{ matrix.os }}
+    env:
+      # Imza sertifikasi yok; electron-builder anahtar zincirini aramasin.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            desktop/package-lock.json
+
+      - name: Check desktop dependencies match the server
+        run: node desktop/scripts/sync-deps.js --check
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts
+
+      - name: Install desktop dependencies
+        working-directory: desktop
+        # Electron ikilisi postinstall ile iner; --ignore-scripts kullanilmaz.
+        run: npm ci
+
+      - name: Install rpm tooling
+        if: matrix.target == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Build packages
+        working-directory: desktop
+        run: npm run dist:${{ matrix.target }}
+
+      - name: Smoke test (Linux AppImage)
+        if: matrix.target == 'linux'
+        working-directory: desktop
+        run: |
+          APP=$(ls dist/*.AppImage | head -n1)
+          chmod +x "$APP"
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a "$APP" --no-sandbox > smoke.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -sf http://127.0.0.1:47821/health; then echo; echo "ok after ${i}s"; exit 0; fi
+            sleep 1
+          done
+          echo "Application did not answer /health"
+          cat smoke.log || true
+          cat ~/.config/"M3U Editor"/logs/*.log || true
+          exit 1
+
+      - name: Smoke test (Windows)
+        if: matrix.target == 'win'
+        working-directory: desktop
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path dist/win-unpacked -Filter '*.exe' | Where-Object { $_.Name -like 'M3U*' } | Select-Object -First 1
+          Start-Process -FilePath $exe.FullName
+          for ($i = 1; $i -le 120; $i++) {
+            try {
+              $r = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:47821/health' -TimeoutSec 2
+              if ($r.StatusCode -eq 200) { Write-Host "ok after $i s: $($r.Content)"; exit 0 }
+            } catch {}
+            Start-Sleep -Seconds 1
+          }
+          Write-Host 'Application did not answer /health'
+          Get-ChildItem "$env:APPDATA\M3U Editor\logs" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "== $($_.Name)"; Get-Content $_.FullName -Tail 80 }
+          exit 1
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: m3u-editor-${{ matrix.target }}
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+            desktop/dist/*.rpm
+            desktop/dist/*.exe
+            desktop/dist/*.blockmap
+            desktop/dist/latest*.yml
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" artifacts/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --draft \
+            --title "M3U Editor ${GITHUB_REF_NAME}" \
+            --notes "Windows (NSIS) ve Linux (AppImage, deb, rpm) masaüstü paketleri. Ayrıntılar için CHANGELOG.md."

@@ -153,6 +153,27 @@ Ajan worktree'leri `.claude/worktrees/` altindaysa jest'e
 `package.json` x2 = **1.10.0**, `.fy/version.json` = 1.10.0.0; CHANGELOG'da
 buyuk bir `[Unreleased]` bolumu var (surum numarasi verilmedi).
 
+## Masaustu uygulamasi (desktop/)
+Electron 45 kabugu; ayni src/ ve frontend kodu. Ana surec `desktop/main/main.js`,
+arka uc `utilityProcess` icinde `server-entry.js` (gomulu PostgreSQL + Express).
+- PostgreSQL: `@embedded-postgres/<platform>` 18.x ikilileri, kendi yoneticimiz
+  `main/postgres.js` (initdb ICU, 127.0.0.1, soket kapali, pg_ctl stop -m fast;
+  Windows'ta pg_ctl start). Kutuphanenin kendisi KULLANILMIYOR (Windows'ta
+  taskkill /f ile olduruyor).
+- Veri: userData (`~/.config/M3U Editor`, `%APPDATA%\M3U Editor`): pgdata/,
+  data/, logs/, secrets.json (0600), settings.json. secrets.json kaybolursa
+  sifreli Xtream parolalari cozulemez.
+- Giris ekrani yok: ana surec DESKTOP_LOGIN_TOKEN ile
+  `/api/auth/desktop-session` cagirip cerezi pencere oturumuna yazar.
+- Portlar: 47821 (uygulama), 47822 (DB); doluysa rastgele, settings'e yazilir.
+- Paket: `cd desktop && npm run dist:linux|dist:win`; prepare.js src+dist'i
+  kopyalar, Linux'ta PG sembolik baglarini dosyaya cevirir, Windows'ta
+  vcruntime140*.dll ekler. Desktop bagimliliklari kokle ESIT olmali
+  (`npm run check-deps`). CI: `.github/workflows/desktop.yml`.
+- Dogrulama (bu ortamda): linux-unpacked + AppImage Xvfb altinda normal
+  kullaniciyla acildi, ilk acilis/kalicilik/kill -9 sonrasi kurtarma/cikis
+  sonrasi otomatik oturum test edildi. Windows yalnizca CI'da derlenir/test edilir.
+
 ## Dagitim notu
 `SEARXNG_SECRET` artik ZORUNLU (`openssl rand -hex 32`); Dokploy ortaminda
 tanimli degilse compose baslamaz. SearXNG imaji tarih etiketiyle sabit.
