@@ -177,7 +177,7 @@ jobs:
           fi
           NOTES=".github/release-notes/${TAG}.md"
           if [ ! -f "$NOTES" ]; then
-            printf 'M3U Editor %s — Windows (NSIS) ve Linux (AppImage, deb, rpm) masaüstü paketleri.\n\nAyrıntılar: CHANGELOG.md\n' "${TAG}" > /tmp/notes.md
+            printf 'M3U Editor %s — desktop packages for Windows (NSIS installer) and Linux (AppImage, deb, rpm).\n\nSee CHANGELOG.md for details.\n' "${TAG}" > /tmp/notes.md
             NOTES=/tmp/notes.md
           fi
           # --target: etiket yoksa bu commit uzerinde olusturulur.

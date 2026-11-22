@@ -174,6 +174,8 @@ arka uc `utilityProcess` icinde `server-entry.js` (gomulu PostgreSQL + Express).
   artirip `.github/release-notes/v<surum>.md` yazip main'e birlestirmek yeter;
   Desktop is akisi etiketi olusturup Releases'ta yayinlar. Bulut oturumu etiket
   ya da release olusturamiyor (proxy 403), bu yuzden yayin CI'dan yapiliyor.
+- Release notlari INGILIZCE; yayinlanmis surumun metni notes dosyasi degisip
+  main'e girince release-notes.yml ile guncellenir.
 - main korumali (ruleset "main koruması"): PR zorunlu, verify + images yesil.
 - Dogrulama (bu ortamda): linux-unpacked + AppImage Xvfb altinda normal
   kullaniciyla acildi, ilk acilis/kalicilik/kill -9 sonrasi kurtarma/cikis

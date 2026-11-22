@@ -1,0 +1,34 @@
+name: Release notes
+
+# .github/release-notes/<etiket>.md dosyasi main'de degisince, o etiketin
+# zaten yayinlanmis GitHub surumunun aciklamasi bu dosyayla guncellenir.
+# Boylece yayinlanan bir surumun metni de PR ile duzeltilebilir.
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/release-notes/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Apply notes to published releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          for file in .github/release-notes/*.md; do
+            tag="$(basename "$file" .md)"
+            if gh release view "$tag" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+              gh release edit "$tag" --repo "${GITHUB_REPOSITORY}" --notes-file "$file"
+              echo "Updated notes of $tag"
+            else
+              echo "No release $tag yet; the Desktop workflow uses this file when it publishes."
+            fi
+          done
