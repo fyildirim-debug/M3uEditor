@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from '../api'
-import { refreshSession } from '../refreshSession'
+import { refreshSession, isTokenFresh, askPeersForToken } from '../refreshSession'
 
 function readUser() {
   try { return JSON.parse(sessionStorage.getItem('user') || 'null') } catch { return null }
@@ -45,7 +45,19 @@ export const useAuthStore = defineStore('auth', () => {
   // attigi icin hiz siniri (429), gecici bir ag hatasi ya da 8 saniyelik zaman
   // asimi kullaniciyi elindeki gecerli oturumdan ediyordu — birkac kez F5
   // yapmak cikis yaptirmaya yetiyordu.
-  async function refresh({ timeout = 8000 } = {}) {
+  //
+  // Sayfa yenilendiginde sekmenin token'i sessionStorage'da durur; suresi
+  // dolmamissa yenileme atlanir (her F5 oturumu dondurup diger sekmeleri
+  // dusuruyordu). Yeni sekmede once acik sekmelerden token istenir.
+  async function refresh({ timeout = 8000, force = false } = {}) {
+    if (!force && isTokenFresh(token.value)) return true
+    if (!force && !token.value) {
+      const shared = await askPeersForToken()
+      if (shared) {
+        saveSession(shared)
+        return true
+      }
+    }
     try {
       const { data } = await refreshSession(timeout)
       saveSession(data)
