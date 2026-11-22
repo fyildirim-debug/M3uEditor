@@ -121,7 +121,8 @@ node scripts/cleanup-logos.js           # --delete ile siler
 Not: `npm run test:property` calismiyor — depoda hic `*.property.js` yok,
 `fast-check` olu bagimlilik.
 
-## Surum durumu (tutarsiz)
-`.fy/version.json` + CHANGELOG = **1.10.0.0** (dogru kaynak).
-`package.json` ve `frontend/package.json` = **1.7.0** (uc surum geride).
+## Surum durumu
+`.fy/version.json` + CHANGELOG = **1.10.0.0** (dogru kaynak, dort haneli).
+`package.json` ve `frontend/package.json` = **1.10.0** (ayni surumun semver bicimi;
+surum yukseltilirken ikisi de guncellenir). Kodda surumu okuyan yer yok.
 README "55 server-side tools" diyor (gercek 162) ve v1.9.0.0'i atliyor.
