@@ -228,6 +228,8 @@ module.exports = {
   },
 
   update_channel: {
+    // Akis adresini degistirmek kanali baska bir kaynaga yonlendirir; sorulur.
+    requiresApproval: (args) => args.streamUrl !== undefined,
     description: 'Tek bir kanalın adını, logosunu, akış adresini, EPG kimliğini veya kategorisini günceller.',
     parameters: {
       type: 'object',

@@ -18,6 +18,8 @@ jest.mock('../../../src/services/ai/tools', () => ({
   definitions: (...args) => mockDefinitions(...args),
   execute: (...args) => mockExecute(...args),
   isDestructive: (name) => name === 'delete_channels',
+  needsApproval: (name) => name === 'delete_channels',
+  resolveCall: (name, args) => ({ name, args: args || {}, wrapped: false }),
   isReadOnly: (name) => name.startsWith('list_') || name.startsWith('get_'),
   names: ['list_playlists', 'delete_channels'],
 }));
@@ -251,7 +253,7 @@ describe('AIService chat loop', () => {
     expect(systemContent).toContain('Ana Liste');
     expect(systemContent).toContain('playlistId: p1');
     expect(systemContent).toContain('31 kanal');
-    expect(systemContent).toContain('Ulusal (8)');
+    expect(systemContent).toContain('"Ulusal" (8)');
     expect(systemContent).toContain('2 EPG kaynağı');
   });
 

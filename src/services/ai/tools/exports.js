@@ -74,6 +74,8 @@ module.exports = {
   },
 
   share_playlist: {
+    // Listeyi (ve icindeki saglayici adreslerini) disariya acar.
+    requiresApproval: true,
     description: 'Oynatma listesi için herkese açık paylaşım bağlantısı üretir (isteğe bağlı süre ve şifre).',
     parameters: {
       type: 'object',
@@ -147,12 +149,16 @@ module.exports = {
   },
 
   enable_xtream_output: {
+    // Listeyi (ve icindeki saglayici adreslerini) disariya acar.
+    requiresApproval: true,
     description: 'Oynatma listesi için Xtream Codes uyumlu çıkışı açar ve giriş bilgilerini üretir.',
     parameters: { type: 'object', properties: { playlistId: { type: 'string' } } },
     run: (args, ctx) => xtreamOutputService.enable(ctx.userId, args.playlistId || ctx.playlistId),
   },
 
   regenerate_xtream_output_password: {
+    // Listeyi (ve icindeki saglayici adreslerini) disariya acar.
+    requiresApproval: true,
     description: 'Xtream çıkışının şifresini yeniler; eski şifre anında geçersiz olur.',
     destructive: true,
     parameters: { type: 'object', properties: { playlistId: { type: 'string' } } },

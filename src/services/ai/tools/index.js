@@ -247,10 +247,21 @@ const metaTools = {
       required: ['name'],
     },
     async run(args, ctx) {
-      const tool = tools[args.name];
-      if (!tool) throw createAppError('NOT_FOUND', `Bilinmeyen araç: ${args.name}`);
-      // Ayni yetki baglamiyla calisir; izinler atlanmaz.
-      return tool.run(sanitizeArgs(args.args), ctx);
+      const name = String(args.name || '').trim();
+      // Meta araclar kendilerini cagiramaz: invoke_capability'nin kendi icine
+      // sarilmasi izin kapisini bir kat daha disariya itmenin yoluydu.
+      if (metaTools[name]) throw createAppError('VALIDATION_ERROR', `"${name}" invoke_capability ile çağrılamaz`);
+      if (!tools[name]) throw createAppError('NOT_FOUND', `Bilinmeyen araç: ${name}`);
+      // Dogrudan cagriyla AYNI kapidan gecer: yikici izin, gorev siniri ve
+      // arguman dogrulamasi execute() icinde. Onceden burada tool.run()
+      // cagriliyordu ve bu yoldan gelen bir silme hicbir kontrole takilmiyordu.
+      const outcome = await execute(name, args.args, ctx);
+      if (!outcome.ok) {
+        const error = createAppError(outcome.code || 'VALIDATION_ERROR', outcome.error);
+        if (outcome.schema) error.schema = outcome.schema;
+        throw error;
+      }
+      return outcome.result;
     },
   },
 };
@@ -284,8 +295,68 @@ function catalogue() {
   }));
 }
 
-function isDestructive(name) {
-  return tools[name]?.destructive === true;
+/**
+ * Bir cagrinin GERCEKTE hangi araci calistiracagini cozer.
+ *
+ * `invoke_capability` bir sarmalayicidir; onay, yikici izin ve adim kaydi icin
+ * sarmalayicinin degil icindeki aracin ozellikleri esas alinmalidir. Aksi halde
+ * katalogun her turda gonderilmeyen kismi (yalnizca bu yoldan erisilebilen
+ * ~60 arac) onay akisinin tamamen disinda kaliyordu.
+ */
+function resolveCall(name, args) {
+  if (name === 'invoke_capability' && args && typeof args === 'object') {
+    const inner = String(args.name || '').trim();
+    if (tools[inner]) {
+      const innerArgs = args.args && typeof args.args === 'object' && !Array.isArray(args.args) ? args.args : {};
+      return { name: inner, args: innerArgs, wrapped: true };
+    }
+  }
+  return { name, args: args || {}, wrapped: false };
+}
+
+function isDestructive(name, args) {
+  const resolved = resolveCall(name, args);
+  return tools[resolved.name]?.destructive === true;
+}
+
+/**
+ * Onay modunda kullaniciya sorulmasi gereken cagri mi?
+ *
+ * Yikici araclarin yaninda, silme yapmasa da etkisi kalici ve disa donuk olan
+ * araclar da (`requiresApproval`) sorulur: gozetimsiz calisan bir gorev
+ * kurmak, listeyi disariya paylasmak, kayitli kimlik bilgisini degistirmek.
+ */
+function needsApproval(name, args) {
+  const resolved = resolveCall(name, args);
+  const tool = tools[resolved.name];
+  if (!tool) return false;
+  if (tool.destructive === true) return true;
+  if (typeof tool.requiresApproval === 'function') return tool.requiresApproval(resolved.args) === true;
+  return tool.requiresApproval === true;
+}
+
+// Gozetimsiz gorev calistirmasinda playlist'e bagli argumanlar. Gorev bir
+// listeye baglandiginda yalnizca o listeye dokunabilir; yedek ve geri alma
+// yalnizca o listeyi kapsadigi icin baska listeye yazmak geri alinamazdi.
+const PLAYLIST_ARG_KEYS = ['playlistId', 'targetPlaylistId', 'sourcePlaylistId', 'otherPlaylistId'];
+
+function taskScopeProblem(name, args, ctx) {
+  if (!ctx?.isTaskRun) return null;
+  const tool = tools[name];
+  if (tool?.taskRunAllowed === false) {
+    return `Zamanlanmış bir görev çalışırken "${name}" kullanılamaz.`;
+  }
+  if (!ctx.taskPlaylistId) return null;
+  for (const key of PLAYLIST_ARG_KEYS) {
+    const value = args?.[key];
+    if (value && String(value).trim() !== ctx.taskPlaylistId) {
+      return 'Bu görev yalnızca bağlı olduğu listede çalışabilir; başka bir listeye dokunamaz.';
+    }
+  }
+  if (Array.isArray(args?.playlistIds) && args.playlistIds.some((id) => String(id).trim() !== ctx.taskPlaylistId)) {
+    return 'Bu görev yalnızca bağlı olduğu listede çalışabilir; başka bir listeye dokunamaz.';
+  }
+  return null;
 }
 
 // Salt-okuma araclari birbirinden bagimsizdir, ayni turda paralel
@@ -293,10 +364,14 @@ function isDestructive(name) {
 // olarak dar tutuldu: yalnizca evrensel okuma onekleri.
 const READ_ONLY_PREFIXES = ['list_', 'get_', 'search_', 'find_', 'describe_', 'count_', 'preview_', 'read_'];
 
-function isReadOnly(name) {
-  if (!tools[name] && !metaTools[name]) return false;
-  if (tools[name]?.destructive === true) return false;
-  return READ_ONLY_PREFIXES.some((prefix) => name.startsWith(prefix));
+function isReadOnly(name, args) {
+  const resolved = resolveCall(name, args);
+  const target = resolved.name;
+  if (!tools[target] && !metaTools[target]) return false;
+  // Cozulemeyen invoke_capability (bilinmeyen ad) salt-okuma sayilmaz.
+  if (target === 'invoke_capability') return false;
+  if (tools[target]?.destructive === true || tools[target]?.requiresApproval) return false;
+  return READ_ONLY_PREFIXES.some((prefix) => target.startsWith(prefix));
 }
 
 /**
@@ -315,6 +390,9 @@ async function execute(name, args, ctx) {
   if (tool.destructive === true && ctx.allowDestructive !== true) {
     return { ok: false, error: 'Silme ve üzerine yazma işlemleri bu oturumda kapalı. Kullanıcı yapay zeka ayarlarından açabilir.', code: 'FORBIDDEN' };
   }
+
+  const scopeProblem = taskScopeProblem(name, clean, ctx);
+  if (scopeProblem) return { ok: false, error: scopeProblem, code: 'FORBIDDEN' };
 
   const problems = validateArgs(tool, clean);
   if (problems.length) {
@@ -343,6 +421,8 @@ module.exports = {
   execute,
   isDestructive,
   isReadOnly,
+  needsApproval,
+  resolveCall,
   scoreTool,
   tokenize,
   validateArgs,

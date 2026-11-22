@@ -407,6 +407,8 @@ module.exports = {
   },
 
   set_playlist_xtream_credentials: {
+    // Kayitli kimlik bilgisini degistirir; senkronizasyon bundan sonra buraya gider.
+    requiresApproval: true,
     description: 'Bir listeye Xtream sunucu adresi, kullanıcı adı ve şifresini kaydeder; sonrasında sync_playlist kullanılabilir.',
     parameters: {
       type: 'object',
