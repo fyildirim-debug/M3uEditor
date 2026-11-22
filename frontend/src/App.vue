@@ -15,10 +15,12 @@
 
       <div class="header-right">
         <div class="lang-switcher" v-if="langs.length > 1">
-          <button v-for="l in langs" :key="l.code"
+          <button v-for="l in langs" :key="l.code" type="button"
             :class="['lang-btn', { active: lang === l.code }]"
             @click="setLang(l.code)"
-            :title="l.name">
+            :title="l.name"
+            :aria-label="l.name"
+            :aria-pressed="lang === l.code ? 'true' : 'false'">
             <span class="lang-flag" v-html="l.flag"></span>
           </button>
         </div>
@@ -62,10 +64,12 @@
         </button>
 
         <div class="lang-switcher" v-if="langs.length > 1">
-          <button v-for="l in langs" :key="l.code"
+          <button v-for="l in langs" :key="l.code" type="button"
             :class="['lang-btn', { active: lang === l.code }]"
             @click="setLang(l.code)"
-            :title="l.name">
+            :title="l.name"
+            :aria-label="l.name"
+            :aria-pressed="lang === l.code ? 'true' : 'false'">
             <span class="lang-flag" v-html="l.flag"></span>
           </button>
         </div>
@@ -91,19 +95,21 @@
     <AiAssistant v-if="auth.isLoggedIn" />
 
     <Teleport to="body">
-      <TransitionGroup name="toast" tag="div" class="toast-container" aria-live="assertive" aria-atomic="true">
+      <TransitionGroup name="toast" tag="div" class="toast-container" aria-live="polite" aria-relevant="additions">
         <div
-          v-for="t in toasts"
-          :key="t.id"
-          :class="['toast', 'toast-' + t.type]"
-          role="alert"
-          @click="dismissToast(t.id)"
+          v-for="toast in toasts"
+          :key="toast.id"
+          :class="['toast', 'toast-' + toast.type]"
+          :role="toast.type === 'error' ? 'alert' : 'status'"
+          :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"
+          aria-atomic="true"
+          @click="dismissToast(toast.id)"
         >
-          <svg v-if="t.type === 'success'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          <svg v-else-if="t.type === 'error'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          <svg v-if="toast.type === 'success'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <svg v-else-if="toast.type === 'error'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
           <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          <span>{{ t.message }}</span>
-          <button class="toast-dismiss" :aria-label="t('accessibility.dismissNotification')">
+          <span>{{ toast.message }}</span>
+          <button type="button" class="toast-dismiss" :aria-label="t('accessibility.dismissNotification')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -163,7 +169,7 @@ function showToast(message, type = 'info') {
 }
 
 function dismissToast(id) {
-  toasts.value = toasts.value.filter(t => t.id !== id)
+  toasts.value = toasts.value.filter(toast => toast.id !== id)
 }
 
 provide('toast', showToast)
