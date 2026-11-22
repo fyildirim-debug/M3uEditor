@@ -188,17 +188,20 @@ class CategoryService {
       // Delete the category
       await trx('categories').where('id', categoryId).del();
 
-      // Recompact sort_order for remaining categories
-      const remaining = await trx('categories')
-        .where('playlist_id', playlistId)
-        .orderBy('sort_order', 'asc')
-        .select('id');
-
-      for (let i = 0; i < remaining.length; i++) {
-        await trx('categories')
-          .where('id', remaining[i].id)
-          .update({ sort_order: i });
-      }
+      // Kalan kategorilerin sort_order'unu tek kume tabanli UPDATE ile sikistir
+      // (eskiden kategori basina bir UPDATE calisiyordu). Yalnizca degisen satirlar yazilir.
+      await trx.raw(
+        `UPDATE categories AS c
+            SET sort_order = ranked.idx
+           FROM (
+             SELECT id, (ROW_NUMBER() OVER (ORDER BY sort_order ASC, id ASC) - 1)::integer AS idx
+               FROM categories
+              WHERE playlist_id = ?
+           ) AS ranked
+          WHERE c.id = ranked.id
+            AND c.sort_order IS DISTINCT FROM ranked.idx`,
+        [playlistId]
+      );
     });
   }
 }

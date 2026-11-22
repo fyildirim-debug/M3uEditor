@@ -29,6 +29,25 @@ describe('CategoryService', () => {
     expect(categories.orderBy).toHaveBeenCalledWith('categories.sort_order', 'asc');
   });
 
+  test('recompacts remaining categories with one set-based update after a delete', async () => {
+    const owned = builder({ first: { id: 'c1', playlist_id: 'p1' } });
+    const trx = jest.fn(() => builder());
+    trx.fn = mockDb.fn;
+    trx.raw = jest.fn().mockResolvedValue({ rowCount: 3 });
+    mockDb.mockImplementation(() => owned);
+    mockDb.transaction = jest.fn((callback) => callback(trx));
+
+    await categoryService.delete('user-1', 'c1');
+
+    expect(trx.raw).toHaveBeenCalledTimes(1);
+    const [sql, bindings] = trx.raw.mock.calls[0];
+    expect(sql).toMatch(/ROW_NUMBER\(\) OVER \(ORDER BY sort_order ASC, id ASC\)/);
+    expect(sql).toMatch(/UPDATE categories/);
+    expect(bindings).toEqual(['p1']);
+    // Kategori basina UPDATE yapilmaz: yalnizca kanal tasima + silme sorgulari
+    expect(trx).toHaveBeenCalledTimes(2);
+  });
+
   test('creates the next category position inside the owned playlist', async () => {
     const playlist = builder({ first: { id: 'p1' } });
     const categories = builder({ first: { max_order: 4 }, returning: [{ id: 'c2', sort_order: 5 }] });
