@@ -1352,22 +1352,24 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, inject, watch, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, inject, watch, computed, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../api'
 import { useI18n } from '../langs/useI18n'
-import AddChannelModal from '../components/AddChannelModal.vue'
-import BulkRenameModal from '../components/BulkRenameModal.vue'
-import BulkUpdateModal from '../components/BulkUpdateModal.vue'
-import SharePlaylistModal from '../components/SharePlaylistModal.vue'
 import StreamTestControl from '../components/StreamTestControl.vue'
-import XtreamImportWizard from '../components/XtreamImportWizard.vue'
-import XtreamOutputModal from '../components/XtreamOutputModal.vue'
-import ConfirmModal from '../components/ConfirmModal.vue'
-import ViewProfilesModal from '../components/ViewProfilesModal.vue'
-import LogoLibraryModal from '../components/LogoLibraryModal.vue'
 import EpgGuidePanel from '../components/editor/EpgGuidePanel.vue'
 import { apiErrorMessage } from '../utils/apiError'
+
+// Pencereler yalnizca acildiklarinda indirilir; editorun ilk yuku kuculur.
+const AddChannelModal = defineAsyncComponent(() => import('../components/AddChannelModal.vue'))
+const BulkRenameModal = defineAsyncComponent(() => import('../components/BulkRenameModal.vue'))
+const BulkUpdateModal = defineAsyncComponent(() => import('../components/BulkUpdateModal.vue'))
+const SharePlaylistModal = defineAsyncComponent(() => import('../components/SharePlaylistModal.vue'))
+const XtreamImportWizard = defineAsyncComponent(() => import('../components/XtreamImportWizard.vue'))
+const XtreamOutputModal = defineAsyncComponent(() => import('../components/XtreamOutputModal.vue'))
+const ConfirmModal = defineAsyncComponent(() => import('../components/ConfirmModal.vue'))
+const ViewProfilesModal = defineAsyncComponent(() => import('../components/ViewProfilesModal.vue'))
+const LogoLibraryModal = defineAsyncComponent(() => import('../components/LogoLibraryModal.vue'))
 
 const route = useRoute()
 const router = useRouter()
