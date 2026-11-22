@@ -100,8 +100,12 @@ account and opens straight on your playlists.
 
 Packages are built by the [Desktop workflow](.github/workflows/desktop.yml) on
 real Windows and Linux runners; each build is started and must answer
-`/health` before it is accepted. Pushing a `v*` tag attaches the packages to a
-draft GitHub release.
+`/health` before it is accepted. **Releasing is automatic:** when a change that
+raises the version in `package.json` reaches `main`, the workflow creates the
+`v<version>` tag and publishes the packages on the
+[Releases page](https://github.com/fyildirim-debug/M3uEditor/releases) with the
+notes from `.github/release-notes/v<version>.md`. A version is never published
+twice; *Actions → Desktop → Run workflow* on `main` does the same on demand.
 
 **Where your data lives.** Everything stays on your computer, in the
 application data folder (*File → Open data folder*):

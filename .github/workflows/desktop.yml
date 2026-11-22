@@ -1,9 +1,14 @@
 name: Desktop
 
 # Windows ve Linux masaustu paketlerini kendi isletim sistemlerinde derler,
-# acilip /health'e cevap verdigini dogrular. `v*` etiketinde (ornek v1.11.0)
-# iki platform da basariliysa paketler GitHub Releases'ta YAYINLANIR; notlar
-# .github/release-notes/<etiket>.md dosyasindan okunur.
+# acilip /health'e cevap verdigini dogrular.
+#
+# Yayin: main'e gelen bir degisiklikte package.json'daki surumun
+# (ornek 1.11.0 -> v1.11.0) henuz bir GitHub surumu yoksa, iki platform da
+# basariliysa etiket olusturulur ve paketler Releases'ta YAYINLANIR. Yani yeni
+# surum cikarmak = surumu artirip main'e birlestirmek. Ayni surum ikinci kez
+# yayinlanmaz. Elle `v*` etiketi itmek ya da Actions'tan "Run workflow" da
+# ayni isi yapar. Notlar .github/release-notes/<etiket>.md dosyasindan okunur.
 on:
   push:
     tags: ['v*']
@@ -121,34 +126,64 @@ jobs:
             desktop/dist/latest*.yml
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
+    if: >-
+      github.event_name != 'pull_request' &&
+      (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Decide the release tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v$(node -p "require('./package.json').version")"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "${TAG} zaten yayınlanmış; yalnızca dosyalar güncellenecek."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "${TAG} yayınlanacak."
+          fi
+
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: artifacts
           merge-multiple: true
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          EXISTS: ${{ steps.tag.outputs.exists }}
         run: |
-          NOTES=".github/release-notes/${GITHUB_REF_NAME}.md"
+          ls -la artifacts
+          if [ "$EXISTS" = "true" ]; then
+            # Etiketli yeniden calistirmada dosyalari tazele; main'e gelen
+            # surum degismemis bir degisiklik yayinlanmis surume dokunmaz.
+            if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+              gh release upload "$TAG" artifacts/* --repo "${GITHUB_REPOSITORY}" --clobber
+            fi
+            exit 0
+          fi
+          NOTES=".github/release-notes/${TAG}.md"
           if [ ! -f "$NOTES" ]; then
-            printf 'M3U Editor %s — Windows (NSIS) ve Linux (AppImage, deb, rpm) masaüstü paketleri.\n\nAyrıntılar: CHANGELOG.md\n' "${GITHUB_REF_NAME}" > /tmp/notes.md
+            printf 'M3U Editor %s — Windows (NSIS) ve Linux (AppImage, deb, rpm) masaüstü paketleri.\n\nAyrıntılar: CHANGELOG.md\n' "${TAG}" > /tmp/notes.md
             NOTES=/tmp/notes.md
           fi
-          ls -la artifacts
-          if gh release view "${GITHUB_REF_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            # Yeniden calistirma: dosyalari guncelle.
-            gh release upload "${GITHUB_REF_NAME}" artifacts/* --repo "${GITHUB_REPOSITORY}" --clobber
-          else
-            gh release create "${GITHUB_REF_NAME}" artifacts/* \
-              --repo "${GITHUB_REPOSITORY}" \
-              --title "M3U Editor ${GITHUB_REF_NAME#v}" \
-              --notes-file "$NOTES" \
-              --latest
-          fi
+          # --target: etiket yoksa bu commit uzerinde olusturulur.
+          gh release create "$TAG" artifacts/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --target "${GITHUB_SHA}" \
+            --title "M3U Editor ${TAG#v}" \
+            --notes-file "$NOTES" \
+            --latest
