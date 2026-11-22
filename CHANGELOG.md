@@ -5,6 +5,49 @@ Versions follow the four-part scheme recorded in `.fy/version.json`.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Toast notifications never appeared.** The toast loop variable in `App.vue`
+  shadowed the i18n `t()` function, so every toast failed to render. Success and
+  info toasts are now `role="status"` (polite), errors `role="alert"`.
+- **Sessions no longer knock each other out.** Concurrent 401s, page reloads and
+  multiple tabs each rotated the refresh session and revoked the token the others
+  were using. A request that failed with a token that has since been replaced is
+  retried with the current one; refreshes share one promise; a still-valid token
+  skips the refresh on page load; a new tab asks open tabs for their token first;
+  refreshed tokens are broadcast to other tabs (BroadcastChannel, `storage` event
+  fallback); and plain-HTTP LAN installs, where `navigator.locks` is missing, get
+  a localStorage mutex with a timeout. A failed refresh now returns to
+  `#/login?redirect=<page>`.
+- **English UI showed raw Turkish server errors.** A new `apiErrorMessage()`
+  helper maps error codes to `errors.*` translations (including the new
+  `DATABASE_UNAVAILABLE`); the Turkish UI keeps the server's specific message.
+- **Markdown links containing `_` or `*` were mangled** by the emphasis rules;
+  links and code spans are now set aside before emphasis is applied, and
+  underscores inside words are no longer italicised.
+- Hard-coded Turkish/English strings (dialog label, default playlist and import
+  names) and page titles built from raw URL segments are now translated.
+- The admin user list no longer shows a stale page when an older search response
+  arrives late; editor and dashboard timers are cleared on unmount; a malformed
+  `xtream_stream_types` value no longer breaks the editor.
+- Editor navigation items are real `<button>` elements (previously
+  `div role="button"`), language buttons expose `aria-label`/`aria-pressed`, and
+  the EPG day arrows have accessible names.
+
+### Changed
+
+- **New endpoint `GET /api/playlists/:id`** (owner-scoped, same safe projection as
+  the list; malformed ids return 404 instead of 500). The editor uses it instead
+  of downloading every playlist.
+- The editor opens with fewer requests: the duplicate channel COUNT is gone, and
+  filter rules and extra sources load when the Update view is opened.
+- The EPG guide keeps at most 300 channels in memory, dropping pages from the top
+  as you scroll down and reloading them on the way back ("Load earlier"); program
+  data is no longer deeply reactive.
+- Editor dialogs are loaded on demand, and the EPG guide, filter rules and extra
+  sources sections moved into `frontend/src/components/editor/`.
+- 38 unused translation keys were removed.
+
 ### Removed
 
 - **The `proxy` stream mode is gone, and with it every path that made this
