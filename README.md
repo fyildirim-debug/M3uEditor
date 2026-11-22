@@ -1,37 +1,52 @@
 # M3U Playlist Editor
 
-A self-hosted IPTV playlist manager for importing, editing, organizing, exporting, and sharing M3U/Xtream playlists. It includes a responsive Vue interface, XMLTV guide support, multi-user isolation, and a production Docker stack.
+A free, open-source IPTV playlist manager: import, edit, organise, match with an EPG, export and share M3U and Xtream Codes playlists — with an AI assistant that can do the work for you.
 
-It runs two ways from the same code: as a **web application** (Docker, multi-user) and as a **desktop application for Windows and Linux** that needs no server, no Docker and no database setup — see [Desktop application](#desktop-application-windows-and-linux).
+It runs two ways from the same code:
 
+- **Desktop app for Windows and Linux** — install and use. No server, no Docker, no database to set up, no account to create; your data stays on your computer.
+- **Self-hosted web app** — a hardened Docker stack for a server, with multiple users, sharing and an Xtream Codes output for players.
+
+[![Latest release](https://img.shields.io/github/v/release/fyildirim-debug/M3uEditor?label=release)](https://github.com/fyildirim-debug/M3uEditor/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/fyildirim-debug/M3uEditor/total)](https://github.com/fyildirim-debug/M3uEditor/releases)
+[![CI](https://github.com/fyildirim-debug/M3uEditor/actions/workflows/ci.yml/badge.svg)](https://github.com/fyildirim-debug/M3uEditor/actions/workflows/ci.yml)
+[![Desktop](https://github.com/fyildirim-debug/M3uEditor/actions/workflows/desktop.yml/badge.svg)](https://github.com/fyildirim-debug/M3uEditor/actions/workflows/desktop.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-22%2B-43853d.svg)](https://nodejs.org/)
 [![Vue 3](https://img.shields.io/badge/Vue-3.5-42b883.svg)](https://vuejs.org/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-13%2B-336791.svg)](https://www.postgresql.org/)
-[![100% Free](https://img.shields.io/badge/100%25-FREE-success.svg)](#)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%2B-336791.svg)](https://www.postgresql.org/)
 
-![M3U Playlist Editor – Landing](screenshot/main.png)
+![M3U Editor desktop app – channel editor](screenshot/desktop.png)
 
-## Release notes
+## Download
 
-### Latest updates — security, recovery and Xtream playback
+Get the latest version from the **[Releases page](https://github.com/fyildirim-debug/M3uEditor/releases/latest)**:
 
-- Private backup storage with legacy-file migration and blocked public backup URLs.
-- Version 2 snapshots with category visibility, stable IDs on same-playlist restore, source settings, filters and views.
-- Original HTTP(S) live/VOD stream URLs preserved during import; real series episodes fetched on demand from the primary Xtream source.
-- Shared refresh coordination, transient-error session preservation and single-use password reset enforcement.
-- Destructive scheduled tasks require a successful backup; task execution and undo operations have concurrency protection.
-- Cross-origin redirects strip sensitive headers, HTTPS downgrades are rejected, and numeric proxy settings are parsed correctly.
-- Updated dependencies and CI checks for PostgreSQL integration tests and accidentally tracked runtime data.
+| System | Package | Install |
+| --- | --- | --- |
+| Windows 10 / 11 (64-bit) | `M3U-Editor-Setup-<version>-x64.exe` | Run the installer (no administrator rights needed). It is not code-signed yet: on a SmartScreen warning choose *More info → Run anyway*. |
+| Linux, any distribution | `M3U-Editor-<version>-x86_64.AppImage` | `chmod +x` the file and run it. `libfuse2` is not required. |
+| Debian / Ubuntu / Pardus / Mint | `M3U-Editor-<version>-amd64.deb` | `sudo apt install ./M3U-Editor-*.deb` |
+| Fedora / RHEL / openSUSE | `M3U-Editor-<version>-x86_64.rpm` | `sudo dnf install ./M3U-Editor-*.rpm` |
 
-Validation for this update: **733 tests passed across 54 suites** (8 more run only against a real database with `RUN_DB_TESTS=1`, and pass); all 35 migrations apply, roll back and re-apply cleanly, including on the PostgreSQL 18 bundled with the desktop app. Frontend lint/build and translation parity passed. Both dependency audits reported zero known vulnerabilities at validation time. Physical-player compatibility and production load testing remain separate checks.
+For a server installation see [Docker deployment](#docker-deployment). How the desktop app works, where it keeps your data and how to build it yourself is described in [Desktop application](#desktop-application-windows-and-linux).
 
-Every release is documented in [CHANGELOG.md](CHANGELOG.md), including the audit
-finding each change closes.
+## What's new in 1.11
+
+- **Desktop application for Windows and Linux** with its own bundled PostgreSQL — no sign-up screen, data in your user folder, local AI models (Ollama, LM Studio) supported out of the box.
+- **Security pass:** the assistant's approval and delete-permission checks can no longer be bypassed, scheduled tasks are confined to their playlist, stored Xtream passwords and the AI key are only sent back to where they were saved, and approving twice runs an action once.
+- **Reliability:** failing syncs and EPG downloads back off instead of retrying every minute, manual backups are kept separately from automatic ones, manual EPG matches survive auto-matching, syncing keeps your channel order, and a provider that temporarily returns only part of a list no longer wipes the rest.
+- **Interface:** notifications show again, tabs no longer sign each other out, errors are translated, the EPG guide stays fast on huge lists, and the assistant has a *Stop* button.
+- **Releases are automatic:** raising the version on `main` builds, tests and publishes the Windows and Linux packages.
+
+Validation: **733 tests pass across 54 suites** (plus 8 that run against a real PostgreSQL), all 35 migrations apply, roll back and re-apply cleanly — also on the PostgreSQL 18 bundled with the desktop app — and both dependency audits report zero known vulnerabilities. The desktop packages are built on real Windows and Linux machines and must start and answer `/health` before they are published.
+
+Every change is documented in [CHANGELOG.md](CHANGELOG.md).
 
 ## Highlights
 
 - Desktop application for Windows and Linux with a bundled database — install and use, nothing to set up
+- Self-hosted web version with multi-user isolation, sharing and an Xtream Codes output for IPTV players
 - AI assistant that drives the whole application through chat with your own OpenAI-compatible provider
 - Xtream Codes imports for Live TV, VOD, and Series
 - Local or remote M3U import and escaped M3U export
@@ -42,6 +57,11 @@ finding each change closes.
 - PostgreSQL migrations, structured logs, health checks, CI, and hardened containers
 
 ## Screenshots
+
+### Desktop app
+The Windows/Linux app: the same editor, no sign-in, data on your computer.
+
+![Desktop app](screenshot/desktop.png)
 
 ### Landing page
 Clean entry page with theme-aware hero, language switcher and direct GitHub link.
@@ -91,12 +111,7 @@ there is nothing to install or configure: no Docker, no database server, no
 account to register. On first start the app creates its database and a local
 account and opens straight on your playlists.
 
-| Platform | Package | Notes |
-| --- | --- | --- |
-| Windows 10/11 (x64) | `M3U-Editor-Setup-<version>-x64.exe` | Per-user install, no administrator rights needed. The installer is not code-signed yet, so SmartScreen shows *More info → Run anyway*. |
-| Linux (x64) | `M3U-Editor-<version>-x86_64.AppImage` | Runs on any distribution; uses the static AppImage runtime, so `libfuse2` is **not** required. `chmod +x` and start it. |
-| Debian / Ubuntu / Pardus | `M3U-Editor-<version>-amd64.deb` | `sudo apt install ./M3U-Editor-*.deb` |
-| Fedora / RHEL / openSUSE | `M3U-Editor-<version>-x86_64.rpm` | `sudo dnf install ./M3U-Editor-*.rpm` |
+Installers for Windows and Linux are on the [Releases page](https://github.com/fyildirim-debug/M3uEditor/releases/latest); see [Download](#download).
 
 Packages are built by the [Desktop workflow](.github/workflows/desktop.yml) on
 real Windows and Linux runners; each build is started and must answer
@@ -105,7 +120,7 @@ raises the version in `package.json` reaches `main`, the workflow creates the
 `v<version>` tag and publishes the packages on the
 [Releases page](https://github.com/fyildirim-debug/M3uEditor/releases) with the
 notes from `.github/release-notes/v<version>.md`. A version is never published
-twice; *Actions → Desktop → Run workflow* on `main` does the same on demand.
+twice; *Actions → Desktop → Run workflow* on `main` does the same on demand. Editing a notes file later and merging it updates the text of the already published release (the *Release notes* workflow).
 
 **Where your data lives.** Everything stays on your computer, in the
 application data folder (*File → Open data folder*):
