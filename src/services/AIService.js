@@ -754,15 +754,21 @@ class AIService {
     return parts.length ? `Etkilenecek: ${parts.join(', ')}.` : 'Etkilenecek veri miktarı çağrı argümanlarından kestirilemedi.';
   }
 
-  async _createPendingAction(userId, conversation, { call, name, args }, queuedCalls) {
+  async _createPendingAction(userId, conversation, { call, name, args }, queuedCalls, { playlistId } = {}) {
+    // Kart sarmalayiciyi (invoke_capability) degil gercekte calisacak araci ve
+    // onun argumanlarini gostermeli; kullanici neyi onayladigini gorebilsin.
+    const resolved = tools.resolveCall(name, args || {});
+    // Arac playlistId almadiysa oturumdaki listeye calisir; etki tahmini de oradan.
+    const impactArgs = { ...(resolved.args || {}) };
+    if (!impactArgs.playlistId && playlistId) impactArgs.playlistId = playlistId;
     const [row] = await db('ai_pending_actions').insert({
       id: uuidv4(),
       user_id: userId,
       conversation_id: conversation.id,
       tool_call_id: call.id,
-      tool_name: name,
-      args: JSON.stringify(args || {}),
-      impact: await this._estimateImpact(userId, name, args || {}),
+      tool_name: resolved.name,
+      args: JSON.stringify(resolved.args || {}),
+      impact: await this._estimateImpact(userId, resolved.name, impactArgs),
       queued_calls: JSON.stringify(queuedCalls || []),
     }).returning('*');
     return row;
@@ -800,7 +806,7 @@ class AIService {
       }
 
       if (!invalid && requireApproval && tools.needsApproval(name, args)) {
-        const pending = await this._createPendingAction(ctx.userId, conversation, { call, name, args }, toolCalls.slice(index));
+        const pending = await this._createPendingAction(ctx.userId, conversation, { call, name, args }, toolCalls.slice(index), { playlistId: ctx.playlistId });
         emit?.({ type: 'approval', pending: this._publicPending(pending) });
         return { paused: pending };
       }
